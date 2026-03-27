@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Palm Time Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#222;--surface3:#2a2a2a;
+    --border:#2e2e2e;--border2:#3a3a3a;--text:#f0ede8;--text2:#9a9690;--text3:#5a5652;
+    --accent:#c8f060;--accent2:#a8d040;
+    --red:#ff5f5f;--red-dim:#3a1a1a;--orange:#ffaa44;--orange-dim:#3a2a0a;
+    --green:#60d080;--green-dim:#0a2a1a;--blue:#60a8ff;--blue-dim:#0a1a3a;
+    --radius:12px;--radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem 1rem 4rem;}
+  .page{max-width:860px;margin:0 auto;}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px;}
+  .logo-name{font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+  .logo-name span{color:var(--accent);}
+  .logo-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);letter-spacing:.05em;}
+  .header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .clock-display{font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);background:var(--surface);padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.25rem;}
+  .card-title{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:1.25rem;}
+  .btn{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:var(--radius-sm);border:1px solid transparent;cursor:pointer;transition:all .15s;letter-spacing:.02em;white-space:nowrap;}
+  .btn-primary{background:var(--accent);color:#0f0f0f;border-color:var(--accent);}
+  .btn-primary:hover{background:var(--accent2);}
+  .btn-ghost{background:transparent;color:var(--text2);border-color:var(--border2);}
+  .btn-ghost:hover{background:var(--surface2);color:var(--text);}
+  .btn-sm{padding:6px 12px;font-size:12px;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  input,select{font-family:'Syne',sans-serif;font-size:14px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;width:100%;outline:none;transition:border-color .15s;}
+  input:focus,select:focus{border-color:var(--accent);}
+  input::placeholder{color:var(--text3);}
+  select option{background:var(--surface2);}
+  label{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+  .field{margin-bottom:14px;}
+  .screen{display:none;}.screen.active{display:block;}
+  .login-wrap{max-width:420px;margin:4rem auto 0;}
+  .login-header{text-align:center;margin-bottom:2rem;}
+  .login-title{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:6px;}
+  .login-title span{color:var(--accent);}
+  .login-sub{font-size:13px;color:var(--text2);}
+  .pin-dots{display:flex;gap:10px;justify-content:center;margin:1rem 0 1.5rem;}
+  .pin-dot{width:14px;height:14px;border-radius:50%;background:var(--surface3);border:1.5px solid var(--border2);transition:all .15s;}
+  .pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+  .numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem;}
+  .numpad-btn{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;padding:16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;transition:all .1s;text-align:center;}
+  .numpad-btn:hover{background:var(--surface3);border-color:var(--border2);}
+  .numpad-btn:active{transform:scale(.95);}
+  .numpad-btn.del{font-size:14px;color:var(--text2);}
+  .numpad-btn.wide{grid-column:span 3;background:var(--accent);color:#0f0f0f;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+  .numpad-btn.wide:hover{background:var(--accent2);}
+  .login-error{text-align:center;font-size:13px;color:var(--red);min-height:20px;margin-bottom:.5rem;}
+  .select-wrap{margin-bottom:1.25rem;}
+  .admin-link{text-align:center;margin-top:1.5rem;font-size:12px;color:var(--text3);}
+  .admin-link a{color:var(--text2);cursor:pointer;text-decoration:underline;}
+  .admin-link a:hover{color:var(--text);}
+  .user-bar{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.5rem;margin-bottom:1.25rem;}
+  .user-name{font-size:16px;font-weight:600;}
+  .user-group{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;}
+  .status-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;}
+  .stat-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+  .stat-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--text);}
+  .stat-val.green{color:var(--green);}.stat-val.orange{color:var(--orange);}
+  .action-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.25rem;}
+  .action-btn{flex:1;min-width:130px;padding:14px 16px;border-radius:var(--radius);border:1.5px solid transparent;cursor:pointer;font-family:'Syne',sans-serif;font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:4px;transition:all .15s;text-align:left;}
+  .action-btn .btn-icon{font-size:20px;}.action-btn .btn-label{font-size:13px;font-weight:700;}
+  .action-btn .btn-sub{font-size:11px;opacity:.7;font-family:'DM Mono',monospace;}
+  .action-btn.clock-in-btn{background:var(--green-dim);border-color:#205a30;color:var(--green);}
+  .action-btn.clock-in-btn:hover{background:#0d3a20;}
+  .action-btn.clock-out-btn{background:var(--red-dim);border-color:#5a2020;color:var(--red);}
+  .action-btn.clock-out-btn:hover{background:#4a1a1a;}
+  .action-btn.break-start-btn{background:var(--orange-dim);border-color:#4a3010;color:var(--orange);}
+  .action-btn.break-start-btn:hover{background:#4a3010;}
+  .action-btn.break-end-btn{background:var(--blue-dim);border-color:#103050;color:var(--blue);}
+  .action-btn.break-end-btn:hover{background:#102040;}
+  .action-btn:disabled{opacity:.3;cursor:not-allowed;}
+  .entries-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);}
+  td{padding:11px 12px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--surface2);}
+  .status-pill{display:inline-block;font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;font-family:'Syne',sans-serif;letter-spacing:.05em;}
+  .pill-in{background:var(--green-dim);color:var(--green);}
+  .pill-out{background:var(--surface3);color:var(--text3);}
+  .pill-break{background:var(--orange-dim);color:var(--orange);}
+  .empty-state{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px;}
+  .empty-icon{font-size:32px;margin-bottom:10px;}
+  .name-col{color:var(--text)!important;font-family:'Syne',sans-serif!important;font-weight:500!important;font-size:13px!important;}
+  .filter-row{display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;align-items:flex-end;}
+  .filter-row select{flex:1;min-width:160px;}
+  .date-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .date-filter input[type="date"]{width:auto;flex:1;min-width:140px;}
+  .hours-summary-controls{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.25rem;}
+  .hours-summary-controls .dg{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px;}
+  .hours-summary-controls label{margin-bottom:0;}
+  .preset-btns{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;}
+  .summary-total-row td{color:var(--text)!important;font-weight:600;border-top:1px solid var(--border2)!important;}
+  .hours-bar{display:inline-block;height:6px;background:var(--accent);border-radius:3px;vertical-align:middle;margin-left:8px;opacity:.5;}
+  .tabs{display:flex;gap:4px;margin-bottom:1.25rem;background:var(--surface2);border-radius:var(--radius-sm);padding:4px;}
+  .tab-btn{flex:1;padding:8px 16px;border:none;border-radius:6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--text3);background:transparent;}
+  .tab-btn.active{background:var(--surface);color:var(--text);}
+  .tab-pane{display:none;}.tab-pane.active{display:block;}
+  .loading-overlay{position:fixed;inset:0;background:rgba(15,15,15,.85);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  .loading-overlay.hidden{display:none;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-size:13px;color:var(--text2);font-family:'DM Mono',monospace;}
+  #toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 20px;font-size:13px;color:var(--text);z-index:999;transition:transform .3s ease;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+  #toast.show{transform:translateX(-50%) translateY(0);}
+  #toast.success{border-color:#205a30;color:var(--green);}
+  #toast.error{border-color:#5a2020;color:var(--red);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;}
+  .modal-overlay.hidden{display:none;}
+  .modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:1.75rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+  .modal-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .modal-sub{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:1.5rem;}
+  .modal-section{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:1.25rem 0 .75rem;display:flex;justify-content:space-between;align-items:center;}
+  .modal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+  .modal-actions-right{display:flex;gap:8px;}
+  .btn-delete{background:var(--red-dim);color:var(--red);border:1px solid #5a2020;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;}
+  .btn-delete:hover{background:#4a1a1a;}
+  .edit-action-btn{font-size:11px;padding:5px 10px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'Syne',sans-serif;font-weight:600;transition:all .15s;}
+  .edit-action-btn:hover{background:var(--surface3);color:var(--text);}
+  .break-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:.5rem;}
+  .break-row-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+  input[type="datetime-local"]{color-scheme:dark;}
+  .admin-edit-btn{background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text3);font-size:11px;padding:4px 9px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:600;transition:all .15s;white-space:nowrap;}
+  .admin-edit-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div id="loading-overlay" class="loading-overlay hidden">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Loading...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen active">
+  <div class="login-wrap">
+    <div class="login-header">
+      <div class="login-title">PALM <span>TIME</span></div>
+      <div class="login-sub">Select your name and enter your PIN</div>
+    </div>
+    <div class="card">
+      <div class="select-wrap">
+        <label>Who are you?</label>
+        <select id="login-name-select" onchange="onNameSelect()">
+          <option value="">— Select your name —</option>
+          <optgroup label="PALM PARTNERS">
+            <option>Charissa Mercado</option><option>Camille Uy</option>
+            <option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option>
+          </optgroup>
+          <optgroup label="PALM BUILD">
+            <option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option>
+            <option>Janna Alonto</option><option>John Lester Solano</option>
+            <option>Kristina Marie (Kim) Mercado</option><option>Elvin Juvel C. Pizarras</option>
+            <option>Bridgette Anne Benolirao</option><option>Ren Tan</option>
+            <option>Griz Fuentes</option><option>May Castillo</option>
+            <option>Ciara Andrade</option><option>Miko Dioquino</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <div class="numpad">
+        <button class="numpad-btn" onclick="pinKey('1')">1</button><button class="numpad-btn" onclick="pinKey('2')">2</button><button class="numpad-btn" onclick="pinKey('3')">3</button>
+        <button class="numpad-btn" onclick="pinKey('4')">4</button><button class="numpad-btn" onclick="pinKey('5')">5</button><button class="numpad-btn" onclick="pinKey('6')">6</button>
+        <button class="numpad-btn" onclick="pinKey('7')">7</button><button class="numpad-btn" onclick="pinKey('8')">8</button><button class="numpad-btn" onclick="pinKey('9')">9</button>
+        <button class="numpad-btn" onclick="pinKey('0')">0</button><button class="numpad-btn del" onclick="pinDel()">⌫</button><button class="numpad-btn" style="visibility:hidden"></button>
+        <button class="numpad-btn wide" onclick="doLogin()">ENTER</button>
+      </div>
+    </div>
+    <div class="admin-link">Admin? <a onclick="switchToAdmin()">Click here to log in as admin</a></div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="screen-admin-login" class="screen">
+  <div class="login-wrap">
+    <div class="login-header">
+      <div class="login-title">ADMIN <span>ACCESS</span></div>
+      <div class="login-sub">Enter your admin PIN</div>
+    </div>
+    <div class="card">
+      <div class="pin-dots" id="admin-pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div class="login-error" id="admin-login-error"></div>
+      <div class="numpad">
+        <button class="numpad-btn" onclick="adminPinKey('1')">1</button><button class="numpad-btn" onclick="adminPinKey('2')">2</button><button class="numpad-btn" onclick="adminPinKey('3')">3</button>
+        <button class="numpad-btn" onclick="adminPinKey('4')">4</button><button class="numpad-btn" onclick="adminPinKey('5')">5</button><button class="numpad-btn" onclick="adminPinKey('6')">6</button>
+        <button class="numpad-btn" onclick="adminPinKey('7')">7</button><button class="numpad-btn" onclick="adminPinKey('8')">8</button><button class="numpad-btn" onclick="adminPinKey('9')">9</button>
+        <button class="numpad-btn" onclick="adminPinKey('0')">0</button><button class="numpad-btn del" onclick="adminPinDel()">⌫</button><button class="numpad-btn" style="visibility:hidden"></button>
+        <button class="numpad-btn wide" onclick="doAdminLogin()">ENTER</button>
+      </div>
+    </div>
+    <div class="admin-link"><a onclick="switchToUser()">← Back to user login</a></div>
+  </div>
+</div>
+
+<!-- USER DASHBOARD -->
+<div id="screen-user" class="screen">
+  <div class="page">
+    <div class="header">
+      <div class="logo"><div class="logo-name">PALM <span>TIME</span></div><div class="logo-sub" id="user-date-display"></div></div>
+      <div class="header-right"><div class="clock-display" id="live-clock"></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
+    </div>
+    <div class="user-bar"><div><div class="user-name" id="display-name"></div><div class="user-group" id="display-group"></div></div></div>
+    <div class="status-bar">
+      <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
+      <div class="stat-card"><div class="stat-label">Hours Today</div><div class="stat-val green" id="stat-today">0.0h</div></div>
+      <div class="stat-card"><div class="stat-label">Total Hours</div><div class="stat-val" id="stat-total-hours">0.0h</div></div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn clock-in-btn" id="btn-clock-in" onclick="clockIn()"><div class="btn-icon">▶</div><div class="btn-label">Clock In</div><div class="btn-sub">Start shift</div></button>
+      <button class="action-btn break-start-btn" id="btn-break-start" onclick="breakStart()"><div class="btn-icon">⏸</div><div class="btn-label">Break Start</div><div class="btn-sub">Pause timer</div></button>
+      <button class="action-btn break-end-btn" id="btn-break-end" onclick="breakEnd()"><div class="btn-icon">▷</div><div class="btn-label">Break End</div><div class="btn-sub">Resume timer</div></button>
+      <button class="action-btn clock-out-btn" id="btn-clock-out" onclick="clockOut()"><div class="btn-icon">■</div><div class="btn-label">Clock Out</div><div class="btn-sub">End shift</div></button>
+    </div>
+    <div class="card"><div class="card-title">My Time Entries</div><div class="entries-wrap" id="user-entries-table"></div></div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="screen-admin" class="screen">
+  <div class="page">
+    <div class="header">
+      <div class="logo"><div class="logo-name">PALM <span>ADMIN</span></div><div class="logo-sub" id="admin-date-display"></div></div>
+      <div class="header-right"><div class="clock-display" id="admin-live-clock"></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
+    </div>
+    <div class="status-bar">
+      <div class="stat-card"><div class="stat-label">Total Staff</div><div class="stat-val">16</div></div>
+      <div class="stat-card"><div class="stat-label">Clocked In Now</div><div class="stat-val green" id="admin-stat-in">0</div></div>
+      <div class="stat-card"><div class="stat-label">On Break</div><div class="stat-val orange" id="admin-stat-break">0</div></div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-btn-entries" onclick="switchTab('entries')">All Entries</button>
+      <button class="tab-btn" id="tab-btn-summary" onclick="switchTab('summary')">Hours Summary</button>
+    </div>
+    <div id="tab-entries" class="tab-pane active">
+      <div class="card">
+        <div class="card-title">All Time Entries</div>
+        <div class="filter-row">
+          <select id="admin-filter-name" onchange="loadAdminEntries()">
+            <option value="">All Staff</option>
+            <optgroup label="PALM PARTNERS"><option>Charissa Mercado</option><option>Camille Uy</option><option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option></optgroup>
+            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Elvin Juvel C. Pizarras</option><option>Bridgette Anne Benolirao</option><option>Ren Tan</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option></optgroup>
+          </select>
+          <div class="date-filter">
+            <input type="date" id="admin-filter-date-from" onchange="loadAdminEntries()" />
+            <span style="color:var(--text3);font-size:12px;">to</span>
+            <input type="date" id="admin-filter-date-to" onchange="loadAdminEntries()" />
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+        </div>
+        <div class="entries-wrap" id="admin-entries-table"></div>
+      </div>
+    </div>
+    <div id="tab-summary" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Total Hours by Person</div>
+        <div class="hours-summary-controls">
+          <div class="dg"><label>From</label><input type="date" id="summary-date-from" onchange="loadHoursSummary()" /></div>
+          <div class="dg"><label>To</label><input type="date" id="summary-date-to" onchange="loadHoursSummary()" /></div>
+          <div class="preset-btns">
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('today')">Today</button>
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('week')">This Week</button>
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('month')">This Month</button>
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('all')">All Time</button>
+          </div>
+        </div>
+        <div id="hours-summary-table"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Edit Entry</div>
+    <div class="modal-sub" id="edit-modal-sub">—</div>
+    <div class="modal-section">Clock In / Out</div>
+    <div class="modal-row">
+      <div class="field"><label>Clock In</label><input type="datetime-local" id="edit-clock-in" /></div>
+      <div class="field"><label>Clock Out</label><input type="datetime-local" id="edit-clock-out" /></div>
+    </div>
+    <div class="modal-section"><span>Breaks</span><button class="edit-action-btn" onclick="addBreakRow()">+ Add break</button></div>
+    <div id="edit-breaks-container"></div>
+    <div class="modal-actions">
+      <button class="btn-delete" onclick="deleteEntry()">Delete entry</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-ghost btn-sm" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveEdit()">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://hbkgjvgnlgjmmhnkkgxw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhia2dqdmdubGdqbW1obmtrZ3h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2Mjc3MjUsImV4cCI6MjA5MDIwMzcyNX0.bWY07OKqfi7Ca04IDk2kI7em_FxrL0pyyEySuWwJGjk';
+const ADMIN_PIN = '33308';
+const TABLE = 'time_entries';
+
+const USERS = {
+  'Charissa Mercado':               {pin:'4821',group:'PALM PARTNERS'},
+  'Camille Uy':                     {pin:'7364',group:'PALM PARTNERS'},
+  'Edeleign Jean Manicad':          {pin:'2951',group:'PALM PARTNERS'},
+  'Richmond Yambot Nicolas':        {pin:'6083',group:'PALM PARTNERS'},
+  'John Vens Clair Magbnua Solano': {pin:'3742',group:'PALM BUILD'},
+  'Mary Lynn Trias Mercado':        {pin:'8519',group:'PALM BUILD'},
+  'Janna Alonto':                   {pin:'1637',group:'PALM BUILD'},
+  'John Lester Solano':             {pin:'9204',group:'PALM BUILD'},
+  'Kristina Marie (Kim) Mercado':   {pin:'5478',group:'PALM BUILD'},
+  'Elvin Juvel C. Pizarras':        {pin:'2863',group:'PALM BUILD'},
+  'Bridgette Anne Benolirao':       {pin:'7195',group:'PALM BUILD'},
+  'Ren Tan':                        {pin:'4026',group:'PALM BUILD'},
+  'Griz Fuentes':                   {pin:'6341',group:'PALM BUILD'},
+  'May Castillo':                   {pin:'8752',group:'PALM BUILD'},
+  'Ciara Andrade':                  {pin:'3097',group:'PALM BUILD'},
+  'Miko Dioquino':                  {pin:'5684',group:'PALM BUILD'},
+};
+
+let currentUser = null, pinBuffer = '', adminPinBuffer = '', clockInterval = null;
+let editingEntry = null, editBreaks = [];
+
+// ── Supabase ──
+async function sbFetch(path, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: {'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':'return=representation'}
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, opts);
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function getEntries(f={}) {
+  let qs = `${TABLE}?select=*&order=clock_in.desc`;
+  if (f.name) qs += `&name=eq.${encodeURIComponent(f.name)}`;
+  if (f.from) qs += `&clock_in=gte.${f.from}T00:00:00Z`;
+  if (f.to)   qs += `&clock_in=lte.${f.to}T23:59:59Z`;
+  return await sbFetch(qs);
+}
+
+async function getActiveEntry(name) {
+  const rows = await sbFetch(`${TABLE}?select=*&name=eq.${encodeURIComponent(name)}&clock_out=is.null&order=clock_in.desc&limit=1`);
+  return rows&&rows.length>0 ? rows[0] : null;
+}
+
+async function insertEntry(e) { return await sbFetch(TABLE,'POST',e); }
+async function updateEntry(id,patch) { return await sbFetch(`${TABLE}?id=eq.${id}`,'PATCH',patch); }
+async function deleteEntryById(id) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${id}`,{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+  return res.ok;
+}
+
+// ── EST ──
+function nowISO(){return new Date().toISOString();}
+function toEST(iso){if(!iso)return null;const d=new Date(iso);return new Date(d.getTime()+(d.getTimezoneOffset()*60000)+(-5*60)*60000);}
+function fmtTime(iso){if(!iso)return '—';const d=toEST(iso);let h=d.getHours(),m=d.getMinutes();const ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap} EST`;}
+function fmtDate(iso){if(!iso)return '—';const d=toEST(iso);const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return `${mo[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;}
+function toESTDateStr(iso){if(!iso)return '';const d=toEST(iso);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function todayESTStr(){return toESTDateStr(new Date().toISOString());}
+function isoToInputEST(iso){if(!iso)return '';const d=toEST(iso);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+function inputESTToISO(val){if(!val)return null;const[dp,tp]=val.split('T');const[y,mo,d]=dp.split('-').map(Number);const[h,m]=tp.split(':').map(Number);return new Date(Date.UTC(y,mo-1,d,h+5,m,0)).toISOString();}
+function calcWorkedHours(e){if(!e.clock_out)return null;let ms=new Date(e.clock_out)-new Date(e.clock_in);let bms=0;if(e.breaks)for(const b of e.breaks)if(b.start&&b.end)bms+=new Date(b.end)-new Date(b.start);return Math.max(0,(ms-bms)/3600000);}
+function breakSummary(e){if(!e.breaks||!e.breaks.length)return '—';const ms=e.breaks.reduce((s,b)=>b.start&&b.end?s+(new Date(b.end)-new Date(b.start)):s,0);return ms>0?(ms/60000).toFixed(0)+' min':'—';}
+function entryStatus(e){const ob=!e.clock_out&&e.breaks&&e.breaks.length>0&&!e.breaks[e.breaks.length-1].end;const st=e.clock_out?'Done':(ob?'On Break':'Clocked In');const pl=e.clock_out?'pill-out':(ob?'pill-break':'pill-in');return{st,pl};}
+
+// ── UI ──
+function showLoading(msg='Loading...'){document.getElementById('loading-text').textContent=msg;document.getElementById('loading-overlay').classList.remove('hidden');}
+function hideLoading(){document.getElementById('loading-overlay').classList.add('hidden');}
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className=type?`show ${type}`:'show';clearTimeout(t._t);t._t=setTimeout(()=>{t.className='';},3000);}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');}
+function updateDots(id,total,filled){document.getElementById(id).querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled',i<filled));}
+
+function startClock(clockId,dateId){
+  clearInterval(clockInterval);
+  function tick(){
+    const est=toEST(new Date().toISOString());
+    let h=est.getHours(),m=est.getMinutes(),s=est.getSeconds();
+    const ap=h>=12?'PM':'AM';h=h%12||12;
+    document.getElementById(clockId).textContent=`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${ap} EST`;
+    if(dateId){const dy=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];document.getElementById(dateId).textContent=`${dy[est.getDay()]}, ${mo[est.getMonth()]} ${est.getDate()}, ${est.getFullYear()}`;}
+  }
+  tick();clockInterval=setInterval(tick,1000);
+}
+
+// ── Login User ──
+function onNameSelect(){pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';}
+function pinKey(d){if(pinBuffer.length>=4)return;pinBuffer+=d;updateDots('pin-dots',4,pinBuffer.length);if(pinBuffer.length===4)setTimeout(doLogin,200);}
+function pinDel(){pinBuffer=pinBuffer.slice(0,-1);updateDots('pin-dots',4,pinBuffer.length);}
+function doLogin(){
+  const name=document.getElementById('login-name-select').value;
+  if(!name){document.getElementById('login-error').textContent='Please select your name.';return;}
+  const u=USERS[name];if(!u){document.getElementById('login-error').textContent='User not found.';return;}
+  if(pinBuffer!==u.pin){document.getElementById('login-error').textContent='Incorrect PIN. Try again.';pinBuffer='';updateDots('pin-dots',4,0);return;}
+  currentUser=name;document.getElementById('login-error').textContent='';pinBuffer='';updateDots('pin-dots',4,0);enterUserDashboard();
+}
+
+// ── Login Admin ──
+function switchToAdmin(){showScreen('admin-login');adminPinBuffer='';updateDots('admin-pin-dots',5,0);}
+function switchToUser(){showScreen('login');}
+function adminPinKey(d){if(adminPinBuffer.length>=5)return;adminPinBuffer+=d;updateDots('admin-pin-dots',5,adminPinBuffer.length);if(adminPinBuffer.length===5)setTimeout(doAdminLogin,200);}
+function adminPinDel(){adminPinBuffer=adminPinBuffer.slice(0,-1);updateDots('admin-pin-dots',5,adminPinBuffer.length);}
+function doAdminLogin(){if(adminPinBuffer!==ADMIN_PIN){document.getElementById('admin-login-error').textContent='Incorrect admin PIN.';adminPinBuffer='';updateDots('admin-pin-dots',5,0);return;}document.getElementById('admin-login-error').textContent='';adminPinBuffer='';enterAdminDashboard();}
+function logout(){currentUser=null;clearInterval(clockInterval);document.getElementById('login-name-select').value='';pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';showScreen('login');}
+
+// ── User Dashboard ──
+async function enterUserDashboard(){
+  showScreen('user');
+  document.getElementById('display-name').textContent=currentUser;
+  document.getElementById('display-group').textContent=USERS[currentUser].group;
+  startClock('live-clock','user-date-display');
+  await loadUserDashboard();
+}
+
+async function loadUserDashboard(){
+  showLoading('Loading your entries...');
+  try {
+    const all=await getEntries({name:currentUser});
+    const active=all.find(e=>!e.clock_out)||null;
+    const isIn=!!active;
+    const onBreak=isIn&&active.breaks&&active.breaks.length>0&&!active.breaks[active.breaks.length-1].end;
+    const el=document.getElementById('stat-status');
+    if(!isIn){el.textContent='Out';el.style.color='var(--text3)';}
+    else if(onBreak){el.textContent='On Break';el.style.color='var(--orange)';}
+    else{el.textContent='Clocked In';el.style.color='var(--green)';}
+    const today=todayESTStr();
+    const todayH=all.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{const h=calcWorkedHours(e);return h!==null?s+h:s;},0);
+    const totalH=all.reduce((s,e)=>{const h=calcWorkedHours(e);return h!==null?s+h:s;},0);
+    document.getElementById('stat-today').textContent=todayH.toFixed(1)+'h';
+    document.getElementById('stat-total-hours').textContent=totalH.toFixed(1)+'h';
+    document.getElementById('btn-clock-in').disabled=isIn;
+    document.getElementById('btn-clock-out').disabled=!isIn;
+    document.getElementById('btn-break-start').disabled=!isIn||onBreak;
+    document.getElementById('btn-break-end').disabled=!onBreak;
+    renderUserTable(all);
+  } catch(err){showToast('Error loading data','error');console.error(err);}
+  finally{hideLoading();}
+}
+
+function renderUserTable(list){
+  const el=document.getElementById('user-entries-table');
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">⏱</div>No entries yet. Clock in to start!</div>';return;}
+  let html='<table><thead><tr><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Hours</th><th>Status</th></tr></thead><tbody>';
+  for(const e of list){const h=calcWorkedHours(e);const{st,pl}=entryStatus(e);html+=`<tr><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td></tr>`;}
+  html+='</tbody></table>';el.innerHTML=html;
+}
+
+// ── Clock Actions ──
+async function clockIn(){
+  showLoading('Clocking in...');
+  try{const a=await getActiveEntry(currentUser);if(a){showToast('Already clocked in!','error');return;}
+  await insertEntry({id:Date.now(),name:currentUser,clock_in:nowISO(),clock_out:null,breaks:[]});showToast('Clocked in ✓','success');await loadUserDashboard();}
+  catch(err){showToast('Error clocking in','error');console.error(err);}finally{hideLoading();}
+}
+async function clockOut(){
+  showLoading('Clocking out...');
+  try{const a=await getActiveEntry(currentUser);if(!a){showToast('Not clocked in.','error');return;}
+  const breaks=a.breaks||[];if(breaks.length>0&&!breaks[breaks.length-1].end)breaks[breaks.length-1].end=nowISO();
+  await updateEntry(a.id,{clock_out:nowISO(),breaks});showToast('Clocked out ✓','success');await loadUserDashboard();}
+  catch(err){showToast('Error clocking out','error');console.error(err);}finally{hideLoading();}
+}
+async function breakStart(){
+  showLoading('Starting break...');
+  try{const a=await getActiveEntry(currentUser);if(!a){showToast('Clock in first.','error');return;}
+  const breaks=a.breaks||[];if(breaks.length>0&&!breaks[breaks.length-1].end){showToast('Already on break.','error');return;}
+  breaks.push({start:nowISO(),end:null});await updateEntry(a.id,{breaks});showToast('Break started ⏸','success');await loadUserDashboard();}
+  catch(err){showToast('Error starting break','error');console.error(err);}finally{hideLoading();}
+}
+async function breakEnd(){
+  showLoading('Ending break...');
+  try{const a=await getActiveEntry(currentUser);if(!a)return;
+  const breaks=a.breaks||[];if(!breaks.length||breaks[breaks.length-1].end){showToast('Not on break.','error');return;}
+  breaks[breaks.length-1].end=nowISO();await updateEntry(a.id,{breaks});showToast('Break ended ▶','success');await loadUserDashboard();}
+  catch(err){showToast('Error ending break','error');console.error(err);}finally{hideLoading();}
+}
+
+// ── Admin Dashboard ──
+async function enterAdminDashboard(){showScreen('admin');startClock('admin-live-clock','admin-date-display');await loadAdminEntries();}
+
+async function loadAdminEntries(){
+  showLoading('Loading entries...');
+  try{
+    const fn=document.getElementById('admin-filter-name').value;
+    const ff=document.getElementById('admin-filter-date-from').value;
+    const ft=document.getElementById('admin-filter-date-to').value;
+    const list=await getEntries({name:fn||null,from:ff||null,to:ft||null});
+    const allActive=await sbFetch(`${TABLE}?select=*&clock_out=is.null`);
+    let ci=0,ob=0;
+    for(const e of allActive){const lb=e.breaks&&e.breaks[e.breaks.length-1];if(lb&&!lb.end)ob++;else ci++;}
+    document.getElementById('admin-stat-in').textContent=ci;
+    document.getElementById('admin-stat-break').textContent=ob;
+    renderAdminTable(list);
+  }catch(err){showToast('Error loading entries','error');console.error(err);}
+  finally{hideLoading();}
+}
+
+function renderAdminTable(list){
+  const el=document.getElementById('admin-entries-table');
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No entries found.</div>';return;}
+  let html='<table><thead><tr><th>Name</th><th>Group</th><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Hours</th><th>Status</th><th></th></tr></thead><tbody>';
+  for(const e of list){
+    const h=calcWorkedHours(e);const{st,pl}=entryStatus(e);
+    const esc=JSON.stringify(e).replace(/'/g,"&#39;");
+    html+=`<tr><td class="name-col">${e.name}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal('${esc}')">Edit</button></td></tr>`;
+  }
+  html+='</tbody></table>';el.innerHTML=html;
+}
+
+function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
+
+function switchTab(tab){
+  document.getElementById('tab-btn-entries').classList.toggle('active',tab==='entries');
+  document.getElementById('tab-btn-summary').classList.toggle('active',tab==='summary');
+  document.getElementById('tab-entries').classList.toggle('active',tab==='entries');
+  document.getElementById('tab-summary').classList.toggle('active',tab==='summary');
+  if(tab==='summary')loadHoursSummary();
+}
+
+// ── Hours Summary ──
+function setSummaryPreset(preset){
+  const est=toEST(new Date().toISOString());
+  const p=n=>String(n).padStart(2,'0');
+  const td=`${est.getFullYear()}-${p(est.getMonth()+1)}-${p(est.getDate())}`;
+  if(preset==='all'){document.getElementById('summary-date-from').value='';document.getElementById('summary-date-to').value='';}
+  else if(preset==='today'){document.getElementById('summary-date-from').value=td;document.getElementById('summary-date-to').value=td;}
+  else if(preset==='week'){const ws=new Date(est);ws.setDate(est.getDate()-est.getDay());document.getElementById('summary-date-from').value=`${ws.getFullYear()}-${p(ws.getMonth()+1)}-${p(ws.getDate())}`;document.getElementById('summary-date-to').value=td;}
+  else if(preset==='month'){document.getElementById('summary-date-from').value=`${est.getFullYear()}-${p(est.getMonth()+1)}-01`;document.getElementById('summary-date-to').value=td;}
+  loadHoursSummary();
+}
+
+async function loadHoursSummary(){
+  showLoading('Calculating hours...');
+  try{
+    const from=document.getElementById('summary-date-from').value;
+    const to=document.getElementById('summary-date-to').value;
+    const list=await getEntries({from:from||null,to:to||null});
+    const hoursMap={};
+    for(const e of list){const h=calcWorkedHours(e);if(h!==null)hoursMap[e.name]=(hoursMap[e.name]||0)+h;}
+    const allNames=Object.keys(USERS);
+    const groups={};for(const n of allNames){const g=USERS[n].group;if(!groups[g])groups[g]=[];groups[g].push(n);}
+    let maxH=Math.max(0,...Object.values(hoursMap)),grandTotal=0;
+    let html='<table><thead><tr><th>Name</th><th>Group</th><th>Total Hours</th></tr></thead><tbody>';
+    for(const[group,names]of Object.entries(groups)){
+      let gt=0;
+      for(const name of names){const h=hoursMap[name]||0;gt+=h;grandTotal+=h;const bw=maxH>0?Math.round((h/maxH)*100):0;html+=`<tr><td class="name-col">${name}</td><td style="color:var(--text3);font-size:11px;font-family:'DM Mono',monospace;">${group}</td><td><span style="color:var(--text);font-family:'DM Mono',monospace;">${h.toFixed(2)}h</span>${bw>0?`<span class="hours-bar" style="width:${bw}px"></span>`:''}</td></tr>`;}
+      html+=`<tr class="summary-total-row"><td colspan="2" style="color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">${group} SUBTOTAL</td><td style="color:var(--accent);font-family:'DM Mono',monospace;">${gt.toFixed(2)}h</td></tr>`;
+    }
+    html+=`<tr class="summary-total-row"><td colspan="2" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;">GRAND TOTAL</td><td style="color:var(--accent);font-family:'DM Mono',monospace;font-size:16px;">${grandTotal.toFixed(2)}h</td></tr></tbody></table>`;
+    const label=from&&to?`${from} → ${to}`:from?`From ${from}`:to?`Up to ${to}`:'All time';
+    document.getElementById('hours-summary-table').innerHTML=`<div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:12px;">Period: ${label}</div>`+html;
+  }catch(err){showToast('Error loading summary','error');console.error(err);}
+  finally{hideLoading();}
+}
+
+// ── Edit Modal ──
+function openEditModal(eStr){
+  const e=typeof eStr==='string'?JSON.parse(eStr.replace(/&#39;/g,"'")):eStr;
+  editingEntry=e;editBreaks=JSON.parse(JSON.stringify(e.breaks||[]));
+  document.getElementById('edit-modal-sub').textContent=`${e.name} — ${fmtDate(e.clock_in)}`;
+  document.getElementById('edit-clock-in').value=isoToInputEST(e.clock_in);
+  document.getElementById('edit-clock-out').value=isoToInputEST(e.clock_out);
+  renderBreakRows();
+  document.getElementById('edit-modal-overlay').classList.remove('hidden');
+}
+function closeEditModal(){document.getElementById('edit-modal-overlay').classList.add('hidden');editingEntry=null;editBreaks=[];}
+function renderBreakRows(){
+  const c=document.getElementById('edit-breaks-container');
+  if(!editBreaks.length){c.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">No breaks recorded.</div>';return;}
+  let html='';
+  editBreaks.forEach((b,i)=>{html+=`<div class="break-row"><div class="break-row-header"><span>Break ${i+1}</span><button class="edit-action-btn" onclick="removeBreakRow(${i})">Remove</button></div><div class="modal-row"><div class="field"><label>Start</label><input type="datetime-local" id="bs-${i}" value="${isoToInputEST(b.start)}" onchange="syncBreak(${i},'start',this.value)" /></div><div class="field"><label>End</label><input type="datetime-local" id="be-${i}" value="${isoToInputEST(b.end)}" onchange="syncBreak(${i},'end',this.value)" /></div></div></div>`;});
+  c.innerHTML=html;
+}
+function syncBreak(i,field,val){editBreaks[i][field]=val?inputESTToISO(val):null;}
+function addBreakRow(){editBreaks.push({start:null,end:null});renderBreakRows();}
+function removeBreakRow(i){editBreaks.splice(i,1);renderBreakRows();}
+
+async function saveEdit(){
+  const ci=document.getElementById('edit-clock-in').value;
+  const co=document.getElementById('edit-clock-out').value;
+  if(!ci){showToast('Clock in time is required.','error');return;}
+  showLoading('Saving...');
+  try{await updateEntry(editingEntry.id,{clock_in:inputESTToISO(ci),clock_out:co?inputESTToISO(co):null,breaks:editBreaks});showToast('Entry updated ✓','success');closeEditModal();await loadAdminEntries();}
+  catch(err){showToast('Error saving','error');console.error(err);}finally{hideLoading();}
+}
+
+async function deleteEntry(){
+  if(!confirm('Delete this entry? This cannot be undone.'))return;
+  showLoading('Deleting...');
+  try{await deleteEntryById(editingEntry.id);showToast('Entry deleted','success');closeEditModal();await loadAdminEntries();}
+  catch(err){showToast('Error deleting','error');console.error(err);}finally{hideLoading();}
+}
+
+document.getElementById('edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeEditModal();});
+</script>
+</body>
+</html>
