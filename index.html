@@ -641,7 +641,7 @@ async function doLogin(){
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-pin`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name,pin:pinBuffer})
     });
     const data = await res.json();
@@ -672,7 +672,7 @@ async function doAdminLogin(){
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-pin`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name:'__admin__',pin:adminPinBuffer})
     });
     const data = await res.json();
