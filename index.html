@@ -248,6 +248,16 @@
       </div>
       <div id="user-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🏖</div>No leave requests yet.</div></div>
     </div>
+
+    <!-- TIME EDIT REQUEST -->
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title" style="margin-bottom:0">Time Edit Requests</div>
+        <button class="btn btn-ghost btn-sm" onclick="openTimeEditModal()">+ Request Edit</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">If you clocked in before 9:00 AM and need your actual time counted, submit a request here.</div>
+      <div id="user-time-edit-list"><div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div></div>
+    </div>
   </div>
 </div>
 
@@ -344,6 +354,13 @@
         </div>
         <div id="admin-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📋</div>No leave requests found.</div></div>
       </div>
+      <div class="card" style="margin-top:0">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Time Edit Requests</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadAdminTimeEditRequests()">↻ Refresh</button>
+        </div>
+        <div id="admin-time-edit-list"><div style="font-size:12px;color:var(--text3);padding:.5rem 0">No time edit requests.</div></div>
+      </div>
     </div>
 
     <!-- HOLIDAYS TAB -->
@@ -377,6 +394,32 @@
       <button class="btn btn-ghost btn-sm" onclick="closeHolidayModal()">Cancel</button>
       <div class="modal-actions-right">
         <button class="btn btn-primary btn-sm" onclick="saveHoliday()">Add Holiday</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIME EDIT REQUEST MODAL -->
+<div id="time-edit-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Request Time Edit</div>
+    <div class="modal-sub" id="time-edit-modal-sub">—</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Date of clock-in</label>
+      <input type="date" id="time-edit-date" />
+    </div>
+    <div class="field">
+      <label>Your actual clock-in time (ET)</label>
+      <input type="time" id="time-edit-actual" />
+    </div>
+    <div class="field">
+      <label>Reason</label>
+      <input type="text" id="time-edit-reason" placeholder="e.g. Started early to finish urgent task" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeTimeEditModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="submitTimeEditRequest()">Submit Request</button>
       </div>
     </div>
   </div>
@@ -614,6 +657,7 @@ async function enterUserDashboard(){
   startClock('live-clock','user-date-display');
   await loadUserDashboard();
   loadUserLeave();
+  loadUserTimeEditRequests();
 }
 
 async function loadUserDashboard(){
@@ -653,7 +697,25 @@ function renderUserTable(list){
 async function clockIn(){
   showLoading('Clocking in...');
   try{const a=await getActiveEntry(currentUser);if(a){showToast('Already clocked in!','error');return;}
-  await insertEntry({id:Date.now(),name:currentUser,clock_in:nowISO(),clock_out:null,breaks:[]});showToast('Clocked in ✓','success');await loadUserDashboard();}
+  // If clocking in before 9:00 AM ET, record as 9:00 AM ET instead
+  const now = new Date();
+  const etNow = toET(now.toISOString());
+  const etHour = etNow.getHours();
+  const etMin = etNow.getMinutes();
+  let clockInTime;
+  if(etHour < 9){
+    // Set to 9:00 AM ET today
+    const offsetMin = getETOffset(now);
+    const utcMs = now.getTime() + (now.getTimezoneOffset()*60000);
+    const etMidnight = new Date(utcMs + offsetMin*60000);
+    etMidnight.setHours(9,0,0,0);
+    // Convert back to UTC ISO
+    clockInTime = new Date(etMidnight.getTime() - offsetMin*60000 - now.getTimezoneOffset()*60000).toISOString();
+  } else {
+    clockInTime = now.toISOString();
+  }
+  await insertEntry({id:Date.now(),name:currentUser,clock_in:clockInTime,clock_out:null,breaks:[]});
+  showToast('Clocked in ✓','success');await loadUserDashboard();}
   catch(err){showToast('Error clocking in','error');console.error(err);}finally{hideLoading();}
 }
 async function clockOut(){
@@ -1272,6 +1334,7 @@ async function loadAdminLeave() {
     const status = document.getElementById('admin-leave-filter').value;
     const list = await getLeaveRequests(status?{status}:{});
     renderAdminLeave(list);
+    loadAdminTimeEditRequests();
   } catch(e) { showToast('Error loading requests','error'); console.error(e); }
   finally { hideLoading(); }
 }
@@ -1467,6 +1530,182 @@ async function getPTODaysInRange(name, from, to) {
     }
     return totalDays;
   } catch(e) { return 0; }
+}
+
+
+// ══════════ TIME EDIT REQUESTS ══════════
+const TIME_EDIT_TABLE = 'time_edit_requests';
+
+async function getTimeEditRequests(filters={}) {
+  let qs = `${TIME_EDIT_TABLE}?order=created_at.desc`;
+  if(filters.name) qs += `&name=eq.${encodeURIComponent(filters.name)}`;
+  if(filters.status) qs += `&status=eq.${encodeURIComponent(filters.status)}`;
+  return await sbFetch(qs);
+}
+async function insertTimeEditRequest(row) { return await sbFetch(TIME_EDIT_TABLE,'POST',row); }
+async function updateTimeEditRequest(id,patch) { return await sbFetch(`${TIME_EDIT_TABLE}?id=eq.${id}`,'PATCH',patch); }
+
+// ── Open/close modal ──
+function openTimeEditModal() {
+  document.getElementById('time-edit-modal-sub').textContent = currentUser;
+  document.getElementById('time-edit-date').value = todayESTStr();
+  document.getElementById('time-edit-actual').value = '';
+  document.getElementById('time-edit-reason').value = '';
+  document.getElementById('time-edit-modal-overlay').classList.remove('hidden');
+}
+function closeTimeEditModal() { document.getElementById('time-edit-modal-overlay').classList.add('hidden'); }
+document.getElementById('time-edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeTimeEditModal();});
+
+// ── Submit time edit request ──
+async function submitTimeEditRequest() {
+  const date = document.getElementById('time-edit-date').value;
+  const actual = document.getElementById('time-edit-actual').value;
+  const reason = document.getElementById('time-edit-reason').value;
+  if(!date) { showToast('Please select a date','error'); return; }
+  if(!actual) { showToast('Please enter your actual clock-in time','error'); return; }
+  // Validate time is before 9 AM
+  const [h,m] = actual.split(':').map(Number);
+  if(h >= 9) { showToast('Only clock-ins before 9:00 AM can be requested','error'); return; }
+  showLoading('Submitting request...');
+  try {
+    const id = Date.now();
+    const row = { id, name: currentUser, date, actual_time: actual, reason, status: 'Pending', created_at: nowISO() };
+    await insertTimeEditRequest(row);
+    // Notify admin on Slack
+    const firstName = currentUser.split(' ')[0];
+    const fmtActual = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
+    await sendSlackDM(ADMIN_SLACK_ID,
+      `⏱ *Time Edit Request from ${currentUser}*
+*Date:* ${fmtLeaveDate(date)}
+*Actual clock-in:* ${fmtActual}
+*Reason:* ${reason||'No reason provided'}
+
+Log in as admin to review: https://charissa-ops.github.io/palm-time-tracker`
+    );
+    showToast('Request submitted ✓','success');
+    closeTimeEditModal();
+    await loadUserTimeEditRequests();
+  } catch(e) { showToast('Error submitting request','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+// ── User: load time edit requests ──
+async function loadUserTimeEditRequests() {
+  try {
+    const list = await getTimeEditRequests({name: currentUser});
+    renderUserTimeEditRequests(list);
+  } catch(e) { console.error(e); }
+}
+
+function renderUserTimeEditRequests(list) {
+  const el = document.getElementById('user-time-edit-list');
+  if(!list||!list.length) { el.innerHTML='<div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div>'; return; }
+  let html = '';
+  for(const r of list) {
+    const [h,m] = r.actual_time.split(':').map(Number);
+    const fmtT = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
+    html += `<div class="leave-card">
+      <div class="leave-card-header">
+        <div>
+          <div class="leave-card-title">${fmtLeaveDate(r.date)} — Actual: ${fmtT}</div>
+          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
+          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+        </div>
+        <div>${statusPill(r.status)}</div>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ── Admin: time edit requests in Leave tab ──
+async function loadAdminTimeEditRequests() {
+  try {
+    const list = await getTimeEditRequests({});
+    renderAdminTimeEditRequests(list);
+  } catch(e) { console.error(e); }
+}
+
+function renderAdminTimeEditRequests(list) {
+  const el = document.getElementById('admin-time-edit-list');
+  if(!el) return;
+  if(!list||!list.length) { el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:.5rem 0">No time edit requests.</div>'; return; }
+  let html = '';
+  for(const r of list) {
+    const [h,m] = r.actual_time.split(':').map(Number);
+    const fmtT = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
+    html += `<div class="leave-card">
+      <div class="leave-card-header">
+        <div>
+          <div class="leave-card-title" style="font-size:13px;">${r.name}</div>
+          <div class="leave-card-meta">${fmtLeaveDate(r.date)} — Actual clock-in: ${fmtT}</div>
+          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
+          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+        </div>
+        <div>${statusPill(r.status)}</div>
+      </div>
+      <div class="leave-card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openAdminTimeEditModal(${r.id})">Review</button>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ── Admin review modal for time edits ──
+let reviewingTimeEditId = null;
+let _adminTimeEditMap = {};
+
+async function openAdminTimeEditModal(id) {
+  showLoading('Loading...');
+  try {
+    const list = await getTimeEditRequests({});
+    list.forEach(r => _adminTimeEditMap[r.id] = r);
+    hideLoading();
+    const r = _adminTimeEditMap[id];
+    if(!r) { showToast('Request not found','error'); return; }
+    reviewingTimeEditId = id;
+    const [h,m] = r.actual_time.split(':').map(Number);
+    const fmtT = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
+    document.getElementById('admin-leave-modal-title').textContent = `Time Edit — ${r.name}`;
+    document.getElementById('admin-leave-modal-sub').textContent = `${fmtLeaveDate(r.date)} · Actual clock-in: ${fmtT}`;
+    document.getElementById('admin-leave-note').value = r.admin_note || '';
+    document.getElementById('admin-leave-modal-body').innerHTML = `
+      <div style="margin:1rem 0;padding:1rem;background:var(--surface2);border-radius:var(--radius-sm);">
+        ${r.reason?`<div style="font-size:13px;color:var(--text2);margin-bottom:.5rem;"><strong>Reason:</strong> ${r.reason}</div>`:''}
+        <div style="font-size:12px;color:var(--text3);">Current status: ${statusPill(r.status)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:.5rem;">⚠️ If approved, you'll need to manually update their clock-in entry in <strong>All Entries</strong> to ${fmtT}.</div>
+      </div>`;
+    // Override approve/deny to use time edit review
+    document.getElementById('btn-approve').onclick = () => reviewTimeEdit('Approved');
+    document.getElementById('btn-deny').onclick = () => reviewTimeEdit('Denied');
+    document.getElementById('admin-leave-modal-overlay').classList.remove('hidden');
+  } catch(e) { hideLoading(); showToast('Error','error'); console.error(e); }
+}
+
+async function reviewTimeEdit(status) {
+  const note = document.getElementById('admin-leave-note').value;
+  showLoading('Saving...');
+  try {
+    await updateTimeEditRequest(reviewingTimeEditId, {status, admin_note: note});
+    const r = _adminTimeEditMap[reviewingTimeEditId];
+    const staffSlackId = SLACK_IDS[r.name];
+    if(staffSlackId) {
+      const [h,m] = r.actual_time.split(':').map(Number);
+      const fmtT = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
+      const emoji = status==='Approved'?'✅':'❌';
+      await sendSlackDM(staffSlackId,
+        `${emoji} *Your time edit request has been ${status}*
+*Date:* ${fmtLeaveDate(r.date)}
+*Requested clock-in:* ${fmtT}
+${note?`*Note:* ${note}`:''}`
+      );
+    }
+    showToast(`Request ${status} ✓`,'success');
+    closeAdminLeaveModal();
+    await loadAdminLeave();
+  } catch(e) { showToast('Error saving','error'); console.error(e); }
+  finally { hideLoading(); }
 }
 
 </script>
