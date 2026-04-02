@@ -511,27 +511,27 @@
 <script>
 const SUPABASE_URL = 'https://hbkgjvgnlgjmmhnkkgxw.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhia2dqdmdubGdqbW1obmtrZ3h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2Mjc3MjUsImV4cCI6MjA5MDIwMzcyNX0.bWY07OKqfi7Ca04IDk2kI7em_FxrL0pyyEySuWwJGjk';
-const ADMIN_PIN = '33308';
 const TABLE = 'time_entries';
-
+// Staff groups (no pins stored here - verified server-side)
 const USERS = {
-  'Charissa Mercado':               {pin:'4821',group:'PALM PARTNERS'},
-  'Camille Uy':                     {pin:'7364',group:'PALM PARTNERS'},
-  'Edeleign Jean Manicad':          {pin:'2951',group:'PALM PARTNERS'},
-  'Richmond Yambot Nicolas':        {pin:'6083',group:'PALM PARTNERS'},
-  'John Vens Clair Magbnua Solano': {pin:'3742',group:'PALM BUILD'},
-  'Mary Lynn Trias Mercado':        {pin:'8519',group:'PALM BUILD'},
-  'Janna Alonto':                   {pin:'1637',group:'PALM BUILD'},
-  'John Lester Solano':             {pin:'9204',group:'PALM BUILD'},
-  'Kristina Marie (Kim) Mercado':   {pin:'5478',group:'PALM BUILD'},
-  'Elvin Juvel C. Pizarras':        {pin:'2863',group:'PALM BUILD'},
-  'Bridgette Anne Benolirao':       {pin:'7195',group:'PALM BUILD'},
-  'Ren Tan':                        {pin:'4026',group:'PALM BUILD'},
-  'Griz Fuentes':                   {pin:'6341',group:'PALM BUILD'},
-  'May Castillo':                   {pin:'8752',group:'PALM BUILD'},
-  'Ciara Andrade':                  {pin:'3097',group:'PALM BUILD'},
-  'Miko Dioquino':                  {pin:'5684',group:'PALM BUILD'},
+  'Charissa Mercado':               {group:'PALM PARTNERS'},
+  'Camille Uy':                     {group:'PALM PARTNERS'},
+  'Edeleign Jean Manicad':          {group:'PALM PARTNERS'},
+  'Richmond Yambot Nicolas':        {group:'PALM PARTNERS'},
+  'John Vens Clair Magbnua Solano': {group:'PALM BUILD'},
+  'Mary Lynn Trias Mercado':        {group:'PALM BUILD'},
+  'Janna Alonto':                   {group:'PALM BUILD'},
+  'John Lester Solano':             {group:'PALM BUILD'},
+  'Kristina Marie (Kim) Mercado':   {group:'PALM BUILD'},
+  'Elvin Juvel C. Pizarras':        {group:'PALM BUILD'},
+  'Bridgette Anne Benolirao':       {group:'PALM BUILD'},
+  'Ren Tan':                        {group:'PALM BUILD'},
+  'Griz Fuentes':                   {group:'PALM BUILD'},
+  'May Castillo':                   {group:'PALM BUILD'},
+  'Ciara Andrade':                  {group:'PALM BUILD'},
+  'Miko Dioquino':                  {group:'PALM BUILD'},
 };
+// Admin PIN verified server-side via verify-pin Edge Function
 
 let currentUser = null, pinBuffer = '', adminPinBuffer = '', clockInterval = null;
 let editingEntry = null, editBreaks = [];
@@ -633,12 +633,33 @@ function startClock(clockId,dateId){
 function onNameSelect(){pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';}
 function pinKey(d){if(pinBuffer.length>=4)return;pinBuffer+=d;updateDots('pin-dots',4,pinBuffer.length);if(pinBuffer.length===4)setTimeout(doLogin,200);}
 function pinDel(){pinBuffer=pinBuffer.slice(0,-1);updateDots('pin-dots',4,pinBuffer.length);}
-function doLogin(){
+async function doLogin(){
   const name=document.getElementById('login-name-select').value;
   if(!name){document.getElementById('login-error').textContent='Please select your name.';return;}
-  const u=USERS[name];if(!u){document.getElementById('login-error').textContent='User not found.';return;}
-  if(pinBuffer!==u.pin){document.getElementById('login-error').textContent='Incorrect PIN. Try again.';pinBuffer='';updateDots('pin-dots',4,0);return;}
-  currentUser=name;document.getElementById('login-error').textContent='';pinBuffer='';updateDots('pin-dots',4,0);enterUserDashboard();
+  if(!USERS[name]){document.getElementById('login-error').textContent='User not found.';return;}
+  showLoading('Verifying...');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-pin`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+      body:JSON.stringify({name,pin:pinBuffer})
+    });
+    const data = await res.json();
+    if(!data.valid){
+      document.getElementById('login-error').textContent='Incorrect PIN. Try again.';
+      pinBuffer='';updateDots('pin-dots',4,0);
+      hideLoading();return;
+    }
+    currentUser=name;
+    document.getElementById('login-error').textContent='';
+    pinBuffer='';updateDots('pin-dots',4,0);
+    hideLoading();
+    enterUserDashboard();
+  } catch(e){
+    document.getElementById('login-error').textContent='Connection error. Try again.';
+    pinBuffer='';updateDots('pin-dots',4,0);
+    hideLoading();
+  }
 }
 
 // ── Login Admin ──
@@ -646,7 +667,27 @@ function switchToAdmin(){showScreen('admin-login');adminPinBuffer='';updateDots(
 function switchToUser(){showScreen('login');}
 function adminPinKey(d){if(adminPinBuffer.length>=5)return;adminPinBuffer+=d;updateDots('admin-pin-dots',5,adminPinBuffer.length);if(adminPinBuffer.length===5)setTimeout(doAdminLogin,200);}
 function adminPinDel(){adminPinBuffer=adminPinBuffer.slice(0,-1);updateDots('admin-pin-dots',5,adminPinBuffer.length);}
-function doAdminLogin(){if(adminPinBuffer!==ADMIN_PIN){document.getElementById('admin-login-error').textContent='Incorrect admin PIN.';adminPinBuffer='';updateDots('admin-pin-dots',5,0);return;}document.getElementById('admin-login-error').textContent='';adminPinBuffer='';enterAdminDashboard();}
+async function doAdminLogin(){
+  showLoading('Verifying...');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-pin`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+      body:JSON.stringify({name:'__admin__',pin:adminPinBuffer})
+    });
+    const data = await res.json();
+    if(!data.valid){
+      document.getElementById('admin-login-error').textContent='Incorrect admin PIN.';
+      adminPinBuffer='';updateDots('admin-pin-dots',5,0);
+      hideLoading();return;
+    }
+    document.getElementById('admin-login-error').textContent='';
+    adminPinBuffer='';hideLoading();enterAdminDashboard();
+  } catch(e){
+    document.getElementById('admin-login-error').textContent='Connection error. Try again.';
+    adminPinBuffer='';updateDots('admin-pin-dots',5,0);hideLoading();
+  }
+}
 function logout(){currentUser=null;clearInterval(clockInterval);document.getElementById('login-name-select').value='';pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';showScreen('login');}
 
 // ── User Dashboard ──
@@ -1170,9 +1211,8 @@ async function deleteEntry(){
 document.getElementById('edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeEditModal();});
 // ══════════ LEAVE REQUESTS ══════════
 const LEAVE_TABLE = 'leave_requests';
-const SLACK_TOKEN = 'xoxb-6291040642487-10820776886695-qx7pInSiAMnbVyOZyiwtwEtL';
-const ADMIN_SLACK_ID = 'U06AX80SAUF'; // Charissa
-
+// Slack IDs (not sensitive - just user identifiers, no tokens)
+const ADMIN_SLACK_ID = 'U06AX80SAUF';
 const SLACK_IDS = {
   'Charissa Mercado':'U06AX80SAUF','Camille Uy':'U06BBLWCH6F',
   'Edeleign Jean Manicad':'U06HQ9BAP0W','Richmond Yambot Nicolas':'U07CJ1HB7R6',
@@ -1209,20 +1249,13 @@ async function uploadLeaveFile(file, leaveId) {
   return `${SUPABASE_URL}/storage/v1/object/public/leave-attachments/${path}`;
 }
 
-// ── Slack DM ──
+// ── Slack DM via Edge Function (token stays server-side) ──
 async function sendSlackDM(userId, message) {
   try {
-    const chanRes = await fetch('https://slack.com/api/conversations.open', {
+    await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
       method:'POST',
-      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
-      body:JSON.stringify({users:userId})
-    });
-    const chan = await chanRes.json();
-    if (!chan.ok) return;
-    await fetch('https://slack.com/api/chat.postMessage', {
-      method:'POST',
-      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
-      body:JSON.stringify({channel:chan.channel.id,text:message})
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+      body:JSON.stringify({userId,message})
     });
   } catch(e) { console.error('Slack DM failed',e); }
 }
