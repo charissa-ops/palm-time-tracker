@@ -512,26 +512,26 @@
 const SUPABASE_URL = 'https://hbkgjvgnlgjmmhnkkgxw.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhia2dqdmdubGdqbW1obmtrZ3h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2Mjc3MjUsImV4cCI6MjA5MDIwMzcyNX0.bWY07OKqfi7Ca04IDk2kI7em_FxrL0pyyEySuWwJGjk';
 const TABLE = 'time_entries';
-// Staff groups (no pins stored here - verified server-side)
+const SALT = 'palm_build_2026';
+const ADMIN_HASH = '23fba1b5f5a88b4c35de5ec43bb4c0da67725f21594968dd5eefe0b4585dc303';
 const USERS = {
-  'Charissa Mercado':               {group:'PALM PARTNERS'},
-  'Camille Uy':                     {group:'PALM PARTNERS'},
-  'Edeleign Jean Manicad':          {group:'PALM PARTNERS'},
-  'Richmond Yambot Nicolas':        {group:'PALM PARTNERS'},
-  'John Vens Clair Magbnua Solano': {group:'PALM BUILD'},
-  'Mary Lynn Trias Mercado':        {group:'PALM BUILD'},
-  'Janna Alonto':                   {group:'PALM BUILD'},
-  'John Lester Solano':             {group:'PALM BUILD'},
-  'Kristina Marie (Kim) Mercado':   {group:'PALM BUILD'},
-  'Elvin Juvel C. Pizarras':        {group:'PALM BUILD'},
-  'Bridgette Anne Benolirao':       {group:'PALM BUILD'},
-  'Ren Tan':                        {group:'PALM BUILD'},
-  'Griz Fuentes':                   {group:'PALM BUILD'},
-  'May Castillo':                   {group:'PALM BUILD'},
-  'Ciara Andrade':                  {group:'PALM BUILD'},
-  'Miko Dioquino':                  {group:'PALM BUILD'},
+  'Charissa Mercado':               {h:'64fa9b9e123cbc00278dbcef23bac2e5830b8b0473955e9e289d56420a77782b',group:'PALM PARTNERS'},
+  'Camille Uy':                     {h:'15f08e1e9ab32529f15186eb248e62e3360a6520d4ba2252631adb17f1e63390',group:'PALM PARTNERS'},
+  'Edeleign Jean Manicad':          {h:'b41fa0b4797634dcb76246bcf74972501efd5be85ad9454c15a35abf3f0c44d0',group:'PALM PARTNERS'},
+  'Richmond Yambot Nicolas':        {h:'f3ec7fcdc5c959dde2817ea5b6dc929701492bba46e6a2398c22dcea42f5486d',group:'PALM PARTNERS'},
+  'John Vens Clair Magbnua Solano': {h:'d08629e2824b45cd06c31162c87f1689006e51f80b3ca2a0794a5b043552c8c5',group:'PALM BUILD'},
+  'Mary Lynn Trias Mercado':        {h:'de5516e47a7727412d2fa1010cf59bfaef711df019008456ae1cccb728b0267a',group:'PALM BUILD'},
+  'Janna Alonto':                   {h:'2f9adfd357017bc1384ff780ec8b742f4a56d59126d4d70a75ca5d636351ba63',group:'PALM BUILD'},
+  'John Lester Solano':             {h:'7c1f9eaf9d87af4725b78d67caa54fb510dc6447a128a7b18f950d10347688b3',group:'PALM BUILD'},
+  'Kristina Marie (Kim) Mercado':   {h:'e8729ad0cc2820a56593012d538c39d36c4f6e0bb5c1748c70fbe23137514d90',group:'PALM BUILD'},
+  'Elvin Juvel C. Pizarras':        {h:'df17359f5486f8237b91d48eb7e5370d45124c5ec40a0322c0eaef39e49a4d13',group:'PALM BUILD'},
+  'Bridgette Anne Benolirao':       {h:'0dc4b599ca3a9039e7f98155b38d5c983ef4fb417011d06425e163050f21ac38',group:'PALM BUILD'},
+  'Ren Tan':                        {h:'56ead25c7d77c2ca9a8c96af0cf411aa128143885ede704b8b9ce06e6b1520b0',group:'PALM BUILD'},
+  'Griz Fuentes':                   {h:'26e0f5de8edcb104beb11064698b6c5daf25b60070bab35a844cc7fab088727d',group:'PALM BUILD'},
+  'May Castillo':                   {h:'29938117374f7b9b033b09adecf079c898da1f73ca6457edc8b7e0eb73382bdc',group:'PALM BUILD'},
+  'Ciara Andrade':                  {h:'09a050e836d917076fb70552ee096c8bd19fa09bdf7bad0f58d8fd81284293b4',group:'PALM BUILD'},
+  'Miko Dioquino':                  {h:'e20f1af5f6204c5d38e6d3b075b9848d335f00ccd5d5d01b9f13965a71e1b98d',group:'PALM BUILD'},
 };
-// Admin PIN verified server-side via verify-pin Edge Function
 
 let currentUser = null, pinBuffer = '', adminPinBuffer = '', clockInterval = null;
 let editingEntry = null, editBreaks = [];
@@ -633,33 +633,24 @@ function startClock(clockId,dateId){
 function onNameSelect(){pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';}
 function pinKey(d){if(pinBuffer.length>=4)return;pinBuffer+=d;updateDots('pin-dots',4,pinBuffer.length);if(pinBuffer.length===4)setTimeout(doLogin,200);}
 function pinDel(){pinBuffer=pinBuffer.slice(0,-1);updateDots('pin-dots',4,pinBuffer.length);}
+async function hashPin(pin){
+  const enc=new TextEncoder();
+  const buf=await crypto.subtle.digest('SHA-256',enc.encode(SALT+pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function doLogin(){
   const name=document.getElementById('login-name-select').value;
   if(!name){document.getElementById('login-error').textContent='Please select your name.';return;}
-  if(!USERS[name]){document.getElementById('login-error').textContent='User not found.';return;}
-  showLoading('Verifying...');
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-pin`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,pin:pinBuffer})
-    });
-    const data = await res.json();
-    if(!data.valid){
-      document.getElementById('login-error').textContent='Incorrect PIN. Try again.';
-      pinBuffer='';updateDots('pin-dots',4,0);
-      hideLoading();return;
-    }
-    currentUser=name;
-    document.getElementById('login-error').textContent='';
-    pinBuffer='';updateDots('pin-dots',4,0);
-    hideLoading();
-    enterUserDashboard();
-  } catch(e){
-    document.getElementById('login-error').textContent='Connection error. Try again.';
-    pinBuffer='';updateDots('pin-dots',4,0);
-    hideLoading();
+  const u=USERS[name];if(!u){document.getElementById('login-error').textContent='User not found.';return;}
+  const hashed=await hashPin(pinBuffer);
+  if(hashed!==u.h){
+    document.getElementById('login-error').textContent='Incorrect PIN. Try again.';
+    pinBuffer='';updateDots('pin-dots',4,0);return;
   }
+  currentUser=name;
+  document.getElementById('login-error').textContent='';
+  pinBuffer='';updateDots('pin-dots',4,0);
+  enterUserDashboard();
 }
 
 // ── Login Admin ──
@@ -668,25 +659,13 @@ function switchToUser(){showScreen('login');}
 function adminPinKey(d){if(adminPinBuffer.length>=5)return;adminPinBuffer+=d;updateDots('admin-pin-dots',5,adminPinBuffer.length);if(adminPinBuffer.length===5)setTimeout(doAdminLogin,200);}
 function adminPinDel(){adminPinBuffer=adminPinBuffer.slice(0,-1);updateDots('admin-pin-dots',5,adminPinBuffer.length);}
 async function doAdminLogin(){
-  showLoading('Verifying...');
-  try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-pin`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:'__admin__',pin:adminPinBuffer})
-    });
-    const data = await res.json();
-    if(!data.valid){
-      document.getElementById('admin-login-error').textContent='Incorrect admin PIN.';
-      adminPinBuffer='';updateDots('admin-pin-dots',5,0);
-      hideLoading();return;
-    }
-    document.getElementById('admin-login-error').textContent='';
-    adminPinBuffer='';hideLoading();enterAdminDashboard();
-  } catch(e){
-    document.getElementById('admin-login-error').textContent='Connection error. Try again.';
-    adminPinBuffer='';updateDots('admin-pin-dots',5,0);hideLoading();
+  const hashed=await hashPin(adminPinBuffer);
+  if(hashed!==ADMIN_HASH){
+    document.getElementById('admin-login-error').textContent='Incorrect admin PIN.';
+    adminPinBuffer='';updateDots('admin-pin-dots',5,0);return;
   }
+  document.getElementById('admin-login-error').textContent='';
+  adminPinBuffer='';enterAdminDashboard();
 }
 function logout(){currentUser=null;clearInterval(clockInterval);document.getElementById('login-name-select').value='';pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';showScreen('login');}
 
