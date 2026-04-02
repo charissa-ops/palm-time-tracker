@@ -249,6 +249,7 @@
     <div class="tabs">
       <button class="tab-btn active" id="tab-btn-entries" onclick="switchTab('entries')">All Entries</button>
       <button class="tab-btn" id="tab-btn-summary" onclick="switchTab('summary')">Hours Summary</button>
+      <button class="tab-btn" id="tab-btn-payroll" onclick="switchTab('payroll')">Payroll Export</button>
     </div>
     <div id="tab-entries" class="tab-pane active">
       <div class="card">
@@ -283,6 +284,27 @@
           </div>
         </div>
         <div id="hours-summary-table"></div>
+      </div>
+    </div>
+
+    <!-- PAYROLL TAB -->
+    <div id="tab-payroll" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Payroll Export</div>
+        <div class="hours-summary-controls" style="margin-bottom:1rem;">
+          <div class="dg"><label>Pay Period From</label><input type="date" id="payroll-date-from" onchange="loadPayrollPreview()" /></div>
+          <div class="dg"><label>Pay Period To</label><input type="date" id="payroll-date-to" onchange="loadPayrollPreview()" /></div>
+          <div class="dg"><label>Check Date</label><input type="date" id="payroll-check-date" onchange="loadPayrollPreview()" /></div>
+          <div class="preset-btns" style="align-items:flex-end;">
+            <button class="btn btn-ghost btn-sm" onclick="setPayrollPreset('biweek')">Last 2 Weeks</button>
+            <button class="btn btn-ghost btn-sm" onclick="setPayrollPreset('month')">This Month</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="exportPayrollExcel()">⬇ Export Excel</button>
+          <button class="btn btn-ghost" onclick="exportPayrollPDF()">⬇ Export PDF</button>
+        </div>
+        <div id="payroll-preview"></div>
       </div>
     </div>
   </div>
@@ -373,15 +395,41 @@ async function deleteEntryById(id) {
   return res.ok;
 }
 
-// ── EST ──
+// ── Eastern Time (auto DST-aware) ──
 function nowISO(){return new Date().toISOString();}
-function toEST(iso){if(!iso)return null;const d=new Date(iso);return new Date(d.getTime()+(d.getTimezoneOffset()*60000)+(-5*60)*60000);}
-function fmtTime(iso){if(!iso)return '—';const d=toEST(iso);let h=d.getHours(),m=d.getMinutes();const ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap} EST`;}
-function fmtDate(iso){if(!iso)return '—';const d=toEST(iso);const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return `${mo[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;}
-function toESTDateStr(iso){if(!iso)return '';const d=toEST(iso);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+// Get ET offset in minutes using Intl — auto handles EST(-300) vs EDT(-240)
+function getETOffset(date){
+  const d=date instanceof Date?date:new Date(date||Date.now());
+  const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',timeZoneName:'short'});
+  const parts=fmt.formatToParts(d);
+  const tz=parts.find(p=>p.type==='timeZoneName')?.value||'EST';
+  return tz==='EDT'?-240:-300;
+}
+function getETLabel(date){
+  const d=date instanceof Date?date:new Date(date||Date.now());
+  const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',timeZoneName:'short'});
+  const parts=fmt.formatToParts(d);
+  return parts.find(p=>p.type==='timeZoneName')?.value||'ET';
+}
+function toET(iso){
+  if(!iso)return null;
+  const d=new Date(iso);
+  const offsetMin=getETOffset(d);
+  const utcMs=d.getTime()+(d.getTimezoneOffset()*60000);
+  return new Date(utcMs+offsetMin*60000);
+}
+function fmtTime(iso){if(!iso)return '—';const d=toET(iso);let h=d.getHours(),m=d.getMinutes();const ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap} ${getETLabel(iso)}`;}
+function fmtDate(iso){if(!iso)return '—';const d=toET(iso);const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return `${mo[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;}
+function toESTDateStr(iso){if(!iso)return '';const d=toET(iso);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function todayESTStr(){return toESTDateStr(new Date().toISOString());}
-function isoToInputEST(iso){if(!iso)return '';const d=toEST(iso);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
-function inputESTToISO(val){if(!val)return null;const[dp,tp]=val.split('T');const[y,mo,d]=dp.split('-').map(Number);const[h,m]=tp.split(':').map(Number);return new Date(Date.UTC(y,mo-1,d,h+5,m,0)).toISOString();}
+function isoToInputEST(iso){if(!iso)return '';const d=toET(iso);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+function inputESTToISO(val){
+  if(!val)return null;
+  const[dp,tp]=val.split('T');const[y,mo,d]=dp.split('-').map(Number);const[h,m]=tp.split(':').map(Number);
+  const tentative=new Date(Date.UTC(y,mo-1,d,h,m,0));
+  const offsetMin=getETOffset(tentative);
+  return new Date(tentative.getTime()+(-offsetMin)*60000).toISOString();
+}
 function calcWorkedHours(e){if(!e.clock_out)return null;let ms=new Date(e.clock_out)-new Date(e.clock_in);let bms=0;if(e.breaks)for(const b of e.breaks)if(b.start&&b.end)bms+=new Date(b.end)-new Date(b.start);return Math.max(0,(ms-bms)/3600000);}
 function breakSummary(e){if(!e.breaks||!e.breaks.length)return '—';const ms=e.breaks.reduce((s,b)=>b.start&&b.end?s+(new Date(b.end)-new Date(b.start)):s,0);return ms>0?(ms/60000).toFixed(0)+' min':'—';}
 function entryStatus(e){const ob=!e.clock_out&&e.breaks&&e.breaks.length>0&&!e.breaks[e.breaks.length-1].end;const st=e.clock_out?'Done':(ob?'On Break':'Clocked In');const pl=e.clock_out?'pill-out':(ob?'pill-break':'pill-in');return{st,pl};}
@@ -396,11 +444,13 @@ function updateDots(id,total,filled){document.getElementById(id).querySelectorAl
 function startClock(clockId,dateId){
   clearInterval(clockInterval);
   function tick(){
-    const est=toEST(new Date().toISOString());
-    let h=est.getHours(),m=est.getMinutes(),s=est.getSeconds();
+    const now=new Date().toISOString();
+    const et=toET(now);
+    const label=getETLabel(now);
+    let h=et.getHours(),m=et.getMinutes(),s=et.getSeconds();
     const ap=h>=12?'PM':'AM';h=h%12||12;
-    document.getElementById(clockId).textContent=`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${ap} EST`;
-    if(dateId){const dy=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];document.getElementById(dateId).textContent=`${dy[est.getDay()]}, ${mo[est.getMonth()]} ${est.getDate()}, ${est.getFullYear()}`;}
+    document.getElementById(clockId).textContent=`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${ap} ${label}`;
+    if(dateId){const dy=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];document.getElementById(dateId).textContent=`${dy[et.getDay()]}, ${mo[et.getMonth()]} ${et.getDate()}, ${et.getFullYear()}`;}
   }
   tick();clockInterval=setInterval(tick,1000);
 }
@@ -531,16 +581,17 @@ function renderAdminTable(list){
 function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
 
 function switchTab(tab){
-  document.getElementById('tab-btn-entries').classList.toggle('active',tab==='entries');
-  document.getElementById('tab-btn-summary').classList.toggle('active',tab==='summary');
-  document.getElementById('tab-entries').classList.toggle('active',tab==='entries');
-  document.getElementById('tab-summary').classList.toggle('active',tab==='summary');
+  ['entries','summary','payroll'].forEach(t=>{
+    document.getElementById('tab-btn-'+t).classList.toggle('active',tab===t);
+    document.getElementById('tab-'+t).classList.toggle('active',tab===t);
+  });
   if(tab==='summary')loadHoursSummary();
+  if(tab==='payroll')loadPayrollPreview();
 }
 
 // ── Hours Summary ──
 function setSummaryPreset(preset){
-  const est=toEST(new Date().toISOString());
+  const est=toET(new Date().toISOString());
   const p=n=>String(n).padStart(2,'0');
   const td=`${est.getFullYear()}-${p(est.getMonth()+1)}-${p(est.getDate())}`;
   if(preset==='all'){document.getElementById('summary-date-from').value='';document.getElementById('summary-date-to').value='';}
@@ -573,6 +624,285 @@ async function loadHoursSummary(){
   }catch(err){showToast('Error loading summary','error');console.error(err);}
   finally{hideLoading();}
 }
+
+
+// ══════════ PAYROLL ══════════
+const RATES = {
+  'Charissa Mercado':9.50,'Camille Uy':8.00,'Edeleign Jean Manicad':8.00,'Richmond Yambot Nicolas':7.00,
+  'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':9.50,
+  'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,'Elvin Juvel C. Pizarras':5.50,
+  'Bridgette Anne Benolirao':5.50,'Ren Tan':5.20,'Griz Fuentes':6.80,'May Castillo':5.00,
+  'Ciara Andrade':4.00,'Miko Dioquino':5.50
+};
+const PAYMENT_METHODS = {
+  'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
+  'Richmond Yambot Nicolas':'Payoneer','John Vens Clair Magbnua Solano':'Wise- US bank',
+  'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
+  'Kristina Marie (Kim) Mercado':'Wise- US bank','Elvin Juvel C. Pizarras':'Wise- US bank',
+  'Bridgette Anne Benolirao':'Payoneer','Ren Tan':'Wise- US bank','Griz Fuentes':'Payoneer',
+  'May Castillo':'Wise- US bank','Ciara Andrade':'Wise- US bank','Miko Dioquino':'Wise- US bank'
+};
+
+// payrollData[name] = {reimb, extras, notes, fundedAmount}
+let payrollData = {};
+let payrollHoursMap = {};
+
+function fmtHHMM(h){const hrs=Math.floor(h),mins=Math.round((h-hrs)*60);return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:00`;}
+function fmtMoney(v){return '$'+v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function fmtDateRange(from,to){
+  const opts={month:'short',day:'numeric',year:'numeric'};
+  const f=from?new Date(from+'T12:00:00').toLocaleDateString('en-US',opts):'';
+  const t=to?new Date(to+'T12:00:00').toLocaleDateString('en-US',opts):'';
+  return f&&t?`${f} – ${t}`:f||t||'All Time';
+}
+
+function setPayrollPreset(preset){
+  const et=toET(new Date().toISOString());
+  const p=n=>String(n).padStart(2,'0');
+  const td=`${et.getFullYear()}-${p(et.getMonth()+1)}-${p(et.getDate())}`;
+  if(preset==='biweek'){
+    const two=new Date(et);two.setDate(et.getDate()-13);
+    document.getElementById('payroll-date-from').value=`${two.getFullYear()}-${p(two.getMonth()+1)}-${p(two.getDate())}`;
+    document.getElementById('payroll-date-to').value=td;
+  } else if(preset==='month'){
+    document.getElementById('payroll-date-from').value=`${et.getFullYear()}-${p(et.getMonth()+1)}-01`;
+    document.getElementById('payroll-date-to').value=td;
+  }
+  // set check date to today
+  document.getElementById('payroll-check-date').value=td;
+  loadPayrollPreview();
+}
+
+async function loadPayrollPreview(){
+  const from=document.getElementById('payroll-date-from').value;
+  const to=document.getElementById('payroll-date-to').value;
+  if(!from||!to){document.getElementById('payroll-preview').innerHTML='<div class="empty-state"><div class="empty-icon">📅</div>Select a pay period to preview payroll.</div>';return;}
+  showLoading('Calculating payroll...');
+  try{
+    const list=await getEntries({from,to});
+    payrollHoursMap={};
+    for(const e of list){const h=calcWorkedHours(e);if(h!==null)payrollHoursMap[e.name]=(payrollHoursMap[e.name]||0)+h;}
+    renderPayrollPreview(from,to);
+  }catch(err){showToast('Error loading payroll','error');console.error(err);}
+  finally{hideLoading();}
+}
+
+function getPayrollRows(){
+  const allNames=Object.keys(USERS);
+  const groups={'PALM PARTNERS / PALM BUILD':[],'PALM BUILD':[]};
+  for(const n of allNames){
+    if(USERS[n].group==='PALM PARTNERS')groups['PALM PARTNERS / PALM BUILD'].push(n);
+    else groups['PALM BUILD'].push(n);
+  }
+  return groups;
+}
+
+function renderPayrollPreview(from,to){
+  const groups=getPayrollRows();
+  let html=`<div class="payroll-table-wrap"><table class="payroll-table">
+  <thead><tr>
+    <th>Employee Name</th><th>Payment Method</th><th>Rate ($/hr)</th><th>Total Hours</th>
+    <th>Base Pay</th><th>Reimbursements</th><th>Extras / Incentives</th>
+    <th>Individual Total</th><th>Funded Amount</th><th>Notes</th>
+  </tr></thead><tbody>`;
+
+  let grandTotal=0;
+  for(const[group,names]of Object.entries(groups)){
+    html+=`<tr class="section-header"><td colspan="10">${group}</td></tr>`;
+    let subtotal=0;
+    for(const name of names){
+      const h=payrollHoursMap[name]||0;
+      const rate=RATES[name]||0;
+      const basePay=h*rate;
+      if(!payrollData[name])payrollData[name]={reimb:0,extras:0,notes:'',funded:''};
+      const pd=payrollData[name];
+      const reimb=parseFloat(pd.reimb)||0;
+      const extras=parseFloat(pd.extras)||0;
+      const indTotal=basePay+reimb+extras;
+      const funded=pd.funded!==''?parseFloat(pd.funded)||0:indTotal;
+      subtotal+=funded;
+      html+=`<tr>
+        <td class="payroll-name">${name}</td>
+        <td>${PAYMENT_METHODS[name]||'—'}</td>
+        <td>${fmtMoney(rate)}</td>
+        <td>${fmtHHMM(h)}</td>
+        <td>${fmtMoney(basePay)}</td>
+        <td><input type="number" min="0" step="0.01" value="${reimb||''}" placeholder="0.00" onchange="updatePayrollField('${name}','reimb',this.value)" /></td>
+        <td><input type="number" min="0" step="0.01" value="${extras||''}" placeholder="0.00" onchange="updatePayrollField('${name}','extras',this.value)" /></td>
+        <td>${fmtMoney(indTotal)}</td>
+        <td><input type="number" min="0" step="0.01" value="${pd.funded!==''?funded:''}" placeholder="${fmtMoney(indTotal).replace('$','')}" onchange="updatePayrollField('${name}','funded',this.value)" /></td>
+        <td><input type="text" class="notes-input" value="${pd.notes||''}" placeholder="PAID" onchange="updatePayrollField('${name}','notes',this.value)" /></td>
+      </tr>`;
+    }
+    grandTotal+=subtotal;
+    html+=`<tr class="subtotal-row"><td colspan="7" style="text-align:right;font-size:11px;letter-spacing:.06em;">${group} — Subtotal</td><td colspan="3">${fmtMoney(subtotal)}</td></tr>`;
+  }
+  html+=`<tr class="subtotal-row"><td colspan="7" style="text-align:right;font-size:12px;letter-spacing:.08em;">GRAND TOTAL</td><td colspan="3" style="font-size:14px;">${fmtMoney(grandTotal)}</td></tr>`;
+  html+=`</tbody></table></div>`;
+  document.getElementById('payroll-preview').innerHTML=html;
+}
+
+function updatePayrollField(name,field,val){
+  if(!payrollData[name])payrollData[name]={reimb:0,extras:0,notes:'',funded:''};
+  payrollData[name][field]=field==='notes'?val:(val===''?'':parseFloat(val)||0);
+  // re-render without re-fetching
+  const from=document.getElementById('payroll-date-from').value;
+  const to=document.getElementById('payroll-date-to').value;
+  renderPayrollPreview(from,to);
+}
+
+function buildPayrollData(){
+  const from=document.getElementById('payroll-date-from').value;
+  const to=document.getElementById('payroll-date-to').value;
+  const checkDate=document.getElementById('payroll-check-date').value;
+  const groups=getPayrollRows();
+  const rows=[];
+  for(const[group,names]of Object.entries(groups)){
+    for(const name of names){
+      const h=payrollHoursMap[name]||0;
+      const rate=RATES[name]||0;
+      const basePay=h*rate;
+      const pd=payrollData[name]||{reimb:0,extras:0,notes:'',funded:''};
+      const reimb=parseFloat(pd.reimb)||0;
+      const extras=parseFloat(pd.extras)||0;
+      const indTotal=basePay+reimb+extras;
+      const funded=pd.funded!==''?parseFloat(pd.funded)||0:indTotal;
+      rows.push({group,name,paymentMethod:PAYMENT_METHODS[name]||'',rate,hours:h,basePay,reimb,extras,indTotal,funded,notes:pd.notes||'PAID'});
+    }
+  }
+  return {rows,from,to,checkDate};
+}
+
+// ── Excel Export ──
+async function exportPayrollExcel(){
+  const from=document.getElementById('payroll-date-from').value;
+  const to=document.getElementById('payroll-date-to').value;
+  if(!from||!to){showToast('Please select a pay period first','error');return;}
+  showLoading('Generating Excel...');
+  try{
+    const {rows,checkDate}=buildPayrollData();
+    // Build CSV-style that opens cleanly in Excel
+    const lines=[];
+    lines.push(['OVERSEAS PAYROLL','','','','','','','','','']);
+    lines.push([`Pay Period: ${fmtDateRange(from,to)}  |  Check Date: ${checkDate?new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}` ,'','','','','','','','','']);
+    lines.push(['']);
+    const headers=['Employee Name','Payment Method','Rate ($/hr)','Total Hours','Base Pay','Reimbursements','Extras / Incentives','Individual Total','Funded Amount','Notes'];
+    let currentGroup='';
+    const groupedRows=[];
+    for(const r of rows){
+      if(r.group!==currentGroup){
+        groupedRows.push({isHeader:true,group:r.group});
+        currentGroup=r.group;
+      }
+      groupedRows.push(r);
+    }
+    // Group subtotals
+    const subtotals={};
+    for(const r of rows){subtotals[r.group]=(subtotals[r.group]||0)+r.funded;}
+    let addedGroups=new Set();
+    const finalRows=[];
+    for(const r of groupedRows){
+      if(r.isHeader){finalRows.push(r);}
+      else{
+        finalRows.push(r);
+        // check if next row is different group or end
+        const idx=groupedRows.indexOf(r);
+        const next=groupedRows[idx+1];
+        if(!next||next.isHeader){
+          if(!addedGroups.has(r.group)){
+            finalRows.push({isSubtotal:true,group:r.group,total:subtotals[r.group]});
+            addedGroups.add(r.group);
+          }
+        }
+      }
+    }
+    const grandTotal=rows.reduce((s,r)=>s+r.funded,0);
+
+    // Use SheetJS via CDN
+    if(!window.XLSX){
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    }
+    const wb=window.XLSX.utils.book_new();
+    const wsData=[];
+    wsData.push(['OVERSEAS PAYROLL  |  '+fmtDateRange(from,to)]);
+    wsData.push(['Bi-Weekly Payroll  •  Check Date: '+(checkDate?new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'-')]);
+    wsData.push([]);
+    for(const r of finalRows){
+      if(r.isHeader){wsData.push([r.group]);wsData.push(headers);}
+      else if(r.isSubtotal){wsData.push(['','','','','','','',r.group+' — Subtotal','',fmtMoney(r.total)]);}
+      else{wsData.push([r.name,r.paymentMethod,r.rate,fmtHHMM(r.hours),r.basePay,r.reimb||0,r.extras||0,r.indTotal,r.funded,r.notes]);}
+    }
+    wsData.push([]);
+    wsData.push(['','','','','','','','GRAND TOTAL','',grandTotal]);
+    const ws=window.XLSX.utils.aoa_to_sheet(wsData);
+    // Column widths
+    ws['!cols']=[{wch:32},{wch:22},{wch:12},{wch:14},{wch:12},{wch:16},{wch:18},{wch:16},{wch:16},{wch:18}];
+    window.XLSX.utils.book_append_sheet(wb,ws,'Payroll');
+    const fname=`Payroll_${from}_to_${to}.xlsx`;
+    window.XLSX.writeFile(wb,fname);
+    showToast('Excel exported ✓','success');
+  }catch(err){showToast('Export failed','error');console.error(err);}
+  finally{hideLoading();}
+}
+
+// ── PDF Export ──
+async function exportPayrollPDF(){
+  const from=document.getElementById('payroll-date-from').value;
+  const to=document.getElementById('payroll-date-to').value;
+  if(!from||!to){showToast('Please select a pay period first','error');return;}
+  showLoading('Generating PDF...');
+  try{
+    const {rows,checkDate}=buildPayrollData();
+    const checkFmt=checkDate?new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+    const groups=getPayrollRows();
+    const subtotals={};
+    for(const r of rows)subtotals[r.group]=(subtotals[r.group]||0)+r.funded;
+    const grandTotal=rows.reduce((s,r)=>s+r.funded,0);
+
+    let tableHTML='';
+    for(const[group,names]of Object.entries(groups)){
+      tableHTML+=`<tr class="section-hdr"><td colspan="10">${group}</td></tr>
+      <tr class="col-hdr"><th>Employee Name</th><th>Payment Method</th><th>Rate ($/hr)</th><th>Total Hours</th><th>Base Pay</th><th>Reimbursements</th><th>Extras / Incentives</th><th>Individual Total</th><th>Funded Amount</th><th>Notes</th></tr>`;
+      for(const name of names){
+        const r=rows.find(x=>x.name===name);if(!r)continue;
+        tableHTML+=`<tr><td>${name}</td><td>${r.paymentMethod}</td><td>${fmtMoney(r.rate)}</td><td>${fmtHHMM(r.hours)}</td><td>${fmtMoney(r.basePay)}</td><td>${fmtMoney(r.reimb)}</td><td>${fmtMoney(r.extras)}</td><td>${fmtMoney(r.indTotal)}</td><td>${fmtMoney(r.funded)}</td><td>${r.notes}</td></tr>`;
+      }
+      tableHTML+=`<tr class="sub-row"><td colspan="7" style="text-align:right">${group} — Subtotal</td><td colspan="3">${fmtMoney(subtotals[group]||0)}</td></tr><tr><td colspan="10" style="height:8px"></td></tr>`;
+    }
+    tableHTML+=`<tr class="grand-row"><td colspan="7" style="text-align:right">GRAND TOTAL</td><td colspan="3">${fmtMoney(grandTotal)}</td></tr>`;
+
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;margin:20px;}
+      h1{font-size:15px;text-align:center;background:#1e3a5f;color:#fff;padding:10px;margin:0;}
+      .sub-title{font-size:10px;text-align:center;color:#666;padding:4px;margin-bottom:12px;}
+      table{width:100%;border-collapse:collapse;font-size:10px;}
+      th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;}
+      .section-hdr td{background:#1e3a5f;color:#fff;font-weight:bold;font-size:11px;padding:6px 8px;}
+      .col-hdr th{background:#2a4a7f;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.04em;}
+      .sub-row td{background:#f0f4fa;font-weight:bold;color:#1e3a5f;}
+      .grand-row td{background:#1e3a5f;color:#fff;font-weight:bold;font-size:12px;}
+      tr:nth-child(even) td{background:#f9f9f9;}
+      .section-hdr td,.col-hdr th,.sub-row td,.grand-row td{background-color:initial;}
+      .section-hdr td{background:#1e3a5f!important;color:#fff!important;}
+      .col-hdr th{background:#2a4a7f!important;color:#fff!important;}
+      .sub-row td{background:#f0f4fa!important;color:#1e3a5f!important;}
+      .grand-row td{background:#1e3a5f!important;color:#fff!important;}
+    </style></head><body>
+    <h1>OVERSEAS PAYROLL  |  ${fmtDateRange(from,to)}</h1>
+    <div class="sub-title">Bi-Weekly Payroll  •  Check Date: ${checkFmt}</div>
+    <table><tbody>${tableHTML}</tbody></table>
+    </body></html>`;
+
+    const win=window.open('','_blank');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(()=>{win.print();hideLoading();showToast('PDF ready ✓','success');},600);
+  }catch(err){showToast('PDF export failed','error');console.error(err);hideLoading();}
+}
+
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
 
 // ── Edit Modal ──
 function openEditModal(eStr){
