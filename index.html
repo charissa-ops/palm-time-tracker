@@ -231,6 +231,15 @@
       <button class="action-btn clock-out-btn" id="btn-clock-out" onclick="clockOut()"><div class="btn-icon">■</div><div class="btn-label">Clock Out</div><div class="btn-sub">End shift</div></button>
     </div>
     <div class="card"><div class="card-title">My Time Entries</div><div class="entries-wrap" id="user-entries-table"></div></div>
+
+    <!-- LEAVE REQUEST -->
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title" style="margin-bottom:0">Leave Requests</div>
+        <button class="btn btn-primary btn-sm" onclick="openLeaveModal()">+ New Request</button>
+      </div>
+      <div id="user-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🏖</div>No leave requests yet.</div></div>
+    </div>
   </div>
 </div>
 
@@ -250,6 +259,8 @@
       <button class="tab-btn active" id="tab-btn-entries" onclick="switchTab('entries')">All Entries</button>
       <button class="tab-btn" id="tab-btn-summary" onclick="switchTab('summary')">Hours Summary</button>
       <button class="tab-btn" id="tab-btn-payroll" onclick="switchTab('payroll')">Payroll Export</button>
+      <button class="tab-btn" id="tab-btn-leave" onclick="switchTab('leave')">Leave Requests</button>
+      <button class="tab-btn" id="tab-btn-holidays" onclick="switchTab('holidays')">Holidays</button>
     </div>
     <div id="tab-entries" class="tab-pane active">
       <div class="card">
@@ -307,6 +318,59 @@
         <div id="payroll-preview"></div>
       </div>
     </div>
+
+    <!-- LEAVE REQUESTS TAB -->
+    <div id="tab-leave" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Leave Requests</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="admin-leave-filter" onchange="loadAdminLeave()" style="padding:6px 10px;font-size:12px;width:auto;">
+              <option value="">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Denied">Denied</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadAdminLeave()">↻ Refresh</button>
+          </div>
+        </div>
+        <div id="admin-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📋</div>No leave requests found.</div></div>
+      </div>
+    </div>
+
+    <!-- HOLIDAYS TAB -->
+    <div id="tab-holidays" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Company Holidays</div>
+          <button class="btn btn-primary btn-sm" onclick="openHolidayModal()">+ Add Holiday</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Holidays automatically add 8hrs × hourly rate to each staff member's Extras in payroll.</p>
+        <div id="admin-holidays-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🗓</div>No holidays added yet.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOLIDAY MODAL -->
+<div id="holiday-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Add Holiday</div>
+    <div class="modal-sub">This will apply to all staff in payroll calculations.</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Holiday Name</label>
+      <input type="text" id="holiday-name" placeholder="e.g. Independence Day" />
+    </div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="holiday-date" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeHolidayModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="saveHoliday()">Add Holiday</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -333,6 +397,65 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- LEAVE REQUEST MODAL -->
+<div id="leave-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">New Leave Request</div>
+    <div class="modal-sub" id="leave-modal-sub">—</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Leave Type</label>
+      <select id="leave-type">
+        <option value="PTO">PTO (Paid Time Off)</option>
+        <option value="Sick Leave">Sick Leave</option>
+        <option value="Emergency Leave">Emergency Leave</option>
+        <option value="Unpaid Leave">Unpaid Leave</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <div class="field"><label>From</label><input type="date" id="leave-date-from" /></div>
+      <div class="field"><label>To</label><input type="date" id="leave-date-to" /></div>
+    </div>
+    <div class="field">
+      <label>Reason</label>
+      <input type="text" id="leave-reason" placeholder="Brief description..." />
+    </div>
+    <div class="field">
+      <label>Supporting Document (optional)</label>
+      <div class="file-upload-area" onclick="document.getElementById('leave-file').click()">
+        <input type="file" id="leave-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onchange="onLeaveFileChange()" />
+        <div class="file-upload-label">📎 Click to upload a file</div>
+        <div class="file-name-display" id="leave-file-name"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeLeaveModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="submitLeaveRequest()">Submit Request</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN REVIEW MODAL -->
+<div id="admin-leave-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="admin-leave-modal-title">Review Leave Request</div>
+    <div class="modal-sub" id="admin-leave-modal-sub">—</div>
+    <div id="admin-leave-modal-body"></div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Note to staff (optional)</label>
+      <input type="text" id="admin-leave-note" placeholder="e.g. Approved! Enjoy your time off." class="admin-note-input" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-delete" onclick="closeAdminLeaveModal()">Close</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-ghost btn-sm" id="btn-deny" onclick="reviewLeave('Denied')">Deny</button>
+        <button class="btn btn-primary btn-sm" id="btn-approve" onclick="reviewLeave('Approved')">Approve</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL = 'https://hbkgjvgnlgjmmhnkkgxw.supabase.co';
@@ -482,6 +605,7 @@ async function enterUserDashboard(){
   document.getElementById('display-group').textContent=USERS[currentUser].group;
   startClock('live-clock','user-date-display');
   await loadUserDashboard();
+  loadUserLeave();
 }
 
 async function loadUserDashboard(){
@@ -566,14 +690,16 @@ async function loadAdminEntries(){
   finally{hideLoading();}
 }
 
+let _adminEntryMap={};
 function renderAdminTable(list){
   const el=document.getElementById('admin-entries-table');
   if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No entries found.</div>';return;}
+  _adminEntryMap={};
   let html='<table><thead><tr><th>Name</th><th>Group</th><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Hours</th><th>Status</th><th></th></tr></thead><tbody>';
   for(const e of list){
+    _adminEntryMap[e.id]=e;
     const h=calcWorkedHours(e);const{st,pl}=entryStatus(e);
-    const esc=JSON.stringify(e).replace(/'/g,"&#39;");
-    html+=`<tr><td class="name-col">${e.name}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal('${esc}')">Edit</button></td></tr>`;
+    html+=`<tr><td class="name-col">${e.name}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td></tr>`;
   }
   html+='</tbody></table>';el.innerHTML=html;
 }
@@ -581,12 +707,14 @@ function renderAdminTable(list){
 function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
 
 function switchTab(tab){
-  ['entries','summary','payroll'].forEach(t=>{
+  ['entries','summary','payroll','leave','holidays'].forEach(t=>{
     document.getElementById('tab-btn-'+t).classList.toggle('active',tab===t);
     document.getElementById('tab-'+t).classList.toggle('active',tab===t);
   });
   if(tab==='summary')loadHoursSummary();
   if(tab==='payroll')loadPayrollPreview();
+  if(tab==='leave')loadAdminLeave();
+  if(tab==='holidays')loadAdminHolidays();
 }
 
 // ── Hours Summary ──
@@ -679,9 +807,30 @@ async function loadPayrollPreview(){
   if(!from||!to){document.getElementById('payroll-preview').innerHTML='<div class="empty-state"><div class="empty-icon">📅</div>Select a pay period to preview payroll.</div>';return;}
   showLoading('Calculating payroll...');
   try{
+    // Load time entries
     const list=await getEntries({from,to});
     payrollHoursMap={};
     for(const e of list){const h=calcWorkedHours(e);if(h!==null)payrollHoursMap[e.name]=(payrollHoursMap[e.name]||0)+h;}
+    // Load holidays for this period
+    holidaysList = await getHolidays();
+    const holidayDays = countHolidaysInRange(from, to, holidaysList);
+    // For each person, calc PTO days and auto-set extras
+    const allNames = Object.keys(USERS);
+    for(const name of allNames){
+      const rate = RATES[name]||0;
+      // PTO pay
+      const ptoDays = await getPTODaysInRange(name, from, to);
+      const ptoPay = ptoDays * 8 * rate;
+      // Holiday pay
+      const holidayPay = holidayDays * 8 * rate;
+      const autoExtras = ptoPay + holidayPay;
+      if(!payrollData[name])payrollData[name]={reimb:0,extras:0,notes:'',funded:''};
+      // Only set if user hasn't manually overridden
+      if(payrollData[name]._autoExtras===undefined||payrollData[name]._autoExtras===payrollData[name].extras){
+        payrollData[name].extras = autoExtras;
+        payrollData[name]._autoExtras = autoExtras;
+      }
+    }
     renderPayrollPreview(from,to);
   }catch(err){showToast('Error loading payroll','error');console.error(err);}
   finally{hideLoading();}
@@ -728,7 +877,10 @@ function renderPayrollPreview(from,to){
         <td>${fmtHHMM(h)}</td>
         <td>${fmtMoney(basePay)}</td>
         <td><input type="number" min="0" step="0.01" value="${reimb||''}" placeholder="0.00" onchange="updatePayrollField('${name}','reimb',this.value)" /></td>
-        <td><input type="number" min="0" step="0.01" value="${extras||''}" placeholder="0.00" onchange="updatePayrollField('${name}','extras',this.value)" /></td>
+        <td>
+          <input type="number" min="0" step="0.01" value="${extras||''}" placeholder="0.00" onchange="updatePayrollField('${name}','extras',this.value)" />
+          ${pd._autoExtras>0?`<div style="font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;margin-top:3px;">auto: ${fmtMoney(pd._autoExtras||0)}</div>`:''}
+        </td>
         <td>${fmtMoney(indTotal)}</td>
         <td><input type="number" min="0" step="0.01" value="${pd.funded!==''?funded:''}" placeholder="${fmtMoney(indTotal).replace('$','')}" onchange="updatePayrollField('${name}','funded',this.value)" /></td>
         <td><input type="text" class="notes-input" value="${pd.notes||''}" placeholder="PAID" onchange="updatePayrollField('${name}','notes',this.value)" /></td>
@@ -745,6 +897,8 @@ function renderPayrollPreview(from,to){
 function updatePayrollField(name,field,val){
   if(!payrollData[name])payrollData[name]={reimb:0,extras:0,notes:'',funded:''};
   payrollData[name][field]=field==='notes'?val:(val===''?'':parseFloat(val)||0);
+  // If manually editing extras, detach from auto
+  if(field==='extras') payrollData[name]._autoExtras = undefined;
   // re-render without re-fetching
   const from=document.getElementById('payroll-date-from').value;
   const to=document.getElementById('payroll-date-to').value;
@@ -905,8 +1059,9 @@ async function exportPayrollPDF(){
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
 
 // ── Edit Modal ──
-function openEditModal(eStr){
-  const e=typeof eStr==='string'?JSON.parse(eStr.replace(/&#39;/g,"'")):eStr;
+function openEditModal(id){
+  const e=_adminEntryMap[id];
+  if(!e){showToast('Entry not found','error');return;}
   editingEntry=e;editBreaks=JSON.parse(JSON.stringify(e.breaks||[]));
   document.getElementById('edit-modal-sub').textContent=`${e.name} — ${fmtDate(e.clock_in)}`;
   document.getElementById('edit-clock-in').value=isoToInputEST(e.clock_in);
@@ -943,6 +1098,367 @@ async function deleteEntry(){
 }
 
 document.getElementById('edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeEditModal();});
+// ══════════ LEAVE REQUESTS ══════════
+const LEAVE_TABLE = 'leave_requests';
+const SLACK_TOKEN = 'xoxb-6291040642487-10820776886695-qx7pInSiAMnbVyOZyiwtwEtL';
+const ADMIN_SLACK_ID = 'U06AX80SAUF'; // Charissa
+
+const SLACK_IDS = {
+  'Charissa Mercado':'U06AX80SAUF','Camille Uy':'U06BBLWCH6F',
+  'Edeleign Jean Manicad':'U06HQ9BAP0W','Richmond Yambot Nicolas':'U07CJ1HB7R6',
+  'John Vens Clair Magbnua Solano':'U07ME7TP8PN','Mary Lynn Trias Mercado':'U07QR0DHYG2',
+  'Janna Alonto':'U096BJQGJ4R','John Lester Solano':'U09AZQN9LBA',
+  'Kristina Marie (Kim) Mercado':'U09BKFA2NJX','Elvin Juvel C. Pizarras':'U09JGNU8YGY',
+  'Bridgette Anne Benolirao':'U09K7JJNAQ6','Ren Tan':'U09M0P6JNBH',
+  'Griz Fuentes':'U0A0CS9CGV8','May Castillo':'U0ACEEGNV4H',
+  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7'
+};
+
+let reviewingLeaveId = null;
+
+// ── Supabase leave helpers ──
+async function getLeaveRequests(filters={}) {
+  let qs = `${LEAVE_TABLE}?order=created_at.desc`;
+  if (filters.name) qs += `&name=eq.${encodeURIComponent(filters.name)}`;
+  if (filters.status) qs += `&status=eq.${encodeURIComponent(filters.status)}`;
+  return await sbFetch(qs);
+}
+async function insertLeave(row) { return await sbFetch(LEAVE_TABLE,'POST',row); }
+async function updateLeave(id,patch) { return await sbFetch(`${LEAVE_TABLE}?id=eq.${id}`,'PATCH',patch); }
+
+// ── Supabase Storage upload ──
+async function uploadLeaveFile(file, leaveId) {
+  const ext = file.name.split('.').pop();
+  const path = `${leaveId}.${ext}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/leave-attachments/${path}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type },
+    body: file
+  });
+  if (!res.ok) throw new Error('Upload failed');
+  return `${SUPABASE_URL}/storage/v1/object/public/leave-attachments/${path}`;
+}
+
+// ── Slack DM ──
+async function sendSlackDM(userId, message) {
+  try {
+    const chanRes = await fetch('https://slack.com/api/conversations.open', {
+      method:'POST',
+      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
+      body:JSON.stringify({users:userId})
+    });
+    const chan = await chanRes.json();
+    if (!chan.ok) return;
+    await fetch('https://slack.com/api/chat.postMessage', {
+      method:'POST',
+      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
+      body:JSON.stringify({channel:chan.channel.id,text:message})
+    });
+  } catch(e) { console.error('Slack DM failed',e); }
+}
+
+// ── Leave type style ──
+function leaveTypePill(type) {
+  const cls = type==='PTO'?'leave-pto':type==='Sick Leave'?'leave-sick':type==='Emergency Leave'?'leave-emergency':'leave-unpaid';
+  return `<span class="leave-type-pill ${cls}">${type}</span>`;
+}
+function statusPill(status) {
+  const cls = status==='Approved'?'status-approved':status==='Denied'?'status-denied':'status-pending';
+  return `<span class="leave-type-pill ${cls}">${status}</span>`;
+}
+function fmtLeaveDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d+'T12:00:00');
+  return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function dayCount(from,to) {
+  const d1=new Date(from+'T12:00:00'),d2=new Date(to+'T12:00:00');
+  return Math.round((d2-d1)/86400000)+1;
+}
+
+// ── File selection ──
+function onLeaveFileChange() {
+  const file = document.getElementById('leave-file').files[0];
+  document.getElementById('leave-file-name').textContent = file ? file.name : '';
+}
+
+// ── User: open/close leave modal ──
+function openLeaveModal() {
+  document.getElementById('leave-modal-sub').textContent = currentUser;
+  document.getElementById('leave-type').value = 'PTO';
+  document.getElementById('leave-date-from').value = '';
+  document.getElementById('leave-date-to').value = '';
+  document.getElementById('leave-reason').value = '';
+  document.getElementById('leave-file').value = '';
+  document.getElementById('leave-file-name').textContent = '';
+  document.getElementById('leave-modal-overlay').classList.remove('hidden');
+}
+function closeLeaveModal() { document.getElementById('leave-modal-overlay').classList.add('hidden'); }
+
+// ── User: submit leave request ──
+async function submitLeaveRequest() {
+  const type = document.getElementById('leave-type').value;
+  const from = document.getElementById('leave-date-from').value;
+  const to = document.getElementById('leave-date-to').value;
+  const reason = document.getElementById('leave-reason').value;
+  const file = document.getElementById('leave-file').files[0];
+  if (!from || !to) { showToast('Please select dates','error'); return; }
+  if (new Date(to) < new Date(from)) { showToast('End date must be after start date','error'); return; }
+  showLoading('Submitting request...');
+  try {
+    const id = Date.now();
+    let attachmentUrl = null;
+    if (file) attachmentUrl = await uploadLeaveFile(file, id);
+    const row = { id, name: currentUser, leave_type: type, date_from: from, date_to: to, reason, attachment_url: attachmentUrl, status: 'Pending' };
+    await insertLeave(row);
+    // Notify admin on Slack
+    const firstName = currentUser.split(' ')[0];
+    const days = dayCount(from, to);
+    await sendSlackDM(ADMIN_SLACK_ID,
+      `📋 *New Leave Request from ${currentUser}*
+*Type:* ${type}
+*Dates:* ${fmtLeaveDate(from)} – ${fmtLeaveDate(to)} (${days} day${days>1?'s':''})
+*Reason:* ${reason||'No reason provided'}
+
+Log in as admin to review: https://charissa-ops.github.io/palm-time-tracker`
+    );
+    showToast('Request submitted ✓','success');
+    closeLeaveModal();
+    await loadUserLeave();
+  } catch(e) { showToast('Error submitting request','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+// ── User: load leave list ──
+async function loadUserLeave() {
+  try {
+    const list = await getLeaveRequests({name: currentUser});
+    renderUserLeave(list);
+  } catch(e) { console.error(e); }
+}
+
+function renderUserLeave(list) {
+  const el = document.getElementById('user-leave-list');
+  if (!list || !list.length) { el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🏖</div>No leave requests yet.</div>'; return; }
+  let html = '';
+  for (const r of list) {
+    const days = dayCount(r.date_from, r.date_to);
+    html += `<div class="leave-card">
+      <div class="leave-card-header">
+        <div>
+          <div class="leave-card-title">${leaveTypePill(r.leave_type)} &nbsp;${fmtLeaveDate(r.date_from)}${r.date_from!==r.date_to?` – ${fmtLeaveDate(r.date_to)}`:''} <span style="color:var(--text3);font-size:11px;">(${days} day${days>1?'s':''})</span></div>
+          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
+          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+        </div>
+        <div>${statusPill(r.status)}</div>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ── Admin: load leave requests ──
+async function loadAdminLeave() {
+  showLoading('Loading leave requests...');
+  try {
+    const status = document.getElementById('admin-leave-filter').value;
+    const list = await getLeaveRequests(status?{status}:{});
+    renderAdminLeave(list);
+  } catch(e) { showToast('Error loading requests','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+function renderAdminLeave(list) {
+  const el = document.getElementById('admin-leave-list');
+  if (!list || !list.length) { el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📋</div>No leave requests found.</div>'; return; }
+  let html = '';
+  for (const r of list) {
+    const days = dayCount(r.date_from, r.date_to);
+    html += `<div class="leave-card">
+      <div class="leave-card-header">
+        <div>
+          <div class="leave-card-title">${r.name}</div>
+          <div class="leave-card-meta">${leaveTypePill(r.leave_type)} &nbsp;${fmtLeaveDate(r.date_from)}${r.date_from!==r.date_to?` – ${fmtLeaveDate(r.date_to)}`:''} · ${days} day${days>1?'s':''}</div>
+          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
+          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+        </div>
+        <div>${statusPill(r.status)}</div>
+      </div>
+      <div class="leave-card-actions">
+        ${r.attachment_url?`<a href="${r.attachment_url}" target="_blank" class="btn btn-ghost btn-sm">📎 View Attachment</a>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="openAdminLeaveModal(${r.id})">Review</button>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ── Admin: review modal ──
+let _adminLeaveMap = {};
+async function openAdminLeaveModal(id) {
+  showLoading('Loading...');
+  try {
+    const list = await getLeaveRequests({});
+    list.forEach(r => _adminLeaveMap[r.id] = r);
+    hideLoading();
+    const r = _adminLeaveMap[id];
+    if (!r) { showToast('Request not found','error'); return; }
+    reviewingLeaveId = id;
+    const days = dayCount(r.date_from, r.date_to);
+    document.getElementById('admin-leave-modal-title').textContent = `Review — ${r.name}`;
+    document.getElementById('admin-leave-modal-sub').textContent = `${r.leave_type} · ${fmtLeaveDate(r.date_from)}${r.date_from!==r.date_to?` – ${fmtLeaveDate(r.date_to)}`:''} · ${days} day${days>1?'s':''}`;
+    document.getElementById('admin-leave-note').value = r.admin_note || '';
+    document.getElementById('admin-leave-modal-body').innerHTML = `
+      <div style="margin:1rem 0;padding:1rem;background:var(--surface2);border-radius:var(--radius-sm);">
+        ${r.reason?`<div style="font-size:13px;color:var(--text2);margin-bottom:.5rem;"><strong>Reason:</strong> ${r.reason}</div>`:''}
+        <div style="font-size:12px;color:var(--text3);">Current status: ${statusPill(r.status)}</div>
+        ${r.attachment_url?`<div style="margin-top:.75rem;"><a href="${r.attachment_url}" target="_blank" class="btn btn-ghost btn-sm">📎 View Attachment</a></div>`:'<div style="font-size:12px;color:var(--text3);margin-top:.5rem;">No attachment provided.</div>'}
+      </div>`;
+    document.getElementById('admin-leave-modal-overlay').classList.remove('hidden');
+  } catch(e) { hideLoading(); showToast('Error','error'); console.error(e); }
+}
+function closeAdminLeaveModal() { document.getElementById('admin-leave-modal-overlay').classList.add('hidden'); reviewingLeaveId = null; }
+
+async function reviewLeave(status) {
+  const note = document.getElementById('admin-leave-note').value;
+  showLoading('Saving...');
+  try {
+    await updateLeave(reviewingLeaveId, {status, admin_note: note});
+    const r = _adminLeaveMap[reviewingLeaveId];
+    // Notify staff on Slack
+    const staffSlackId = SLACK_IDS[r.name];
+    if (staffSlackId) {
+      const emoji = status==='Approved'?'✅':'❌';
+      const msg = `${emoji} *Your leave request has been ${status}*
+*Type:* ${r.leave_type}
+*Dates:* ${fmtLeaveDate(r.date_from)}${r.date_from!==r.date_to?` – ${fmtLeaveDate(r.date_to)}`:''}
+${note?`*Note from admin:* ${note}`:''}`;
+      await sendSlackDM(staffSlackId, msg);
+    }
+    showToast(`Request ${status} ✓`,'success');
+    closeAdminLeaveModal();
+    await loadAdminLeave();
+  } catch(e) { showToast('Error saving','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+// Close modals on overlay click
+document.getElementById('leave-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeLeaveModal();});
+document.getElementById('admin-leave-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeAdminLeaveModal();});
+
+
+// ══════════ HOLIDAYS ══════════
+const HOLIDAYS_TABLE = 'holidays';
+let holidaysList = []; // cached holidays
+
+async function getHolidays() {
+  return await sbFetch(`${HOLIDAYS_TABLE}?order=date.asc`);
+}
+async function insertHoliday(row) { return await sbFetch(HOLIDAYS_TABLE,'POST',row); }
+async function deleteHoliday(id) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${HOLIDAYS_TABLE}?id=eq.${id}`,{
+    method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+  });
+  if(!res.ok) throw new Error('Delete failed');
+}
+
+// ── Holiday modal ──
+function openHolidayModal() {
+  document.getElementById('holiday-name').value = '';
+  document.getElementById('holiday-date').value = '';
+  document.getElementById('holiday-modal-overlay').classList.remove('hidden');
+}
+function closeHolidayModal() { document.getElementById('holiday-modal-overlay').classList.add('hidden'); }
+document.getElementById('holiday-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeHolidayModal();});
+
+async function saveHoliday() {
+  const name = document.getElementById('holiday-name').value.trim();
+  const date = document.getElementById('holiday-date').value;
+  if (!name) { showToast('Please enter a holiday name','error'); return; }
+  if (!date) { showToast('Please select a date','error'); return; }
+  showLoading('Adding holiday...');
+  try {
+    await insertHoliday({ id: Date.now(), name, date });
+    showToast(`${name} added ✓`,'success');
+    closeHolidayModal();
+    await loadAdminHolidays();
+  } catch(e) { showToast('Error adding holiday','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+async function loadAdminHolidays() {
+  showLoading('Loading holidays...');
+  try {
+    holidaysList = await getHolidays();
+    renderAdminHolidays(holidaysList);
+  } catch(e) { showToast('Error loading holidays','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+function renderAdminHolidays(list) {
+  const el = document.getElementById('admin-holidays-list');
+  if (!list || !list.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🗓</div>No holidays added yet.</div>';
+    return;
+  }
+  const now = new Date();
+  let html = '<table><thead><tr><th>Holiday</th><th>Date</th><th>Day</th><th></th></tr></thead><tbody>';
+  for (const h of list) {
+    const d = new Date(h.date + 'T12:00:00');
+    const isPast = d < now;
+    const dayName = d.toLocaleDateString('en-US',{weekday:'long'});
+    const dateStr = d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    html += `<tr>
+      <td style="color:var(--text);font-family:'Syne',sans-serif;font-weight:500;">${h.name}</td>
+      <td>${dateStr}</td>
+      <td style="color:var(--text3);">${dayName}</td>
+      <td><button class="admin-edit-btn" style="color:var(--red);border-color:#5a2020;" onclick="removeHoliday(${h.id},'${h.name}')">Delete</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+async function removeHoliday(id, name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  showLoading('Deleting...');
+  try {
+    await deleteHoliday(id);
+    showToast(`${name} removed`,'success');
+    await loadAdminHolidays();
+  } catch(e) { showToast('Error deleting holiday','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+// ── Count holidays within a date range ──
+function countHolidaysInRange(from, to, holidayList) {
+  const f = new Date(from + 'T00:00:00');
+  const t = new Date(to + 'T23:59:59');
+  return holidayList.filter(h => {
+    const d = new Date(h.date + 'T12:00:00');
+    return d >= f && d <= t;
+  }).length;
+}
+
+// ── Count approved PTO days in range for a person ──
+async function getPTODaysInRange(name, from, to) {
+  try {
+    const rows = await sbFetch(`${LEAVE_TABLE}?name=eq.${encodeURIComponent(name)}&leave_type=eq.PTO&status=eq.Approved&order=date_from.asc`);
+    let totalDays = 0;
+    const f = new Date(from + 'T00:00:00');
+    const t = new Date(to + 'T23:59:59');
+    for (const r of rows) {
+      const rFrom = new Date(r.date_from + 'T00:00:00');
+      const rTo = new Date(r.date_to + 'T23:59:59');
+      // Find overlap
+      const overlapStart = rFrom < f ? f : rFrom;
+      const overlapEnd = rTo > t ? t : rTo;
+      if (overlapEnd >= overlapStart) {
+        totalDays += Math.round((overlapEnd - overlapStart) / 86400000) + 1;
+      }
+    }
+    return totalDays;
+  } catch(e) { return 0; }
+}
+
 </script>
-</body>
-</html>
