@@ -846,11 +846,14 @@ function renderAdminTable(list){
   const el=document.getElementById('admin-entries-table');
   if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No entries found.</div>';return;}
   _adminEntryMap={};
-  let html='<table><thead><tr><th>Name</th><th>Group</th><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Hours</th><th>Status</th><th></th></tr></thead><tbody>';
+  let html='<table><thead><tr><th>Name</th><th>Group</th><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Raw Hrs</th><th>Billable</th><th>Status</th><th></th></tr></thead><tbody>';
   for(const e of list){
     _adminEntryMap[e.id]=e;
     const h=calcWorkedHours(e);const{st,pl}=entryStatus(e);
-    html+=`<tr><td class="name-col">${e.name}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td></tr>`;
+    const billable=calcBillableHours(e);
+    const flagClass=billable.flagged?'style="background:#3a2a0a"':'';
+    const flagBadge=billable.flagged?'<span style="font-size:10px;color:var(--orange);font-weight:600;margin-left:6px;">⚑ OT</span>':'';
+    html+=`<tr ${flagClass}><td class="name-col">${e.name}${flagBadge}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td>${billable.total!==null?'<span style="color:var(--accent)">'+billable.total.toFixed(2)+'h</span>':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td></tr>`;
   }
   html+='</tbody></table>';el.innerHTML=html;
 }
@@ -923,6 +926,55 @@ const PAYMENT_METHODS = {
   'May Castillo':'Wise- US bank','Ciara Andrade':'Wise- US bank','Miko Dioquino':'Wise- US bank'
 };
 
+// ── Hour rules ──
+// Break deduction: 1hr/day for everyone except these:
+const NO_BREAK_DEDUCTION = new Set([
+  'Charissa Mercado','Camille Uy',
+  'Kristina Marie (Kim) Mercado','Elvin Juvel C. Pizarras'
+]);
+
+// Daily hour caps (after break deduction). null = no cap, 'flag' = no cap but flag if >8
+const DAILY_MAX = {
+  'Charissa Mercado':           null,
+  'Camille Uy':                 null,
+  'Edeleign Jean Manicad':      null,
+  'Richmond Yambot Nicolas':    null,
+  'John Vens Clair Magbnua Solano': 'flag',
+  'Mary Lynn Trias Mercado':    8,
+  'Janna Alonto':               11,
+  'John Lester Solano':         8,
+  'Kristina Marie (Kim) Mercado': 8,
+  'Elvin Juvel C. Pizarras':    8,
+  'Bridgette Anne Benolirao':   8,
+  'Ren Tan':                    8,
+  'Griz Fuentes':               8,
+  'May Castillo':               8,
+  'Ciara Andrade':              8,
+  'Miko Dioquino':              8,
+};
+
+// Apply hour rules to a person's raw hours for a single day
+function applyHourRules(name, rawHours) {
+  // 1. Deduct break
+  const breakDeduction = NO_BREAK_DEDUCTION.has(name) ? 0 : 1;
+  let net = Math.max(0, rawHours - breakDeduction);
+  // 2. Apply cap
+  const cap = DAILY_MAX[name];
+  const flagged = cap === 'flag' && rawHours > 8;
+  if (typeof cap === 'number') net = Math.min(net, cap);
+  return { net, breakDeduction, flagged };
+}
+
+// Calculate billable hours for an entry using hour rules (per day)
+function calcBillableHours(entry) {
+  if (!entry.clock_out) return { total: null, flagged: false };
+  // Get raw worked hours (clock out - clock in, ignoring logged breaks since we use fixed deduction)
+  const rawMs = new Date(entry.clock_out) - new Date(entry.clock_in);
+  const rawHours = Math.max(0, rawMs / 3600000);
+  const { net, flagged } = applyHourRules(entry.name, rawHours);
+  return { total: net, flagged };
+}
+
 // payrollData[name] = {reimb, extras, notes, fundedAmount}
 let payrollData = {};
 let payrollHoursMap = {};
@@ -962,7 +1014,10 @@ async function loadPayrollPreview(){
     // Load time entries
     const list=await getEntries({from,to});
     payrollHoursMap={};
-    for(const e of list){const h=calcWorkedHours(e);if(h!==null)payrollHoursMap[e.name]=(payrollHoursMap[e.name]||0)+h;}
+    for(const e of list){
+      const b=calcBillableHours(e);
+      if(b.total!==null)payrollHoursMap[e.name]=(payrollHoursMap[e.name]||0)+b.total;
+    }
     // Load holidays for this period
     holidaysList = await getHolidays();
     const holidayDays = countHolidaysInRange(from, to, holidaysList);
@@ -1179,25 +1234,53 @@ async function exportPayrollPDF(){
 
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
-      body{font-family:Arial,sans-serif;font-size:11px;margin:20px;}
-      h1{font-size:15px;text-align:center;background:#1e3a5f;color:#fff;padding:10px;margin:0;}
-      .sub-title{font-size:10px;text-align:center;color:#666;padding:4px;margin-bottom:12px;}
-      table{width:100%;border-collapse:collapse;font-size:10px;}
-      th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;}
-      .section-hdr td{background:#1e3a5f;color:#fff;font-weight:bold;font-size:11px;padding:6px 8px;}
-      .col-hdr th{background:#2a4a7f;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.04em;}
-      .sub-row td{background:#f0f4fa;font-weight:bold;color:#1e3a5f;}
-      .grand-row td{background:#1e3a5f;color:#fff;font-weight:bold;font-size:12px;}
-      tr:nth-child(even) td{background:#f9f9f9;}
-      .section-hdr td,.col-hdr th,.sub-row td,.grand-row td{background-color:initial;}
-      .section-hdr td{background:#1e3a5f!important;color:#fff!important;}
-      .col-hdr th{background:#2a4a7f!important;color:#fff!important;}
-      .sub-row td{background:#f0f4fa!important;color:#1e3a5f!important;}
-      .grand-row td{background:#1e3a5f!important;color:#fff!important;}
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:40px;max-width:780px;margin:0 auto;}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1e3a5f;}
+      .company{font-size:20px;font-weight:bold;color:#1e3a5f;}
+      .meta{font-size:11px;color:#666;margin-top:3px;}
+      .info-bar{display:flex;gap:0;margin-bottom:20px;border:1px solid #ddd;}
+      .info-cell{flex:1;padding:10px 14px;border-right:1px solid #ddd;}
+      .info-cell:last-child{border-right:none;}
+      .info-label{font-size:10px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:#888;margin-bottom:4px;}
+      .info-value{font-size:13px;color:#1a1a1a;font-weight:500;}
+      table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+      .earn-head th{font-size:10px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;background:#e8edf2;color:#444;text-align:left;border-bottom:1.5px solid #1e3a5f;}
+      .earn-head th.r{text-align:right;}
+      td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;}
+      td.r{text-align:right;}
+      .gross-row td{font-weight:bold;font-size:13px;background:#e8edf2;border-top:1.5px solid #1e3a5f;padding:10px;}
+      .footer{margin-top:24px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#999;text-align:center;}
     </style></head><body>
-    <h1>OVERSEAS PAYROLL  |  ${fmtDateRange(from,to)}</h1>
-    <div class="sub-title">Bi-Weekly Payroll  •  Check Date: ${checkFmt}</div>
-    <table><tbody>${tableHTML}</tbody></table>
+    <div class="top">
+      <div>
+        <div class="company">${company}</div>
+        <div class="meta">Overseas Payroll</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:16px;font-weight:bold;color:#1e3a5f;">PAYSLIP</div>
+        <div class="meta">Pay Period: ${label}</div>
+        ${checkFmt?`<div class="meta">Check Date: ${checkFmt}</div>`:''}
+      </div>
+    </div>
+    <div class="info-bar">
+      <div class="info-cell"><div class="info-label">Employee</div><div class="info-value">${currentUser}</div></div>
+      <div class="info-cell"><div class="info-label">Department</div><div class="info-value">${group}</div></div>
+      <div class="info-cell"><div class="info-label">Payment method</div><div class="info-value">${PAYMENT_METHODS[currentUser]||'—'}</div></div>
+      <div class="info-cell"><div class="info-label">Hourly rate</div><div class="info-value">$${rate.toFixed(2)} / hr</div></div>
+    </div>
+    <table>
+      <thead class="earn-head">
+        <tr><th>Earnings</th><th class="r">Hours</th><th class="r">Rate</th><th class="r">Current</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>
+        ${ptoPay>0?`<tr><td>PTO Pay <span style="color:#888;font-size:11px;">(${ptoDays} day${ptoDays>1?'s':''})</span></td><td class="r">${(ptoDays*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${ptoPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#aaa;">PTO Pay</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">-</td></tr>'}
+        ${holidayPay>0?`<tr><td>Holiday Pay <span style="color:#888;font-size:11px;">(${holidayCount} day${holidayCount>1?'s':''})</span></td><td class="r">${(holidayCount*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${holidayPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#aaa;">Holiday Pay</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">-</td></tr>'}
+        <tr class="gross-row"><td colspan="3">Gross Pay</td><td class="r">$${totalPay.toFixed(2)}</td></tr>
+      </tbody>
+    </table>
+    <div class="footer">This is a computer-generated payslip. For questions, contact your administrator.</div>
     </body></html>`;
 
     const win=window.open('','_blank');
@@ -1927,7 +2010,7 @@ async function downloadPayslip() {
     }
     for(const [day,dayEntries] of Object.entries(dayMap).sort()){
       let dayHours = 0;
-      for(const e of dayEntries){const h=calcWorkedHours(e);if(h!==null)dayHours+=h;}
+      for(const e of dayEntries){const b=calcBillableHours(e);if(b.total!==null)dayHours+=b.total;}
       totalHours+=dayHours;
       const d=new Date(day+'T12:00:00');
       dailyRows.push({date:d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}),hours:dayHours});
@@ -1953,64 +2036,105 @@ async function downloadPayslip() {
       dailyHTML+=`<tr><td>${r.date}</td><td style="text-align:right">${r.hours.toFixed(2)}</td><td style="text-align:right">$${(r.hours*rate).toFixed(2)}</td></tr>`;
     }
 
+    // Get reimbursements for this user in this period from payrollData if available
+    const reimb = 0; // admin sets reimbursements — shown as $0 if not set
+    const grossPay = basePay + ptoPay + holidayPay + reimb;
+
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
       *{box-sizing:border-box;margin:0;padding:0;}
-      body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:40px;}
-      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #1e3a5f;}
-      .company{font-size:22px;font-weight:bold;color:#1e3a5f;}
-      .payslip-title{font-size:14px;font-weight:bold;color:#1e3a5f;text-align:right;}
-      .payslip-meta{font-size:11px;color:#666;text-align:right;margin-top:4px;}
-      .section{margin-bottom:20px;}
-      .section-title{font-size:11px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;color:#1e3a5f;background:#f0f4fa;padding:6px 10px;margin-bottom:0;}
+      body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:36px;max-width:750px;margin:0 auto;}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:14px;border-bottom:3px solid #1e3a5f;}
+      .company{font-size:20px;font-weight:bold;color:#1e3a5f;}
+      .company-sub{font-size:11px;color:#888;margin-top:3px;}
+      .ps-title{font-size:20px;font-weight:bold;color:#1e3a5f;text-align:right;}
+      .ps-meta{font-size:11px;color:#666;text-align:right;margin-top:4px;}
+      .emp-row{display:flex;justify-content:space-between;gap:20px;margin-bottom:18px;}
+      .emp-box{flex:1;}
+      .emp-line{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid #eee;}
+      .emp-label{color:#666;}
+      .emp-val{font-weight:500;}
+      .section-hdr{background:#d8e4f0;font-size:11px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;color:#1e3a5f;margin-top:16px;}
       table{width:100%;border-collapse:collapse;}
-      th{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;padding:7px 10px;background:#1e3a5f;color:#fff;text-align:left;}
-      td{padding:7px 10px;border-bottom:1px solid #e8e8e8;}
-      tr:last-child td{border-bottom:none;}
-      .summary-table td{padding:8px 10px;}
-      .summary-table .label{color:#666;}
-      .summary-table .value{text-align:right;font-weight:500;}
-      .total-row td{font-weight:bold;font-size:13px;background:#f0f4fa;border-top:2px solid #1e3a5f;}
-      .footer{margin-top:30px;padding-top:16px;border-top:1px solid #ccc;font-size:10px;color:#999;text-align:center;}
+      .earnings-hdr th{background:#1e3a5f;color:#fff;font-size:11px;font-weight:bold;padding:7px 10px;text-align:left;}
+      .earnings-hdr th.r{text-align:right;}
+      td{padding:7px 10px;border-bottom:1px solid #eee;font-size:12px;}
+      td.r{text-align:right;}
+      td.label{color:#333;}
+      td.num{color:#1a1a1a;}
+      .dash{color:#aaa;text-align:right;}
+      .gross-row td{background:#d8e4f0;font-weight:bold;font-size:13px;border-top:2px solid #1e3a5f;padding:9px 10px;}
+      .gross-row td.r{text-align:right;color:#1e3a5f;font-size:14px;}
+      .footer{margin-top:24px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#aaa;text-align:center;}
     </style></head><body>
-    <div class="header">
+
+    <div class="top">
       <div>
         <div class="company">${company}</div>
-        <div style="font-size:12px;color:#666;margin-top:4px;">Pay Slip</div>
+        <div class="company-sub">Payslip</div>
       </div>
       <div>
-        <div class="payslip-title">PAYSLIP</div>
-        <div class="payslip-meta">Pay Period: ${label}</div>
-        ${checkFmt?`<div class="payslip-meta">Check Date: ${checkFmt}</div>`:''}
+        <div class="ps-title">PAYSLIP</div>
+        <div class="ps-meta">Pay Period: ${label}</div>
+        ${checkFmt?`<div class="ps-meta">Check Date: ${checkFmt}</div>`:''}
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Employee Information</div>
-      <table class="summary-table">
-        <tr><td class="label">Name</td><td class="value">${currentUser}</td></tr>
-        <tr><td class="label">Department</td><td class="value">${group}</td></tr>
-        <tr><td class="label">Hourly Rate</td><td class="value">$${rate.toFixed(2)}/hr</td></tr>
-      </table>
+    <div class="emp-row">
+      <div class="emp-box">
+        <div class="emp-line"><span class="emp-label">Employee Name</span><span class="emp-val">${currentUser}</span></div>
+        <div class="emp-line"><span class="emp-label">Department</span><span class="emp-val">${group}</span></div>
+      </div>
+      <div class="emp-box">
+        <div class="emp-line"><span class="emp-label">Hourly Rate</span><span class="emp-val">$${rate.toFixed(2)} / hr</span></div>
+        <div class="emp-line"><span class="emp-label">Payment Method</span><span class="emp-val">${PAYMENT_METHODS[currentUser]||'—'}</span></div>
+      </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Daily Breakdown</div>
-      <table>
-        <thead><tr><th>Date</th><th style="text-align:right">Hours</th><th style="text-align:right">Amount</th></tr></thead>
-        <tbody>${dailyHTML}</tbody>
-      </table>
-    </div>
+    <div class="section-hdr">Earnings</div>
+    <table>
+      <thead class="earnings-hdr">
+        <tr><th>Description</th><th class="r">Hours</th><th class="r">Rate</th><th class="r">Current</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="label">Standard Pay</td>
+          <td class="r num">${totalHours.toFixed(2)}</td>
+          <td class="r num">$${rate.toFixed(2)}</td>
+          <td class="r num">$${basePay.toFixed(2)}</td>
+        </tr>
+        ${holidayPay>0?`<tr>
+          <td class="label">Holiday Pay (${holidayCount} day${holidayCount>1?'s':''})</td>
+          <td class="r num">${(holidayCount*8).toFixed(2)}</td>
+          <td class="r num">$${rate.toFixed(2)}</td>
+          <td class="r num">$${holidayPay.toFixed(2)}</td>
+        </tr>`:''}
+        ${ptoPay>0?`<tr>
+          <td class="label">PTO Pay (${ptoDays} day${ptoDays>1?'s':''})</td>
+          <td class="r num">${(ptoDays*8).toFixed(2)}</td>
+          <td class="r num">$${rate.toFixed(2)}</td>
+          <td class="r num">$${ptoPay.toFixed(2)}</td>
+        </tr>`:''}
+        <tr>
+          <td class="label">Reimbursements</td>
+          <td class="r dash">—</td>
+          <td class="r dash">—</td>
+          <td class="r ${reimb>0?'num':'dash'}">${reimb>0?'$'+reimb.toFixed(2):'—'}</td>
+        </tr>
+        <tr class="gross-row">
+          <td colspan="3"><strong>GROSS PAY</strong></td>
+          <td class="r"><strong>$${grossPay.toFixed(2)}</strong></td>
+        </tr>
+      </tbody>
+    </table>
 
-    <div class="section">
-      <div class="section-title">Pay Summary</div>
-      <table class="summary-table">
-        <tr><td class="label">Regular Hours</td><td class="value">${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}</td><td class="value">$${basePay.toFixed(2)}</td></tr>
-        ${ptoPay>0?`<tr><td class="label">PTO Pay (${ptoDays} day${ptoDays>1?'s':''})</td><td class="value">${ptoDays} × 8hrs × $${rate.toFixed(2)}</td><td class="value">$${ptoPay.toFixed(2)}</td></tr>`:''}
-        ${holidayPay>0?`<tr><td class="label">Holiday Pay (${holidayCount} day${holidayCount>1?'s':''})</td><td class="value">${holidayCount} × 8hrs × $${rate.toFixed(2)}</td><td class="value">$${holidayPay.toFixed(2)}</td></tr>`:''}
-        <tr class="total-row"><td colspan="2">TOTAL</td><td class="value">$${totalPay.toFixed(2)}</td></tr>
-      </table>
-    </div>
+    <div class="section-hdr" style="margin-top:20px;">Daily Breakdown</div>
+    <table>
+      <thead class="earnings-hdr">
+        <tr><th>Date</th><th class="r">Hours</th><th class="r">Amount</th></tr>
+      </thead>
+      <tbody>${dailyHTML}</tbody>
+    </table>
 
     <div class="footer">This is a computer-generated payslip. For questions, contact your administrator.</div>
     </body></html>`;
