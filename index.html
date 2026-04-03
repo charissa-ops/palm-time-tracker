@@ -258,6 +258,20 @@
       <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">If you clocked in before 9:00 AM and need your actual time counted, submit a request here.</div>
       <div id="user-time-edit-list"><div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div></div>
     </div>
+
+    <!-- PAYSLIP DOWNLOAD -->
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title" style="margin-bottom:0">Download Payslip</div>
+      </div>
+      <div class="field">
+        <label>Select Pay Period</label>
+        <select id="user-payperiod-select">
+          <option value="">— Select a pay period —</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="downloadPayslip()" style="width:100%;">⬇ Download Payslip (PDF)</button>
+    </div>
   </div>
 </div>
 
@@ -279,6 +293,7 @@
       <button class="tab-btn" id="tab-btn-payroll" onclick="switchTab('payroll')">Payroll Export</button>
       <button class="tab-btn" id="tab-btn-leave" onclick="switchTab('leave')">Leave Requests</button>
       <button class="tab-btn" id="tab-btn-holidays" onclick="switchTab('holidays')">Holidays</button>
+      <button class="tab-btn" id="tab-btn-payperiods" onclick="switchTab('payperiods')">Pay Periods</button>
     </div>
     <div id="tab-entries" class="tab-pane active">
       <div class="card">
@@ -372,6 +387,51 @@
         </div>
         <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Holidays automatically add 8hrs × hourly rate to each staff member's Extras in payroll.</p>
         <div id="admin-holidays-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🗓</div>No holidays added yet.</div></div>
+      </div>
+    </div>
+
+    <!-- PAY PERIODS TAB -->
+    <div id="tab-payperiods" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Pay Periods</div>
+          <button class="btn btn-primary btn-sm" onclick="openPayPeriodModal()">+ Add Pay Period</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Finalized pay periods will appear in staff's payslip download dropdown.</p>
+        <div id="admin-payperiods-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAY PERIOD MODAL -->
+<div id="payperiod-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Add Pay Period</div>
+    <div class="modal-sub">Once finalized, staff can download their payslip for this period.</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Label (e.g. Mar 15 – Mar 28, 2026)</label>
+      <input type="text" id="payperiod-label" placeholder="e.g. Mar 15 – Mar 28, 2026" />
+    </div>
+    <div class="modal-row">
+      <div class="field"><label>From</label><input type="date" id="payperiod-from" /></div>
+      <div class="field"><label>To</label><input type="date" id="payperiod-to" /></div>
+    </div>
+    <div class="field">
+      <label>Check Date</label>
+      <input type="date" id="payperiod-check-date" />
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <select id="payperiod-status">
+        <option value="Draft">Draft (hidden from staff)</option>
+        <option value="Finalized">Finalized (visible to staff)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closePayPeriodModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="savePayPeriod()">Save Pay Period</button>
       </div>
     </div>
   </div>
@@ -678,6 +738,7 @@ async function enterUserDashboard(){
   await loadUserDashboard();
   loadUserLeave();
   loadUserTimeEditRequests();
+  loadUserPayPeriods();
 }
 
 async function loadUserDashboard(){
@@ -797,7 +858,7 @@ function renderAdminTable(list){
 function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
 
 function switchTab(tab){
-  ['entries','summary','payroll','leave','holidays'].forEach(t=>{
+  ['entries','summary','payroll','leave','holidays','payperiods'].forEach(t=>{
     document.getElementById('tab-btn-'+t).classList.toggle('active',tab===t);
     document.getElementById('tab-'+t).classList.toggle('active',tab===t);
   });
@@ -805,6 +866,7 @@ function switchTab(tab){
   if(tab==='payroll')loadPayrollPreview();
   if(tab==='leave')loadAdminLeave();
   if(tab==='holidays')loadAdminHolidays();
+  if(tab==='payperiods')loadAdminPayPeriods();
 }
 
 // ── Hours Summary ──
@@ -1718,6 +1780,247 @@ ${note?`*Note:* ${note}`:''}`
     await loadAdminLeave();
   } catch(e) { showToast('Error saving','error'); console.error(e); }
   finally { hideLoading(); }
+}
+
+
+// ══════════ PAY PERIODS & PAYSLIPS ══════════
+const PAY_PERIODS_TABLE = 'pay_periods';
+
+async function getPayPeriods(onlyFinalized=false) {
+  let qs = `${PAY_PERIODS_TABLE}?order=date_from.desc`;
+  if(onlyFinalized) qs += `&status=eq.Finalized`;
+  return await sbFetch(qs);
+}
+async function insertPayPeriod(row) { return await sbFetch(PAY_PERIODS_TABLE,'POST',row); }
+async function updatePayPeriod(id,patch) { return await sbFetch(`${PAY_PERIODS_TABLE}?id=eq.${id}`,'PATCH',patch); }
+async function deletePayPeriod(id) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${PAY_PERIODS_TABLE}?id=eq.${id}`,{
+    method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+  });
+  if(!res.ok) throw new Error('Delete failed');
+}
+
+// ── Admin: pay period modal ──
+function openPayPeriodModal() {
+  document.getElementById('payperiod-label').value = '';
+  document.getElementById('payperiod-from').value = '';
+  document.getElementById('payperiod-to').value = '';
+  document.getElementById('payperiod-check-date').value = '';
+  document.getElementById('payperiod-status').value = 'Draft';
+  document.getElementById('payperiod-modal-overlay').classList.remove('hidden');
+}
+function closePayPeriodModal() { document.getElementById('payperiod-modal-overlay').classList.add('hidden'); }
+document.getElementById('payperiod-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closePayPeriodModal();});
+
+async function savePayPeriod() {
+  const label = document.getElementById('payperiod-label').value.trim();
+  const from = document.getElementById('payperiod-from').value;
+  const to = document.getElementById('payperiod-to').value;
+  const checkDate = document.getElementById('payperiod-check-date').value;
+  const status = document.getElementById('payperiod-status').value;
+  if(!label){showToast('Please enter a label','error');return;}
+  if(!from||!to){showToast('Please select dates','error');return;}
+  showLoading('Saving...');
+  try {
+    await insertPayPeriod({id:Date.now(),label,date_from:from,date_to:to,check_date:checkDate||null,status});
+    showToast('Pay period saved ✓','success');
+    closePayPeriodModal();
+    await loadAdminPayPeriods();
+  } catch(e){showToast('Error saving','error');console.error(e);}
+  finally{hideLoading();}
+}
+
+async function loadAdminPayPeriods() {
+  showLoading('Loading pay periods...');
+  try {
+    const list = await getPayPeriods();
+    renderAdminPayPeriods(list);
+  } catch(e){showToast('Error loading','error');console.error(e);}
+  finally{hideLoading();}
+}
+
+function renderAdminPayPeriods(list) {
+  const el = document.getElementById('admin-payperiods-list');
+  if(!list||!list.length){el.innerHTML='<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div>';return;}
+  let html='<table><thead><tr><th>Label</th><th>Period</th><th>Check Date</th><th>Status</th><th></th></tr></thead><tbody>';
+  for(const p of list){
+    const statusColor = p.status==='Finalized'?'var(--green)':'var(--orange)';
+    html+=`<tr>
+      <td style="color:var(--text);font-family:'Syne',sans-serif;font-weight:500;">${p.label}</td>
+      <td>${fmtLeaveDate(p.date_from)} – ${fmtLeaveDate(p.date_to)}</td>
+      <td>${p.check_date?fmtLeaveDate(p.check_date):'—'}</td>
+      <td><span style="color:${statusColor};font-size:12px;font-weight:600;">${p.status}</span></td>
+      <td style="display:flex;gap:6px;">
+        ${p.status==='Draft'?`<button class="admin-edit-btn" style="color:var(--green);border-color:#205a30;" onclick="finalizePayPeriod(${p.id})">Finalize</button>`:''}
+        <button class="admin-edit-btn" style="color:var(--red);border-color:#5a2020;" onclick="deletePayPeriodItem(${p.id})">Delete</button>
+      </td>
+    </tr>`;
+  }
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+async function finalizePayPeriod(id) {
+  showLoading('Finalizing...');
+  try {
+    await updatePayPeriod(id,{status:'Finalized'});
+    showToast('Pay period finalized ✓','success');
+    await loadAdminPayPeriods();
+  } catch(e){showToast('Error','error');}
+  finally{hideLoading();}
+}
+
+async function deletePayPeriodItem(id) {
+  if(!confirm('Delete this pay period?'))return;
+  showLoading('Deleting...');
+  try {
+    await deletePayPeriod(id);
+    showToast('Deleted','success');
+    await loadAdminPayPeriods();
+  } catch(e){showToast('Error deleting','error');}
+  finally{hideLoading();}
+}
+
+// ── User: load finalized pay periods into dropdown ──
+async function loadUserPayPeriods() {
+  try {
+    const list = await getPayPeriods(true);
+    const sel = document.getElementById('user-payperiod-select');
+    sel.innerHTML = '<option value="">— Select a pay period —</option>';
+    for(const p of list){
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label;
+      opt.dataset.from = p.date_from;
+      opt.dataset.to = p.date_to;
+      opt.dataset.check = p.check_date||'';
+      sel.appendChild(opt);
+    }
+  } catch(e){console.error(e);}
+}
+
+// ── User: download payslip PDF ──
+async function downloadPayslip() {
+  const sel = document.getElementById('user-payperiod-select');
+  const opt = sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){showToast('Please select a pay period','error');return;}
+  const from = opt.dataset.from;
+  const to = opt.dataset.to;
+  const checkDate = opt.dataset.check;
+  const label = opt.textContent;
+  showLoading('Generating payslip...');
+  try {
+    // Get entries for this period
+    const entries = await getEntries({name:currentUser,from,to});
+    let totalHours = 0;
+    const dailyRows = [];
+    const rate = RATES[currentUser]||0;
+    const group = USERS[currentUser]?.group||'';
+    const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
+
+    // Group by day
+    const dayMap = {};
+    for(const e of entries){
+      const day = toESTDateStr(e.clock_in);
+      if(!dayMap[day]) dayMap[day]=[];
+      dayMap[day].push(e);
+    }
+    for(const [day,dayEntries] of Object.entries(dayMap).sort()){
+      let dayHours = 0;
+      for(const e of dayEntries){const h=calcWorkedHours(e);if(h!==null)dayHours+=h;}
+      totalHours+=dayHours;
+      const d=new Date(day+'T12:00:00');
+      dailyRows.push({date:d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}),hours:dayHours});
+    }
+
+    // PTO
+    const ptoDays = await getPTODaysInRange(currentUser,from,to);
+    const ptoPay = ptoDays*8*rate;
+
+    // Holidays
+    const holidays = await getHolidays();
+    const holidayCount = countHolidaysInRange(from,to,holidays);
+    const holidayPay = holidayCount*8*rate;
+
+    const basePay = totalHours*rate;
+    const totalPay = basePay+ptoPay+holidayPay;
+
+    const checkFmt = checkDate?new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'';
+
+    // Build daily breakdown rows
+    let dailyHTML='';
+    for(const r of dailyRows){
+      dailyHTML+=`<tr><td>${r.date}</td><td style="text-align:right">${r.hours.toFixed(2)}</td><td style="text-align:right">$${(r.hours*rate).toFixed(2)}</td></tr>`;
+    }
+
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:40px;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #1e3a5f;}
+      .company{font-size:22px;font-weight:bold;color:#1e3a5f;}
+      .payslip-title{font-size:14px;font-weight:bold;color:#1e3a5f;text-align:right;}
+      .payslip-meta{font-size:11px;color:#666;text-align:right;margin-top:4px;}
+      .section{margin-bottom:20px;}
+      .section-title{font-size:11px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;color:#1e3a5f;background:#f0f4fa;padding:6px 10px;margin-bottom:0;}
+      table{width:100%;border-collapse:collapse;}
+      th{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;padding:7px 10px;background:#1e3a5f;color:#fff;text-align:left;}
+      td{padding:7px 10px;border-bottom:1px solid #e8e8e8;}
+      tr:last-child td{border-bottom:none;}
+      .summary-table td{padding:8px 10px;}
+      .summary-table .label{color:#666;}
+      .summary-table .value{text-align:right;font-weight:500;}
+      .total-row td{font-weight:bold;font-size:13px;background:#f0f4fa;border-top:2px solid #1e3a5f;}
+      .footer{margin-top:30px;padding-top:16px;border-top:1px solid #ccc;font-size:10px;color:#999;text-align:center;}
+    </style></head><body>
+    <div class="header">
+      <div>
+        <div class="company">${company}</div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">Pay Slip</div>
+      </div>
+      <div>
+        <div class="payslip-title">PAYSLIP</div>
+        <div class="payslip-meta">Pay Period: ${label}</div>
+        ${checkFmt?`<div class="payslip-meta">Check Date: ${checkFmt}</div>`:''}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Employee Information</div>
+      <table class="summary-table">
+        <tr><td class="label">Name</td><td class="value">${currentUser}</td></tr>
+        <tr><td class="label">Department</td><td class="value">${group}</td></tr>
+        <tr><td class="label">Hourly Rate</td><td class="value">$${rate.toFixed(2)}/hr</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Daily Breakdown</div>
+      <table>
+        <thead><tr><th>Date</th><th style="text-align:right">Hours</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>${dailyHTML}</tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Pay Summary</div>
+      <table class="summary-table">
+        <tr><td class="label">Regular Hours</td><td class="value">${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}</td><td class="value">$${basePay.toFixed(2)}</td></tr>
+        ${ptoPay>0?`<tr><td class="label">PTO Pay (${ptoDays} day${ptoDays>1?'s':''})</td><td class="value">${ptoDays} × 8hrs × $${rate.toFixed(2)}</td><td class="value">$${ptoPay.toFixed(2)}</td></tr>`:''}
+        ${holidayPay>0?`<tr><td class="label">Holiday Pay (${holidayCount} day${holidayCount>1?'s':''})</td><td class="value">${holidayCount} × 8hrs × $${rate.toFixed(2)}</td><td class="value">$${holidayPay.toFixed(2)}</td></tr>`:''}
+        <tr class="total-row"><td colspan="2">TOTAL</td><td class="value">$${totalPay.toFixed(2)}</td></tr>
+      </table>
+    </div>
+
+    <div class="footer">This is a computer-generated payslip. For questions, contact your administrator.</div>
+    </body></html>`;
+
+    const win=window.open('','_blank');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(()=>{win.print();hideLoading();showToast('Payslip ready ✓','success');},600);
+  } catch(e){showToast('Error generating payslip','error');console.error(e);hideLoading();}
 }
 
 </script>
