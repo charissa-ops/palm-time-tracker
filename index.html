@@ -294,6 +294,7 @@
       <button class="tab-btn" id="tab-btn-leave" onclick="switchTab('leave')">Leave Requests</button>
       <button class="tab-btn" id="tab-btn-holidays" onclick="switchTab('holidays')">Holidays</button>
       <button class="tab-btn" id="tab-btn-payperiods" onclick="switchTab('payperiods')">Pay Periods</button>
+      <button class="tab-btn" id="tab-btn-logins" onclick="switchTab('logins')">Login Activity</button>
     </div>
     <div id="tab-entries" class="tab-pane active">
       <div class="card">
@@ -399,6 +400,40 @@
         </div>
         <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Finalized pay periods will appear in staff's payslip download dropdown.</p>
         <div id="admin-payperiods-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div></div>
+      </div>
+    </div>
+
+    <!-- LOGIN ACTIVITY TAB -->
+    <div id="tab-logins" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Login Activity</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadLoginActivity()">↻ Refresh</button>
+        </div>
+        <div class="filter-row">
+          <select id="login-filter-name" onchange="loadLoginActivity()" style="flex:1;min-width:160px;">
+            <option value="">All Staff</option>
+            <optgroup label="PALM PARTNERS">
+              <option>Charissa Mercado</option><option>Camille Uy</option>
+              <option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option>
+            </optgroup>
+            <optgroup label="PALM BUILD">
+              <option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option>
+              <option>Janna Alonto</option><option>John Lester Solano</option>
+              <option>Kristina Marie (Kim) Mercado</option><option>Elvin Juvel C. Pizarras</option>
+              <option>Bridgette Anne Benolirao</option><option>Ren Tan</option>
+              <option>Griz Fuentes</option><option>May Castillo</option>
+              <option>Ciara Andrade</option><option>Miko Dioquino</option>
+            </optgroup>
+          </select>
+          <div class="date-filter">
+            <input type="date" id="login-filter-date-from" onchange="loadLoginActivity()" />
+            <span style="color:var(--text3);font-size:12px;">to</span>
+            <input type="date" id="login-filter-date-to" onchange="loadLoginActivity()" />
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="clearLoginFilters()">Clear</button>
+        </div>
+        <div id="admin-login-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">👤</div>No login activity yet.</div></div>
       </div>
     </div>
   </div>
@@ -609,6 +644,10 @@ async function sbFetch(path, method='GET', body=null) {
   return text ? JSON.parse(text) : null;
 }
 
+async function logLogin(name) {
+  try { await sbFetch('login_logs','POST',{id:Date.now(),name}); } catch(e){}
+}
+
 async function getEntries(f={}) {
   let qs = `${TABLE}?select=*&order=clock_in.desc`;
   if (f.name) qs += `&name=eq.${encodeURIComponent(f.name)}`;
@@ -739,6 +778,7 @@ async function enterUserDashboard(){
   loadUserLeave();
   loadUserTimeEditRequests();
   loadUserPayPeriods();
+  logLogin(currentUser);
 }
 
 async function loadUserDashboard(){
@@ -861,7 +901,7 @@ function renderAdminTable(list){
 function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
 
 function switchTab(tab){
-  ['entries','summary','payroll','leave','holidays','payperiods'].forEach(t=>{
+  ['entries','summary','payroll','leave','holidays','payperiods','logins'].forEach(t=>{
     document.getElementById('tab-btn-'+t).classList.toggle('active',tab===t);
     document.getElementById('tab-'+t).classList.toggle('active',tab===t);
   });
@@ -870,6 +910,7 @@ function switchTab(tab){
   if(tab==='leave')loadAdminLeave();
   if(tab==='holidays')loadAdminHolidays();
   if(tab==='payperiods')loadAdminPayPeriods();
+  if(tab==='logins')loadLoginActivity();
 }
 
 // ── Hours Summary ──
@@ -2144,6 +2185,48 @@ async function downloadPayslip() {
     win.focus();
     setTimeout(()=>{win.print();hideLoading();showToast('Payslip ready ✓','success');},600);
   } catch(e){showToast('Error generating payslip','error');console.error(e);hideLoading();}
+}
+
+
+// ══════════ LOGIN ACTIVITY ══════════
+async function loadLoginActivity() {
+  showLoading('Loading login activity...');
+  try {
+    const name = document.getElementById('login-filter-name').value;
+    const from = document.getElementById('login-filter-date-from').value;
+    const to = document.getElementById('login-filter-date-to').value;
+    let qs = 'login_logs?order=logged_in_at.desc&limit=200';
+    if(name) qs += `&name=eq.${encodeURIComponent(name)}`;
+    if(from) qs += `&logged_in_at=gte.${from}T00:00:00Z`;
+    if(to) qs += `&logged_in_at=lte.${to}T23:59:59Z`;
+    const list = await sbFetch(qs);
+    renderLoginActivity(list);
+  } catch(e){showToast('Error loading activity','error');console.error(e);}
+  finally{hideLoading();}
+}
+
+function renderLoginActivity(list) {
+  const el = document.getElementById('admin-login-list');
+  if(!list||!list.length){el.innerHTML='<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">👤</div>No login activity yet.</div>';return;}
+  let html='<table><thead><tr><th>Name</th><th>Group</th><th>Date</th><th>Time</th></tr></thead><tbody>';
+  for(const r of list){
+    const group = USERS[r.name]?USERS[r.name].group:'—';
+    html+=`<tr>
+      <td class="name-col">${r.name}</td>
+      <td style="color:var(--text3);font-size:11px;">${group}</td>
+      <td>${fmtDate(r.logged_in_at)}</td>
+      <td>${fmtTime(r.logged_in_at)}</td>
+    </tr>`;
+  }
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+function clearLoginFilters(){
+  document.getElementById('login-filter-name').value='';
+  document.getElementById('login-filter-date-from').value='';
+  document.getElementById('login-filter-date-to').value='';
+  loadLoginActivity();
 }
 
 </script>
