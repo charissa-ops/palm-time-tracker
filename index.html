@@ -259,19 +259,7 @@
       <div id="user-time-edit-list"><div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div></div>
     </div>
 
-    <!-- PAYSLIP DOWNLOAD -->
-    <div class="card">
-      <div class="card-title-row">
-        <div class="card-title" style="margin-bottom:0">Download Payslip</div>
-      </div>
-      <div class="field">
-        <label>Select Pay Period</label>
-        <select id="user-payperiod-select">
-          <option value="">— Select a pay period —</option>
-        </select>
-      </div>
-      <button class="btn btn-primary" onclick="downloadPayslip()" style="width:100%;">⬇ Download Payslip (PDF)</button>
-    </div>
+
   </div>
 </div>
 
@@ -398,7 +386,7 @@
           <div class="card-title" style="margin-bottom:0">Pay Periods</div>
           <button class="btn btn-primary btn-sm" onclick="openPayPeriodModal()">+ Add Pay Period</button>
         </div>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Finalized pay periods will appear in staff's payslip download dropdown.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Finalized pay periods — click Send Payslips to DM each staff member their payslip via Slack.</p>
         <div id="admin-payperiods-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div></div>
       </div>
     </div>
@@ -777,7 +765,6 @@ async function enterUserDashboard(){
   await loadUserDashboard();
   loadUserLeave();
   loadUserTimeEditRequests();
-  loadUserPayPeriods();
   logLogin(currentUser);
 }
 
@@ -1973,8 +1960,9 @@ function renderAdminPayPeriods(list) {
       <td>${fmtLeaveDate(p.date_from)} – ${fmtLeaveDate(p.date_to)}</td>
       <td>${p.check_date?fmtLeaveDate(p.check_date):'—'}</td>
       <td><span style="color:${statusColor};font-size:12px;font-weight:600;">${p.status}</span></td>
-      <td style="display:flex;gap:6px;">
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
         ${p.status==='Draft'?`<button class="admin-edit-btn" style="color:var(--green);border-color:#205a30;" onclick="finalizePayPeriod(${p.id})">Finalize</button>`:''}
+        ${p.status==='Finalized'?`<button class="admin-edit-btn" style="color:var(--accent);border-color:#4a6020;" onclick="sendPayslips(${p.id},'${p.label.replace(/'/g,'\'')}','${p.date_from}','${p.date_to}','${p.check_date||''}')">📤 Send Payslips</button>`:''}
         <button class="admin-edit-btn" style="color:var(--red);border-color:#5a2020;" onclick="deletePayPeriodItem(${p.id})">Delete</button>
       </td>
     </tr>`;
@@ -2227,6 +2215,87 @@ function clearLoginFilters(){
   document.getElementById('login-filter-date-from').value='';
   document.getElementById('login-filter-date-to').value='';
   loadLoginActivity();
+}
+
+
+// ══════════ SEND PAYSLIPS VIA SLACK ══════════
+async function sendPayslips(periodId, label, from, to, checkDate) {
+  if(!confirm(`Send payslips for "${label}" to all 16 staff via Slack DM?`)) return;
+  showLoading('Sending payslips...');
+  const results = [];
+  try {
+    const allEntries = await getEntries({from, to});
+    const holidays = await getHolidays();
+    const holidayCount = countHolidaysInRange(from, to, holidays);
+    const checkFmt = checkDate ? new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
+
+    for(const name of Object.keys(USERS)) {
+      const slackId = SLACK_IDS[name];
+      if(!slackId) continue;
+      const rate = RATES[name]||0;
+      const group = USERS[name]?.group||'';
+      const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
+
+      // Calc billable hours
+      const userEntries = allEntries.filter(e=>e.name===name);
+      let totalHours = 0;
+      for(const e of userEntries){const b=calcBillableHours(e);if(b.total!==null)totalHours+=b.total;}
+
+      // PTO
+      const ptoDays = await getPTODaysInRange(name, from, to);
+      const ptoPay = ptoDays*8*rate;
+      const holidayPay = holidayCount*8*rate;
+      const basePay = totalHours*rate;
+      const totalPay = basePay+ptoPay+holidayPay;
+
+      // Build Slack message with payslip summary
+      const ptoLine = ptoPay>0?`• PTO Pay (${ptoDays} day${ptoDays>1?'s':''}): $${ptoPay.toFixed(2)}
+`:'';
+      const holLine = holidayPay>0?`• Holiday Pay (${holidayCount} day${holidayCount>1?'s':''}): $${holidayPay.toFixed(2)}
+`:'';
+      const firstName = name.split(' ')[0];
+
+      const message =
+        `💰 *Payslip — ${label}*
+
+` +
+        `*${company}*
+` +
+        `Employee: ${name}
+` +
+        `Pay Period: ${label}
+` +
+        `${checkFmt?`Check Date: ${checkFmt}
+`:''}
+` +
+        `*Earnings:*
+` +
+        `• Regular Pay (${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}): $${basePay.toFixed(2)}
+` +
+        ptoLine +
+        holLine +
+        `
+*Gross Pay: $${totalPay.toFixed(2)}*
+
+` +
+        `_This is your official payslip for the above pay period. For questions, contact Charissa._`;
+
+      // Send via slack-notify edge function
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+          body:JSON.stringify({userId:slackId, message})
+        });
+        results.push(`✅ ${name}`);
+      } catch(e) {
+        results.push(`❌ ${name}: failed`);
+      }
+    }
+    showToast(`Payslips sent to ${results.filter(r=>r.startsWith('✅')).length} staff ✓`,'success');
+    console.log('Payslip send results:', results);
+  } catch(e){showToast('Error sending payslips','error');console.error(e);}
+  finally{hideLoading();}
 }
 
 </script>
