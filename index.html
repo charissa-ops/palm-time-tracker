@@ -780,8 +780,8 @@ async function loadUserDashboard(){
     else if(onBreak){el.textContent='On Break';el.style.color='var(--orange)';}
     else{el.textContent='Clocked In';el.style.color='var(--green)';}
     const today=todayESTStr();
-    const todayH=all.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{const h=calcWorkedHours(e);return h!==null?s+h:s;},0);
-    const totalH=all.reduce((s,e)=>{const h=calcWorkedHours(e);return h!==null?s+h:s;},0);
+    const todayH=all.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+    const totalH=all.reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
     document.getElementById('stat-today').textContent=todayH.toFixed(1)+'h';
     document.getElementById('stat-total-hours').textContent=totalH.toFixed(1)+'h';
     document.getElementById('btn-clock-in').disabled=isIn;
@@ -796,8 +796,12 @@ async function loadUserDashboard(){
 function renderUserTable(list){
   const el=document.getElementById('user-entries-table');
   if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">⏱</div>No entries yet. Clock in to start!</div>';return;}
-  let html='<table><thead><tr><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Hours</th><th>Status</th></tr></thead><tbody>';
-  for(const e of list){const h=calcWorkedHours(e);const{st,pl}=entryStatus(e);html+=`<tr><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td></tr>`;}
+  let html='<table><thead><tr><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Billable Hrs</th><th>Status</th></tr></thead><tbody>';
+  for(const e of list){
+    const billable=calcBillableHours(e);
+    const{st,pl}=entryStatus(e);
+    html+=`<tr><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${billable.total!==null?billable.total.toFixed(2)+'h':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td></tr>`;
+  }
   html+='</tbody></table>';el.innerHTML=html;
 }
 
