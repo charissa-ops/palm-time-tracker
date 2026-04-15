@@ -2390,7 +2390,7 @@ function renderStaffOverview(activeMap) {
   if(!el) return;
   const groups = {'PALM PARTNERS':[], 'PALM BUILD':[]};
   for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
-  let html = '<div class="staff-grid">';
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">';
   for(const [group, names] of Object.entries(groups)) {
     for(const name of names) {
       const status = activeMap[name] || 'out';
@@ -2398,15 +2398,17 @@ function renderStaffOverview(activeMap) {
       const dotClass = status==='in'?'green':status==='break'?'orange':'gray';
       const cardClass = status==='in'?'status-in':status==='break'?'status-break':'status-out';
       const initials = name.split(' ').map(n=>n[0]).slice(0,2).join('');
-      html += `<div class="staff-card ${cardClass}" onclick="openStaffProfile('${name.replace(/'/g,"\'")}')">
+      const leftBorderColor = dotClass==='green'?'var(--green)':dotClass==='orange'?'var(--orange)':'var(--surface3)';
+      const statusTextColor = dotClass==='green'?'var(--green)':dotClass==='orange'?'var(--orange)':'var(--text3)';
+      html += `<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${leftBorderColor};border-radius:8px;padding:.875rem 1rem;cursor:pointer;transition:all .15s;" onclick="openStaffProfile('${name.replace(/'/g,"\'")}')">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
-            <div class="staff-card-name">${name}</div>
-            <div class="staff-card-group">${group}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">${name}</div>
+            <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;">${group}</div>
           </div>
-          <div class="staff-card-status" style="flex-shrink:0;margin-left:8px;">
-            <div class="status-dot ${dotClass}"></div>
-            <span style="color:var(--${dotClass==='green'?'green':dotClass==='orange'?'orange':'text3'})">${statusLabel}</span>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:8px;">
+            <div style="width:7px;height:7px;border-radius:50%;background:${leftBorderColor};"></div>
+            <span style="font-size:11px;font-weight:600;color:${statusTextColor};">${statusLabel}</span>
           </div>
         </div>
       </div>`;
