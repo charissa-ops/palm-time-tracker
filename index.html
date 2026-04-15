@@ -285,6 +285,15 @@
       <button class="tab-btn" id="tab-btn-logins" onclick="switchTab('logins')">Login Activity</button>
     </div>
     <div id="tab-entries" class="tab-pane active">
+      <!-- Staff Overview Grid -->
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0;">Staff Overview</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadAdminDashboard()">↻ Refresh</button>
+        </div>
+        <div id="staff-overview-grid"></div>
+      </div>
+      <!-- All Entries -->
       <div class="card">
         <div class="card-title">All Time Entries</div>
         <div class="filter-row">
@@ -503,6 +512,46 @@
       <button class="btn btn-ghost btn-sm" onclick="closeTimeEditModal()">Cancel</button>
       <div class="modal-actions-right">
         <button class="btn btn-primary btn-sm" onclick="submitTimeEditRequest()">Submit Request</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STAFF PROFILE MODAL -->
+<div id="profile-modal-overlay" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px;">
+    <div class="profile-header">
+      <div class="profile-avatar" id="profile-avatar">CM</div>
+      <div>
+        <div class="profile-name" id="profile-name">—</div>
+        <div class="profile-meta" id="profile-meta">—</div>
+      </div>
+      <div style="margin-left:auto;">
+        <div id="profile-status-badge"></div>
+      </div>
+    </div>
+    <div class="profile-stats">
+      <div class="profile-stat"><div class="profile-stat-label">Today</div><div class="profile-stat-val" id="profile-today">—</div></div>
+      <div class="profile-stat"><div class="profile-stat-label">This Week</div><div class="profile-stat-val" id="profile-week">—</div></div>
+      <div class="profile-stat"><div class="profile-stat-label">Total</div><div class="profile-stat-val" id="profile-total">—</div></div>
+    </div>
+
+    <!-- Extras / Incentives -->
+    <div class="modal-section" style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;">
+      <span>Extras / Incentives</span>
+      <button class="edit-action-btn" onclick="addExtraRow()">+ Add</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:.75rem;">These will be included in the payslip when you send it.</div>
+    <div id="profile-extras-container"></div>
+
+    <!-- Recent entries -->
+    <div class="modal-section" style="margin-top:1rem;">Recent Entries</div>
+    <div id="profile-recent-entries" style="overflow-x:auto;"></div>
+
+    <div class="modal-actions" style="margin-top:1.25rem;">
+      <button class="btn btn-ghost btn-sm" onclick="closeProfileModal()">Close</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="saveExtras()">Save Extras</button>
       </div>
     </div>
   </div>
@@ -853,7 +902,7 @@ async function breakEnd(){
 }
 
 // ── Admin Dashboard ──
-async function enterAdminDashboard(){showScreen('admin');startClock('admin-live-clock','admin-date-display');await loadAdminEntries();}
+async function enterAdminDashboard(){showScreen('admin');startClock('admin-live-clock','admin-date-display');await loadAdminEntries();await loadAdminDashboard();}
 
 async function loadAdminEntries(){
   showLoading('Loading entries...');
@@ -884,7 +933,7 @@ function renderAdminTable(list){
     const billable=calcBillableHours(e);
     const flagClass=billable.flagged?'style="background:#3a2a0a"':'';
     const flagBadge=billable.flagged?'<span style="font-size:10px;color:var(--orange);font-weight:600;margin-left:6px;">⚑ OT</span>':'';
-    html+=`<tr ${flagClass}><td class="name-col">${e.name}${flagBadge}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td>${billable.total!==null?'<span style="color:var(--accent)">'+billable.total.toFixed(2)+'h</span>':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td></tr>`;
+    html+=`<tr ${flagClass}><td class="name-col" style="cursor:pointer;" onclick="openStaffProfile('${e.name.replace(/'/g,"\'")}')">${e.name}${flagBadge}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td>${billable.total!==null?'<span style="color:var(--accent)">'+billable.total.toFixed(2)+'h</span>':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td></tr>`;
   }
   html+='</tbody></table>';el.innerHTML=html;
 }
@@ -930,7 +979,7 @@ async function loadHoursSummary(){
     let html='<table><thead><tr><th>Name</th><th>Group</th><th>Total Hours</th></tr></thead><tbody>';
     for(const[group,names]of Object.entries(groups)){
       let gt=0;
-      for(const name of names){const h=hoursMap[name]||0;gt+=h;grandTotal+=h;const bw=maxH>0?Math.round((h/maxH)*100):0;html+=`<tr><td class="name-col">${name}</td><td style="color:var(--text3);font-size:11px;font-family:'DM Mono',monospace;">${group}</td><td><span style="color:var(--text);font-family:'DM Mono',monospace;">${h.toFixed(2)}h</span>${bw>0?`<span class="hours-bar" style="width:${bw}px"></span>`:''}</td></tr>`;}
+      for(const name of names){const h=hoursMap[name]||0;gt+=h;grandTotal+=h;const bw=maxH>0?Math.round((h/maxH)*100):0;html+=`<tr><td class="name-col" style="cursor:pointer;" onclick="openStaffProfile('${name.replace(/'/g,"\'")}')">${name}</td><td style="color:var(--text3);font-size:11px;font-family:'DM Mono',monospace;">${group}</td><td><span style="color:var(--text);font-family:'DM Mono',monospace;">${h.toFixed(2)}h</span>${bw>0?`<span class="hours-bar" style="width:${bw}px"></span>`:''}</td></tr>`;}
       html+=`<tr class="summary-total-row"><td colspan="2" style="color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">${group} SUBTOTAL</td><td style="color:var(--accent);font-family:'DM Mono',monospace;">${gt.toFixed(2)}h</td></tr>`;
     }
     html+=`<tr class="summary-total-row"><td colspan="2" style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;">GRAND TOTAL</td><td style="color:var(--accent);font-family:'DM Mono',monospace;font-size:16px;">${grandTotal.toFixed(2)}h</td></tr></tbody></table>`;
@@ -1308,6 +1357,7 @@ async function exportPayrollPDF(){
         <tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>
         ${ptoPay>0?`<tr><td>PTO Pay <span style="color:#888;font-size:11px;">(${ptoDays} day${ptoDays>1?'s':''})</span></td><td class="r">${(ptoDays*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${ptoPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#aaa;">PTO Pay</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">-</td></tr>'}
         ${holidayPay>0?`<tr><td>Holiday Pay <span style="color:#888;font-size:11px;">(${holidayCount} day${holidayCount>1?'s':''})</span></td><td class="r">${(holidayCount*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${holidayPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#aaa;">Holiday Pay</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">—</td><td class="r" style="color:#aaa;">-</td></tr>'}
+        ${extrasRows.map(ex=>`<tr><td>${ex.label}</td><td class="r">—</td><td class="r">—</td><td class="r">$${parseFloat(ex.amount).toFixed(2)}</td></tr>`).join("")}
         <tr class="gross-row"><td colspan="3">Gross Pay</td><td class="r">$${totalPay.toFixed(2)}</td></tr>
       </tbody>
     </table>
@@ -2058,7 +2108,15 @@ async function downloadPayslip() {
     const holidayPay = holidayCount*8*rate;
 
     const basePay = totalHours*rate;
-    const totalPay = basePay+ptoPay+holidayPay;
+    // Load extras for this person
+    let extrasRows = [];
+    let extrasTotal = 0;
+    try {
+      const extras = await sbFetch(`${EXTRAS_TABLE}?name=eq.${encodeURIComponent(currentUser)}&order=created_at.asc`);
+      extrasRows = extras||[];
+      extrasTotal = extrasRows.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    } catch(e){}
+    const totalPay = basePay+ptoPay+holidayPay+extrasTotal;
 
     const checkFmt = checkDate?new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}):'';
 
@@ -2300,6 +2358,171 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
     console.log('Payslip send results:', results);
   } catch(e){showToast('Error sending payslips','error');console.error(e);}
   finally{hideLoading();}
+}
+
+
+// ══════════ STAFF OVERVIEW + PROFILE ══════════
+const EXTRAS_TABLE = 'staff_extras';
+let profileName = null;
+let profileExtras = [];
+
+// ── Staff Overview Grid ──
+async function loadAdminDashboard() {
+  try {
+    // Get all active entries
+    const active = await sbFetch(`${TABLE}?select=*&clock_out=is.null`);
+    const activeMap = {};
+    for(const e of active) {
+      const onBreak = e.breaks && e.breaks.length > 0 && !e.breaks[e.breaks.length-1].end;
+      activeMap[e.name] = onBreak ? 'break' : 'in';
+    }
+    renderStaffOverview(activeMap);
+    // Update stat cards
+    let ci=0, ob=0;
+    for(const e of active){ const lb=e.breaks&&e.breaks[e.breaks.length-1]; if(lb&&!lb.end)ob++; else ci++; }
+    document.getElementById('admin-stat-in').textContent=ci;
+    document.getElementById('admin-stat-break').textContent=ob;
+  } catch(e){console.error(e);}
+}
+
+function renderStaffOverview(activeMap) {
+  const el = document.getElementById('staff-overview-grid');
+  if(!el) return;
+  const groups = {'PALM PARTNERS':[], 'PALM BUILD':[]};
+  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  let html = '<div class="staff-grid">';
+  for(const [group, names] of Object.entries(groups)) {
+    for(const name of names) {
+      const status = activeMap[name] || 'out';
+      const statusLabel = status==='in'?'Clocked In':status==='break'?'On Break':'Out';
+      const dotClass = status==='in'?'green':status==='break'?'orange':'gray';
+      const cardClass = status==='in'?'status-in':status==='break'?'status-break':'status-out';
+      const initials = name.split(' ').map(n=>n[0]).slice(0,2).join('');
+      html += `<div class="staff-card ${cardClass}" onclick="openStaffProfile('${name.replace(/'/g,"\'")}')">
+        <div class="staff-card-name">${name}</div>
+        <div class="staff-card-group">${group}</div>
+        <div class="staff-card-status">
+          <div class="status-dot ${dotClass}"></div>
+          <span style="color:var(--${dotClass==='green'?'green':dotClass==='orange'?'orange':'text3'})">${statusLabel}</span>
+        </div>
+      </div>`;
+    }
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ── Staff Profile Modal ──
+async function openStaffProfile(name) {
+  profileName = name;
+  document.getElementById('profile-name').textContent = name;
+  const initials = name.split(' ').map(n=>n[0]).slice(0,2).join('');
+  document.getElementById('profile-avatar').textContent = initials;
+  document.getElementById('profile-meta').textContent = `${USERS[name]?.group||'—'} · $${RATES[name]?.toFixed(2)||'0.00'}/hr · ${PAYMENT_METHODS[name]||'—'}`;
+
+  // Status badge
+  const active = await sbFetch(`${TABLE}?select=*&name=eq.${encodeURIComponent(name)}&clock_out=is.null&limit=1`);
+  const activeEntry = active && active[0];
+  const onBreak = activeEntry && activeEntry.breaks && activeEntry.breaks.length>0 && !activeEntry.breaks[activeEntry.breaks.length-1].end;
+  const status = activeEntry ? (onBreak?'On Break':'Clocked In') : 'Out';
+  const statusColor = activeEntry ? (onBreak?'var(--orange)':'var(--green)') : 'var(--text3)';
+  document.getElementById('profile-status-badge').innerHTML = `<span class="status-pill" style="background:${activeEntry?(onBreak?'var(--orange-dim)':'var(--green-dim)'):'var(--surface3)'};color:${statusColor};">${status}</span>`;
+
+  // Hours stats
+  const today = todayESTStr();
+  const weekStart = (() => {
+    const et = toET(new Date().toISOString());
+    const p = n=>String(n).padStart(2,'0');
+    const ws = new Date(et); ws.setDate(et.getDate()-et.getDay());
+    return `${ws.getFullYear()}-${p(ws.getMonth()+1)}-${p(ws.getDate())}`;
+  })();
+  const allEntries = await getEntries({name});
+  const todayH = allEntries.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+  const weekH = allEntries.filter(e=>toESTDateStr(e.clock_in)>=weekStart).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+  const totalH = allEntries.reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+  document.getElementById('profile-today').textContent = todayH.toFixed(1)+'h';
+  document.getElementById('profile-week').textContent = weekH.toFixed(1)+'h';
+  document.getElementById('profile-total').textContent = totalH.toFixed(1)+'h';
+
+  // Recent entries (last 5)
+  const recent = allEntries.slice(0,5);
+  let recHtml = '';
+  if(recent.length) {
+    recHtml = '<table style="width:100%;font-size:12px;"><thead><tr><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Date</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock In</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock Out</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Billable</th></tr></thead><tbody>';
+    for(const e of recent) {
+      const b = calcBillableHours(e);
+      recHtml += `<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtDate(e.clock_in)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_in)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_out)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;">${b.total!==null?b.total.toFixed(2)+'h':'—'}</td></tr>`;
+    }
+    recHtml += '</tbody></table>';
+  } else {
+    recHtml = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">No entries yet.</div>';
+  }
+  document.getElementById('profile-recent-entries').innerHTML = recHtml;
+
+  // Load extras
+  await loadProfileExtras(name);
+
+  document.getElementById('profile-modal-overlay').classList.remove('hidden');
+}
+
+function closeProfileModal() {
+  document.getElementById('profile-modal-overlay').classList.add('hidden');
+  profileName = null; profileExtras = [];
+}
+document.getElementById('profile-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeProfileModal();});
+
+async function loadProfileExtras(name) {
+  try {
+    const list = await sbFetch(`${EXTRAS_TABLE}?name=eq.${encodeURIComponent(name)}&order=created_at.asc`);
+    profileExtras = list || [];
+    renderProfileExtras();
+  } catch(e){ profileExtras=[]; renderProfileExtras(); }
+}
+
+function renderProfileExtras() {
+  const el = document.getElementById('profile-extras-container');
+  if(!profileExtras.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">No extras added yet.</div>';
+    return;
+  }
+  let html = '';
+  profileExtras.forEach((ex,i) => {
+    html += `<div class="extras-row">
+      <input type="text" placeholder="Label (e.g. Performance Bonus)" value="${ex.label||''}" onchange="profileExtras[${i}].label=this.value" />
+      <input type="number" min="0" step="0.01" placeholder="0.00" value="${ex.amount||''}" onchange="profileExtras[${i}].amount=parseFloat(this.value)||0" />
+      <button class="remove-extra-btn" onclick="removeExtra(${i})">✕</button>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function addExtraRow() {
+  profileExtras.push({id:null,name:profileName,label:'',amount:0});
+  renderProfileExtras();
+}
+
+function removeExtra(i) {
+  profileExtras.splice(i,1);
+  renderProfileExtras();
+}
+
+async function saveExtras() {
+  if(!profileName) return;
+  showLoading('Saving extras...');
+  try {
+    // Delete all existing extras for this person then re-insert
+    await fetch(`${SUPABASE_URL}/rest/v1/${EXTRAS_TABLE}?name=eq.${encodeURIComponent(profileName)}`,{
+      method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+    });
+    for(const ex of profileExtras) {
+      if(ex.label && ex.amount>0) {
+        await sbFetch(EXTRAS_TABLE,'POST',{id:Date.now()+Math.random(),name:profileName,label:ex.label,amount:ex.amount});
+      }
+    }
+    showToast('Extras saved ✓','success');
+    await loadProfileExtras(profileName);
+  } catch(e){ showToast('Error saving','error'); console.error(e); }
+  finally{ hideLoading(); }
 }
 
 </script>
