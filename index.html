@@ -926,16 +926,37 @@ function renderAdminTable(list){
   const el=document.getElementById('admin-entries-table');
   if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No entries found.</div>';return;}
   _adminEntryMap={};
-  let html='<table><thead><tr><th>Name</th><th>Group</th><th>Date</th><th>Clock In</th><th>Break</th><th>Clock Out</th><th>Raw Hrs</th><th>Billable</th><th>Status</th><th></th></tr></thead><tbody>';
-  for(const e of list){
-    _adminEntryMap[e.id]=e;
-    const h=calcWorkedHours(e);const{st,pl}=entryStatus(e);
-    const billable=calcBillableHours(e);
-    const flagClass=billable.flagged?'style="background:#3a2a0a"':'';
-    const flagBadge=billable.flagged?'<span style="font-size:10px;color:var(--orange);font-weight:600;margin-left:6px;">⚑ OT</span>':'';
-    html+=`<tr ${flagClass}><td class="name-col" style="cursor:pointer;" onclick="openStaffProfile('${e.name.replace(/'/g,"\'")}')">${e.name}${flagBadge}</td><td>${USERS[e.name]?USERS[e.name].group:'—'}</td><td>${fmtDate(e.clock_in)}</td><td>${fmtTime(e.clock_in)}</td><td>${breakSummary(e)}</td><td>${fmtTime(e.clock_out)}</td><td>${h!==null?h.toFixed(2)+'h':'—'}</td><td>${billable.total!==null?'<span style="color:var(--accent)">'+billable.total.toFixed(2)+'h</span>':'—'}</td><td><span class="status-pill ${pl}">${st}</span></td><td><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td></tr>`;
+  for(const e of list) _adminEntryMap[e.id]=e;
+  const groups={};
+  for(const e of list){const day=toESTDateStr(e.clock_in);if(!groups[day])groups[day]=[];groups[day].push(e);}
+  const th=(t)=>`<th style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);">${t}</th>`;
+  let html='';
+  for(const [day,dayEntries] of Object.entries(groups)){
+    const d=new Date(day+'T12:00:00');
+    const dayLabel=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+    html+=`<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding:12px 0 6px;margin-top:4px;border-bottom:1px solid var(--border2);">${dayLabel}</div>`;
+    html+=`<table style="width:100%;border-collapse:collapse;margin-bottom:16px;"><thead><tr>${th('Name')}${th('Clock In')}${th('Break')}${th('Clock Out')}${th('Raw Hrs')}${th('Billable')}${th('Status')}${th('')}</tr></thead><tbody>`;
+    for(const e of dayEntries){
+      const h=calcWorkedHours(e);const{st,pl}=entryStatus(e);
+      const billable=calcBillableHours(e);
+      const flagBg=billable.flagged?'background:#3a2a0a;':'';
+      const flagBadge=billable.flagged?'<span style="font-size:10px;color:var(--orange);font-weight:600;margin-left:6px;">⚑ OT</span>':'';
+      html+=`<tr style="${flagBg}">
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text);font-family:'Syne',sans-serif;font-weight:500;font-size:13px;cursor:pointer;" onclick="openStaffProfile('${e.name.replace(/'/g,"\'")}')">
+          ${e.name}${flagBadge}
+        </td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;">${fmtTime(e.clock_in)}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;">${breakSummary(e)}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;">${fmtTime(e.clock_out)}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;">${h!==null?h.toFixed(2)+'h':'—'}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);">${billable.total!==null?'<span style="color:var(--accent);font-family:\'DM Mono\',monospace;font-size:12px;">'+billable.total.toFixed(2)+'h</span>':'—'}</td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);"><span class="status-pill ${pl}">${st}</span></td>
+        <td style="padding:9px 10px;border-bottom:1px solid var(--border);"><button class="admin-edit-btn" onclick="event.stopPropagation();openEditModal(${e.id})">Edit</button></td>
+      </tr>`;
+    }
+    html+='</tbody></table>';
   }
-  html+='</tbody></table>';el.innerHTML=html;
+  el.innerHTML=html;
 }
 
 function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
@@ -2454,10 +2475,16 @@ async function openStaffProfile(name) {
   const recent = allEntries.slice(0,5);
   let recHtml = '';
   if(recent.length) {
-    recHtml = '<table style="width:100%;font-size:12px;"><thead><tr><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Date</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock In</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock Out</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Billable</th></tr></thead><tbody>';
+    recHtml = '<table style="width:100%;font-size:12px;"><thead><tr><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Date</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock In</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock Out</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Billable</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);"></th></tr></thead><tbody>';
     for(const e of recent) {
       const b = calcBillableHours(e);
-      recHtml += `<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtDate(e.clock_in)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_in)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_out)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;">${b.total!==null?b.total.toFixed(2)+'h':'—'}</td></tr>`;
+      recHtml += `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtDate(e.clock_in)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_in)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_out)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;">${b.total!==null?b.total.toFixed(2)+'h':'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border);"><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td>
+      </tr>`;
     }
     recHtml += '</tbody></table>';
   } else {
