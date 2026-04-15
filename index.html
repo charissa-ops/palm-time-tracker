@@ -548,7 +548,16 @@
     <div class="modal-section" style="margin-top:1rem;">Recent Entries</div>
     <div id="profile-recent-entries" style="overflow-x:auto;"></div>
 
-    <div class="modal-actions" style="margin-top:1.25rem;">
+    <!-- Payslip download for admin -->
+    <div class="modal-section" style="margin-top:1rem;">Payslip</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:1rem;">
+      <select id="profile-payperiod-select" style="flex:1;">
+        <option value="">— Select a pay period —</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="adminDownloadPayslip()" style="white-space:nowrap;">⬇ Download</button>
+    </div>
+
+    <div class="modal-actions" style="margin-top:.5rem;">
       <button class="btn btn-ghost btn-sm" onclick="closeProfileModal()">Close</button>
       <div class="modal-actions-right">
         <button class="btn btn-primary btn-sm" onclick="saveExtras()">Save Extras</button>
@@ -1123,18 +1132,21 @@ async function loadPayrollPreview(){
     // Load holidays for this period
     holidaysList = await getHolidays();
     const holidayDays = countHolidaysInRange(from, to, holidaysList);
-    // For each person, calc PTO days and auto-set extras
+    // For each person, calc PTO days, holiday pay, and load staff_extras from DB
     const allNames = Object.keys(USERS);
     for(const name of allNames){
       const rate = RATES[name]||0;
-      // PTO pay
       const ptoDays = await getPTODaysInRange(name, from, to);
       const ptoPay = ptoDays * 8 * rate;
-      // Holiday pay
       const holidayPay = holidayDays * 8 * rate;
-      const autoExtras = ptoPay + holidayPay;
+      // Load staff extras from DB
+      let dbExtrasTotal = 0;
+      try {
+        const dbExtras = await sbFetch(`staff_extras?name=eq.${encodeURIComponent(name)}&order=created_at.asc`);
+        if(dbExtras && dbExtras.length) dbExtrasTotal = dbExtras.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+      } catch(e){}
+      const autoExtras = ptoPay + holidayPay + dbExtrasTotal;
       if(!payrollData[name])payrollData[name]={reimb:0,extras:0,notes:'',funded:''};
-      // Only set if user hasn't manually overridden
       if(payrollData[name]._autoExtras===undefined||payrollData[name]._autoExtras===payrollData[name].extras){
         payrollData[name].extras = autoExtras;
         payrollData[name]._autoExtras = autoExtras;
@@ -1161,7 +1173,7 @@ function renderPayrollPreview(from,to){
   <thead><tr>
     <th>Employee Name</th><th>Payment Method</th><th>Rate ($/hr)</th><th>Total Hours</th>
     <th>Base Pay</th><th>Reimbursements</th><th>Extras / Incentives</th>
-    <th>Individual Total</th><th>Funded Amount</th><th>Notes</th>
+    <th>Individual Total</th>
   </tr></thead><tbody>`;
 
   let grandTotal=0;
@@ -1184,21 +1196,19 @@ function renderPayrollPreview(from,to){
         <td>${PAYMENT_METHODS[name]||'—'}</td>
         <td>${fmtMoney(rate)}</td>
         <td>${fmtHHMM(h)}</td>
-        <td>${fmtMoney(basePay)}</td>
+        <td>${fmtMoney(Math.round(basePay*100)/100)}</td>
         <td><input type="number" min="0" step="0.01" value="${reimb||''}" placeholder="0.00" onchange="updatePayrollField('${name}','reimb',this.value)" /></td>
         <td>
-          <input type="number" min="0" step="0.01" value="${extras||''}" placeholder="0.00" onchange="updatePayrollField('${name}','extras',this.value)" />
-          ${pd._autoExtras>0?`<div style="font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;margin-top:3px;">auto: ${fmtMoney(pd._autoExtras||0)}</div>`:''}
+          <input type="number" min="0" step="0.01" value="${extras?parseFloat(extras).toFixed(2):''}" placeholder="0.00" onchange="updatePayrollField('${name}','extras',this.value)" />
+          ${pd._autoExtras>0?`<div style="font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;margin-top:3px;">auto: ${fmtMoney(Math.round(pd._autoExtras*100)/100)}</div>`:''}
         </td>
-        <td>${fmtMoney(indTotal)}</td>
-        <td><input type="number" min="0" step="0.01" value="${pd.funded!==''?funded:''}" placeholder="${fmtMoney(indTotal).replace('$','')}" onchange="updatePayrollField('${name}','funded',this.value)" /></td>
-        <td><input type="text" class="notes-input" value="${pd.notes||''}" placeholder="PAID" onchange="updatePayrollField('${name}','notes',this.value)" /></td>
+        <td>${fmtMoney(Math.round(indTotal*100)/100)}</td>
       </tr>`;
     }
     grandTotal+=subtotal;
-    html+=`<tr class="subtotal-row"><td colspan="7" style="text-align:right;font-size:11px;letter-spacing:.06em;">${group} — Subtotal</td><td colspan="3">${fmtMoney(subtotal)}</td></tr>`;
+    html+=`<tr class="subtotal-row"><td colspan="7" style="text-align:right;font-size:11px;letter-spacing:.06em;">${group} — Subtotal</td><td>${fmtMoney(Math.round(subtotal*100)/100)}</td></tr>`;
   }
-  html+=`<tr class="subtotal-row"><td colspan="7" style="text-align:right;font-size:12px;letter-spacing:.08em;">GRAND TOTAL</td><td colspan="3" style="font-size:14px;">${fmtMoney(grandTotal)}</td></tr>`;
+  html+=`<tr class="subtotal-row"><td colspan="7" style="text-align:right;font-size:12px;letter-spacing:.08em;">GRAND TOTAL</td><td style="font-size:14px;">${fmtMoney(Math.round(grandTotal*100)/100)}</td></tr>`;
   html+=`</tbody></table></div>`;
   document.getElementById('payroll-preview').innerHTML=html;
 }
@@ -1224,13 +1234,12 @@ function buildPayrollData(){
     for(const name of names){
       const h=payrollHoursMap[name]||0;
       const rate=RATES[name]||0;
-      const basePay=h*rate;
+      const basePay=Math.round(h*rate*100)/100;
       const pd=payrollData[name]||{reimb:0,extras:0,notes:'',funded:''};
       const reimb=parseFloat(pd.reimb)||0;
-      const extras=parseFloat(pd.extras)||0;
-      const indTotal=basePay+reimb+extras;
-      const funded=pd.funded!==''?parseFloat(pd.funded)||0:indTotal;
-      rows.push({group,name,paymentMethod:PAYMENT_METHODS[name]||'',rate,hours:h,basePay,reimb,extras,indTotal,funded,notes:pd.notes||'PAID'});
+      const extras=Math.round((parseFloat(pd.extras)||0)*100)/100;
+      const indTotal=Math.round((basePay+reimb+extras)*100)/100;
+      rows.push({group,name,paymentMethod:PAYMENT_METHODS[name]||'',rate,hours:h,basePay,reimb,extras,indTotal});
     }
   }
   return {rows,from,to,checkDate};
@@ -1249,7 +1258,7 @@ async function exportPayrollExcel(){
     lines.push(['OVERSEAS PAYROLL','','','','','','','','','']);
     lines.push([`Pay Period: ${fmtDateRange(from,to)}  |  Check Date: ${checkDate?new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}` ,'','','','','','','','','']);
     lines.push(['']);
-    const headers=['Employee Name','Payment Method','Rate ($/hr)','Total Hours','Base Pay','Reimbursements','Extras / Incentives','Individual Total','Funded Amount','Notes'];
+    const headers=['Employee Name','Payment Method','Rate ($/hr)','Total Hours','Base Pay','Reimbursements','Extras / Incentives','Individual Total'];
     let currentGroup='';
     const groupedRows=[];
     for(const r of rows){
@@ -1261,7 +1270,7 @@ async function exportPayrollExcel(){
     }
     // Group subtotals
     const subtotals={};
-    for(const r of rows){subtotals[r.group]=(subtotals[r.group]||0)+r.funded;}
+    for(const r of rows){subtotals[r.group]=(subtotals[r.group]||0)+r.indTotal;}
     let addedGroups=new Set();
     const finalRows=[];
     for(const r of groupedRows){
@@ -1279,7 +1288,7 @@ async function exportPayrollExcel(){
         }
       }
     }
-    const grandTotal=rows.reduce((s,r)=>s+r.funded,0);
+    const grandTotal=rows.reduce((s,r)=>s+r.indTotal,0);
 
     // Use SheetJS via CDN
     if(!window.XLSX){
@@ -1292,14 +1301,14 @@ async function exportPayrollExcel(){
     wsData.push([]);
     for(const r of finalRows){
       if(r.isHeader){wsData.push([r.group]);wsData.push(headers);}
-      else if(r.isSubtotal){wsData.push(['','','','','','','',r.group+' — Subtotal','',fmtMoney(r.total)]);}
-      else{wsData.push([r.name,r.paymentMethod,r.rate,fmtHHMM(r.hours),r.basePay,r.reimb||0,r.extras||0,r.indTotal,r.funded,r.notes]);}
+      else if(r.isSubtotal){wsData.push(['','','','','','','',r.group+' — Subtotal',fmtMoney(Math.round(r.total*100)/100)]);}
+      else{wsData.push([r.name,r.paymentMethod,r.rate,fmtHHMM(r.hours),r.basePay,r.reimb||0,r.extras||0,r.indTotal]);}
     }
     wsData.push([]);
-    wsData.push(['','','','','','','','GRAND TOTAL','',grandTotal]);
+    wsData.push(['','','','','','','','GRAND TOTAL',fmtMoney(Math.round(grandTotal*100)/100)]);
     const ws=window.XLSX.utils.aoa_to_sheet(wsData);
     // Column widths
-    ws['!cols']=[{wch:32},{wch:22},{wch:12},{wch:14},{wch:12},{wch:16},{wch:18},{wch:16},{wch:16},{wch:18}];
+    ws['!cols']=[{wch:32},{wch:22},{wch:12},{wch:14},{wch:12},{wch:16},{wch:18},{wch:16}];
     window.XLSX.utils.book_append_sheet(wb,ws,'Payroll');
     const fname=`Payroll_${from}_to_${to}.xlsx`;
     window.XLSX.writeFile(wb,fname);
@@ -1320,19 +1329,19 @@ async function exportPayrollPDF(){
     const groups=getPayrollRows();
     const subtotals={};
     for(const r of rows)subtotals[r.group]=(subtotals[r.group]||0)+r.funded;
-    const grandTotal=rows.reduce((s,r)=>s+r.funded,0);
+    const grandTotal=rows.reduce((s,r)=>s+r.indTotal,0);
 
     let tableHTML='';
     for(const[group,names]of Object.entries(groups)){
-      tableHTML+=`<tr class="section-hdr"><td colspan="10">${group}</td></tr>
-      <tr class="col-hdr"><th>Employee Name</th><th>Payment Method</th><th>Rate ($/hr)</th><th>Total Hours</th><th>Base Pay</th><th>Reimbursements</th><th>Extras / Incentives</th><th>Individual Total</th><th>Funded Amount</th><th>Notes</th></tr>`;
+      tableHTML+=`<tr class="section-hdr"><td colspan="8">${group}</td></tr>
+      <tr class="col-hdr"><th>Employee Name</th><th>Payment Method</th><th>Rate ($/hr)</th><th>Total Hours</th><th>Base Pay</th><th>Reimbursements</th><th>Extras / Incentives</th><th>Individual Total</th></tr>`;
       for(const name of names){
         const r=rows.find(x=>x.name===name);if(!r)continue;
-        tableHTML+=`<tr><td>${name}</td><td>${r.paymentMethod}</td><td>${fmtMoney(r.rate)}</td><td>${fmtHHMM(r.hours)}</td><td>${fmtMoney(r.basePay)}</td><td>${fmtMoney(r.reimb)}</td><td>${fmtMoney(r.extras)}</td><td>${fmtMoney(r.indTotal)}</td><td>${fmtMoney(r.funded)}</td><td>${r.notes}</td></tr>`;
+        tableHTML+=`<tr><td>${name}</td><td>${r.paymentMethod}</td><td>${fmtMoney(r.rate)}</td><td>${fmtHHMM(r.hours)}</td><td>${fmtMoney(r.basePay)}</td><td>${fmtMoney(r.reimb)}</td><td>${fmtMoney(r.extras)}</td><td>${fmtMoney(r.indTotal)}</td></tr>`;
       }
-      tableHTML+=`<tr class="sub-row"><td colspan="7" style="text-align:right">${group} — Subtotal</td><td colspan="3">${fmtMoney(subtotals[group]||0)}</td></tr><tr><td colspan="10" style="height:8px"></td></tr>`;
+      tableHTML+=`<tr class="sub-row"><td colspan="7" style="text-align:right">${group} — Subtotal</td><td>${fmtMoney(Math.round((subtotals[group]||0)*100)/100)}</td></tr><tr><td colspan="8" style="height:8px"></td></tr>`;
     }
-    tableHTML+=`<tr class="grand-row"><td colspan="7" style="text-align:right">GRAND TOTAL</td><td colspan="3">${fmtMoney(grandTotal)}</td></tr>`;
+    tableHTML+=`<tr class="grand-row"><td colspan="7" style="text-align:right">GRAND TOTAL</td><td>${fmtMoney(Math.round(grandTotal*100)/100)}</td></tr>`;
 
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
@@ -2086,14 +2095,16 @@ async function loadUserPayPeriods() {
 }
 
 // ── User: download payslip PDF ──
-async function downloadPayslip() {
-  const sel = document.getElementById('user-payperiod-select');
-  const opt = sel.options[sel.selectedIndex];
-  if(!opt||!opt.value){showToast('Please select a pay period','error');return;}
-  const from = opt.dataset.from;
-  const to = opt.dataset.to;
-  const checkDate = opt.dataset.check;
-  const label = opt.textContent;
+async function downloadPayslip(labelOverride, fromOverride, toOverride, checkDateOverride) {
+  let from, to, checkDate, label;
+  if(labelOverride){
+    label=labelOverride; from=fromOverride; to=toOverride; checkDate=checkDateOverride;
+  } else {
+    const sel = document.getElementById('user-payperiod-select');
+    const opt = sel ? sel.options[sel.selectedIndex] : null;
+    if(!opt||!opt.value){showToast('Please select a pay period','error');return;}
+    from=opt.dataset.from; to=opt.dataset.to; checkDate=opt.dataset.check; label=opt.textContent;
+  }
   showLoading('Generating payslip...');
   try {
     // Get entries for this period
@@ -2501,6 +2512,22 @@ async function openStaffProfile(name) {
   // Load extras
   await loadProfileExtras(name);
 
+  // Load pay periods for payslip dropdown
+  try {
+    const periods = await getPayPeriods(true);
+    const sel = document.getElementById('profile-payperiod-select');
+    sel.innerHTML = '<option value="">— Select a pay period —</option>';
+    for(const p of periods){
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label;
+      opt.dataset.from = p.date_from;
+      opt.dataset.to = p.date_to;
+      opt.dataset.check = p.check_date||'';
+      sel.appendChild(opt);
+    }
+  } catch(e){}
+
   document.getElementById('profile-modal-overlay').classList.remove('hidden');
 }
 
@@ -2571,6 +2598,24 @@ async function saveExtras() {
     await loadProfileExtras(profileName);
   } catch(e){ showToast('Error saving','error'); console.error(e); }
   finally{ hideLoading(); }
+}
+
+
+// ── Admin: download payslip for a specific staff member ──
+async function adminDownloadPayslip() {
+  if(!profileName){showToast('No staff selected','error');return;}
+  const sel = document.getElementById('profile-payperiod-select');
+  const opt = sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){showToast('Please select a pay period','error');return;}
+  const from = opt.dataset.from;
+  const to = opt.dataset.to;
+  const checkDate = opt.dataset.check;
+  const label = opt.textContent;
+  // Reuse downloadPayslip logic but for profileName
+  const savedUser = currentUser;
+  currentUser = profileName;
+  await downloadPayslip(label, from, to, checkDate);
+  currentUser = savedUser;
 }
 
 </script>
