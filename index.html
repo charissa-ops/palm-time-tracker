@@ -2399,11 +2399,15 @@ function renderStaffOverview(activeMap) {
       const cardClass = status==='in'?'status-in':status==='break'?'status-break':'status-out';
       const initials = name.split(' ').map(n=>n[0]).slice(0,2).join('');
       html += `<div class="staff-card ${cardClass}" onclick="openStaffProfile('${name.replace(/'/g,"\'")}')">
-        <div class="staff-card-name">${name}</div>
-        <div class="staff-card-group">${group}</div>
-        <div class="staff-card-status">
-          <div class="status-dot ${dotClass}"></div>
-          <span style="color:var(--${dotClass==='green'?'green':dotClass==='orange'?'orange':'text3'})">${statusLabel}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="staff-card-name">${name}</div>
+            <div class="staff-card-group">${group}</div>
+          </div>
+          <div class="staff-card-status" style="flex-shrink:0;margin-left:8px;">
+            <div class="status-dot ${dotClass}"></div>
+            <span style="color:var(--${dotClass==='green'?'green':dotClass==='orange'?'orange':'text3'})">${statusLabel}</span>
+          </div>
         </div>
       </div>`;
     }
