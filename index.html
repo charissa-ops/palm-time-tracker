@@ -2464,7 +2464,13 @@ async function openStaffProfile(name) {
     return `${ws.getFullYear()}-${p(ws.getMonth()+1)}-${p(ws.getDate())}`;
   })();
   const allEntries = await getEntries({name});
-  const todayH = allEntries.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+  const todayH = allEntries.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{
+    const b=calcBillableHours(e);
+    if(b.total!==null) return s+b.total;
+    // For active entries, calculate hours so far
+    if(!e.clock_out){const raw=(Date.now()-new Date(e.clock_in).getTime())/3600000;const {net}=applyHourRules(e.name,raw);return s+net;}
+    return s;
+  },0);
   const weekH = allEntries.filter(e=>toESTDateStr(e.clock_in)>=weekStart).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
   const totalH = allEntries.reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
   document.getElementById('profile-today').textContent = todayH.toFixed(1)+'h';
@@ -2520,10 +2526,10 @@ function renderProfileExtras() {
   }
   let html = '';
   profileExtras.forEach((ex,i) => {
-    html += `<div class="extras-row">
-      <input type="text" placeholder="Label (e.g. Performance Bonus)" value="${ex.label||''}" onchange="profileExtras[${i}].label=this.value" />
-      <input type="number" min="0" step="0.01" placeholder="0.00" value="${ex.amount||''}" onchange="profileExtras[${i}].amount=parseFloat(this.value)||0" />
-      <button class="remove-extra-btn" onclick="removeExtra(${i})">✕</button>
+    html += `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <input type="text" style="flex:2;min-width:0;" placeholder="Label (e.g. Performance Bonus)" value="${ex.label||''}" onchange="profileExtras[${i}].label=this.value" />
+      <input type="number" style="flex:1;min-width:80px;" min="0" step="0.01" placeholder="0.00" value="${ex.amount||''}" onchange="profileExtras[${i}].amount=parseFloat(this.value)||0" />
+      <button style="background:var(--red-dim);border:1px solid #5a2020;color:var(--red);border-radius:var(--radius-sm);padding:7px 10px;cursor:pointer;font-size:12px;font-family:'Syne',sans-serif;font-weight:600;white-space:nowrap;flex-shrink:0;" onclick="removeExtra(${i})">✕</button>
     </div>`;
   });
   el.innerHTML = html;
@@ -2543,13 +2549,22 @@ async function saveExtras() {
   if(!profileName) return;
   showLoading('Saving extras...');
   try {
-    // Delete all existing extras for this person then re-insert
-    await fetch(`${SUPABASE_URL}/rest/v1/${EXTRAS_TABLE}?name=eq.${encodeURIComponent(profileName)}`,{
-      method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}
+    // Collect current values from inputs before saving
+    profileExtras.forEach((ex,i) => {
+      const labelEl = document.querySelector(`#profile-extras-container .extras-row:nth-child(${i+1}) input[type="text"]`);
+      const amountEl = document.querySelector(`#profile-extras-container .extras-row:nth-child(${i+1}) input[type="number"]`);
+      if(labelEl) ex.label = labelEl.value;
+      if(amountEl) ex.amount = parseFloat(amountEl.value)||0;
     });
+    // Delete all existing extras for this person
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${EXTRAS_TABLE}?name=eq.${encodeURIComponent(profileName)}`,{
+      method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=minimal'}
+    });
+    // Re-insert valid extras
     for(const ex of profileExtras) {
-      if(ex.label && ex.amount>0) {
-        await sbFetch(EXTRAS_TABLE,'POST',{id:Date.now()+Math.random(),name:profileName,label:ex.label,amount:ex.amount});
+      if(ex.label && ex.label.trim() && parseFloat(ex.amount)>0) {
+        const id = Date.now() + Math.floor(Math.random()*10000);
+        await sbFetch(EXTRAS_TABLE,'POST',{id,name:profileName,label:ex.label.trim(),amount:parseFloat(ex.amount)});
       }
     }
     showToast('Extras saved ✓','success');
