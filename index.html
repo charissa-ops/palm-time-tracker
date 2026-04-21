@@ -240,6 +240,12 @@
     </div>
     <div class="card"><div class="card-title">My Time Entries</div><div class="entries-wrap" id="user-entries-table"></div></div>
 
+    <!-- EXTRAS / INCENTIVES -->
+    <div class="card" id="user-extras-card" style="display:none;">
+      <div class="card-title">Extras / Incentives</div>
+      <div id="user-extras-list"></div>
+    </div>
+
     <!-- LEAVE REQUEST -->
     <div class="card">
       <div class="card-title-row">
@@ -823,6 +829,7 @@ async function enterUserDashboard(){
   await loadUserDashboard();
   loadUserLeave();
   loadUserTimeEditRequests();
+  loadUserExtras();
   logLogin(currentUser);
 }
 
@@ -2563,6 +2570,32 @@ async function adminDownloadPayslip() {
   currentUser = profileName;
   await downloadPayslip(label, from, to, checkDate);
   currentUser = savedUser;
+}
+
+
+// ── User: load and show extras/incentives ──
+async function loadUserExtras() {
+  try {
+    const list = await sbFetch(`staff_extras?name=eq.${encodeURIComponent(currentUser)}&order=created_at.asc`);
+    const card = document.getElementById('user-extras-card');
+    const el = document.getElementById('user-extras-list');
+    if(!list || !list.length){ card.style.display='none'; return; }
+    card.style.display='';
+    let html = '<table style="width:100%;">';
+    for(const ex of list){
+      html += `<tr>
+        <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--text2);font-size:13px;">${ex.label}</td>
+        <td style="padding:8px 0;border-bottom:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;font-size:13px;text-align:right;font-weight:500;">$${parseFloat(ex.amount).toFixed(2)}</td>
+      </tr>`;
+    }
+    const total = list.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    html += `<tr>
+      <td style="padding:8px 0;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;">Total</td>
+      <td style="padding:8px 0;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;text-align:right;font-weight:600;">$${total.toFixed(2)}</td>
+    </tr>`;
+    html += '</table>';
+    el.innerHTML = html;
+  } catch(e){ console.error(e); }
 }
 
 </script>
