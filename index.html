@@ -503,16 +503,26 @@
     <div class="modal-title">Request Time Edit</div>
     <div class="modal-sub" id="time-edit-modal-sub">—</div>
     <div class="field" style="margin-top:1rem;">
-      <label>Date of clock-in</label>
-      <input type="date" id="time-edit-date" />
+      <label>Request Type</label>
+      <select id="time-edit-type" onchange="onTimeEditTypeChange()">
+        <option value="clock_in">Early Clock-In Correction</option>
+        <option value="clock_out">End Shift Correction</option>
+        <option value="break_waiver">Break Waiver (worked through break)</option>
+        <option value="break_end">Forgot to End Break</option>
+        <option value="other">Other</option>
+      </select>
     </div>
     <div class="field">
-      <label>Your actual clock-in time (ET)</label>
+      <label>Date</label>
+      <input type="date" id="time-edit-date" />
+    </div>
+    <div class="field" id="time-edit-actual-field">
+      <label id="time-edit-actual-label">Actual Time (ET)</label>
       <input type="time" id="time-edit-actual" />
     </div>
     <div class="field">
-      <label>Reason</label>
-      <input type="text" id="time-edit-reason" placeholder="e.g. Started early to finish urgent task" />
+      <label>Reason / Details</label>
+      <input type="text" id="time-edit-reason" placeholder="Describe what needs to be corrected..." />
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost btn-sm" onclick="closeTimeEditModal()">Cancel</button>
@@ -1842,37 +1852,58 @@ async function updateTimeEditRequest(id,patch) { return await sbFetch(`${TIME_ED
 // ── Open/close modal ──
 function openTimeEditModal() {
   document.getElementById('time-edit-modal-sub').textContent = currentUser;
+  document.getElementById('time-edit-type').value = 'clock_in';
   document.getElementById('time-edit-date').value = todayESTStr();
   document.getElementById('time-edit-actual').value = '';
   document.getElementById('time-edit-reason').value = '';
+  onTimeEditTypeChange();
   document.getElementById('time-edit-modal-overlay').classList.remove('hidden');
+}
+
+function onTimeEditTypeChange() {
+  const type = document.getElementById('time-edit-type').value;
+  const actualField = document.getElementById('time-edit-actual-field');
+  const actualLabel = document.getElementById('time-edit-actual-label');
+  if(type === 'clock_in') { actualField.style.display=''; actualLabel.textContent='Actual clock-in time (ET)'; }
+  else if(type === 'clock_out') { actualField.style.display=''; actualLabel.textContent='Actual clock-out time (ET)'; }
+  else if(type === 'break_end') { actualField.style.display=''; actualLabel.textContent='Actual break end time (ET)'; }
+  else { actualField.style.display='none'; }
 }
 function closeTimeEditModal() { document.getElementById('time-edit-modal-overlay').classList.add('hidden'); }
 document.getElementById('time-edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeTimeEditModal();});
 
 // ── Submit time edit request ──
 async function submitTimeEditRequest() {
+  const type = document.getElementById('time-edit-type').value;
   const date = document.getElementById('time-edit-date').value;
   const actual = document.getElementById('time-edit-actual').value;
   const reason = document.getElementById('time-edit-reason').value;
   if(!date) { showToast('Please select a date','error'); return; }
-  if(!actual) { showToast('Please enter your actual clock-in time','error'); return; }
-  // Validate time is before 9 AM
-  const [h,m] = actual.split(':').map(Number);
-  if(h >= 9) { showToast('Only clock-ins before 9:00 AM can be requested','error'); return; }
+  const needsTime = ['clock_in','clock_out','break_end'].includes(type);
+  if(needsTime && !actual) { showToast('Please enter the actual time','error'); return; }
+  // Only validate before 9AM for clock_in
+  if(type==='clock_in') {
+    const [h] = actual.split(':').map(Number);
+    if(h >= 9) { showToast('Only clock-ins before 9:00 AM can be requested','error'); return; }
+  }
+  const typeLabels = {
+    clock_in:'Early Clock-In Correction',
+    clock_out:'End Shift Correction',
+    break_waiver:'Break Waiver',
+    break_end:'Forgot to End Break',
+    other:'Other'
+  };
   showLoading('Submitting request...');
   try {
     const id = Date.now();
-    const row = { id, name: currentUser, date, actual_time: actual, reason, status: 'Pending', created_at: nowISO() };
+    const row = { id, name: currentUser, date, actual_time: actual||null, reason, request_type: type, status: 'Pending', created_at: nowISO() };
     await insertTimeEditRequest(row);
-    // Notify admin on Slack
-    const firstName = currentUser.split(' ')[0];
-    const fmtActual = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
     await sendSlackDM(ADMIN_SLACK_ID,
       `⏱ *Time Edit Request from ${currentUser}*
+*Type:* ${typeLabels[type]}
 *Date:* ${fmtLeaveDate(date)}
-*Actual clock-in:* ${fmtActual}
-*Reason:* ${reason||'No reason provided'}
+${actual?`*Time:* ${actual} ET
+`:''}*Details:* ${reason||'No details provided'}
 
 Log in as admin to review: https://charissa-ops.github.io/palm-time-tracker`
     );
@@ -1901,7 +1932,8 @@ function renderUserTimeEditRequests(list) {
     html += `<div class="leave-card">
       <div class="leave-card-header">
         <div>
-          <div class="leave-card-title">${fmtLeaveDate(r.date)} — Actual: ${fmtT}</div>
+          <div class="leave-card-title">${r.request_type?({clock_in:'Clock-In Correction',clock_out:'End Shift Correction',break_waiver:'Break Waiver',break_end:'Forgot to End Break',other:'Other'}[r.request_type]||r.request_type):'Clock-In Correction'} — ${fmtLeaveDate(r.date)}${r.actual_time?` @ ${(([h,m])=>`${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`)(r.actual_time.split(':').map(Number))}`:''}
+</div>
           ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
           ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
         </div>
