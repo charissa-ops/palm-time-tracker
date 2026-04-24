@@ -573,6 +573,16 @@
       <button class="btn btn-primary btn-sm" onclick="adminDownloadPayslip()" style="white-space:nowrap;">⬇ Download</button>
     </div>
 
+    <!-- Entries report download -->
+    <div class="modal-section" style="margin-top:.25rem;">Entries Report</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:.75rem;">Download all time entries for a date range as Excel.</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+      <input type="date" id="profile-report-from" style="flex:1;min-width:120px;" />
+      <span style="color:var(--text3);font-size:12px;">to</span>
+      <input type="date" id="profile-report-to" style="flex:1;min-width:120px;" />
+      <button class="btn btn-primary btn-sm" onclick="downloadStaffEntriesExcel()" style="white-space:nowrap;">⬇ Excel</button>
+    </div>
+
     <div class="modal-actions" style="margin-top:.5rem;">
       <button class="btn btn-ghost btn-sm" onclick="closeProfileModal()">Close</button>
       <div class="modal-actions-right">
@@ -2517,6 +2527,14 @@ async function openStaffProfile(name) {
   // Load extras
   await loadProfileExtras(name);
 
+  // Set default date range for entries report (current month)
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('profile-report-from').value = `${y}-${m}-01`;
+  const lastDay = new Date(y,now.getMonth()+1,0).getDate();
+  document.getElementById('profile-report-to').value = `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
+
   // Load pay periods for payslip dropdown
   try {
     const periods = await getPayPeriods(true);
@@ -2647,6 +2665,78 @@ async function loadUserExtras() {
     html += '</table>';
     el.innerHTML = html;
   } catch(e){ console.error(e); }
+}
+
+
+// ── Admin: download staff entries as Excel ──
+async function downloadStaffEntriesExcel() {
+  if(!profileName){showToast('No staff selected','error');return;}
+  const from = document.getElementById('profile-report-from').value;
+  const to = document.getElementById('profile-report-to').value;
+  if(!from||!to){showToast('Please select a date range','error');return;}
+  showLoading('Generating report...');
+  try {
+    const entries = await getEntries({name:profileName,from,to});
+    if(!entries||!entries.length){showToast('No entries found for this period','error');hideLoading();return;}
+
+    const rate = RATES[profileName]||0;
+    const group = USERS[profileName]?.group||'';
+
+    // Build rows
+    const rows = [];
+    for(const e of entries){
+      const b = calcBillableHours(e);
+      const rawMs = e.clock_out ? new Date(e.clock_out)-new Date(e.clock_in) : null;
+      const rawHrs = rawMs ? rawMs/3600000 : null;
+      rows.push({
+        date: fmtDate(e.clock_in),
+        clockIn: fmtTime(e.clock_in),
+        clockOut: e.clock_out ? fmtTime(e.clock_out) : '—',
+        rawHrs: rawHrs!==null ? parseFloat(rawHrs.toFixed(2)) : '—',
+        breakDeducted: (!e.waive_break && !['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Elvin Juvel C. Pizarras'].includes(profileName)) ? 1 : 0,
+        billableHrs: b.total!==null ? parseFloat(b.total.toFixed(2)) : '—',
+        pay: b.total!==null ? parseFloat((b.total*rate).toFixed(2)) : '—',
+        status: e.clock_out ? 'Complete' : 'Active',
+        otFlag: b.flagged ? 'OT' : ''
+      });
+    }
+
+    const totalBillable = rows.reduce((s,r)=>s+(typeof r.billableHrs==='number'?r.billableHrs:0),0);
+    const totalPay = rows.reduce((s,r)=>s+(typeof r.pay==='number'?r.pay:0),0);
+
+    // Build Excel
+    const wb = XLSX.utils.book_new();
+
+    // Header info
+    const info = [
+      [`${group} — Time Entries Report`],
+      [`Employee: ${profileName}`],
+      [`Period: ${from} to ${to}`],
+      [`Rate: $${rate.toFixed(2)}/hr`],
+      []
+    ];
+
+    const headers = ['Date','Clock In','Clock Out','Raw Hours','Break Deducted','Billable Hours','Pay ($)','Status','Flag'];
+    const dataRows = rows.map(r=>[r.date,r.clockIn,r.clockOut,r.rawHrs,r.breakDeducted,r.billableHrs,r.pay,r.status,r.otFlag]);
+
+    // Summary row
+    const summary = [
+      [],
+      ['','','','','TOTAL BILLABLE HRS:',parseFloat(totalBillable.toFixed(2)),'','TOTAL PAY:',`$${totalPay.toFixed(2)}`]
+    ];
+
+    const wsData = [...info,[...headers],...dataRows,...summary];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Column widths
+    ws['!cols'] = [{wch:14},{wch:14},{wch:14},{wch:12},{wch:16},{wch:14},{wch:10},{wch:10},{wch:6}];
+
+    XLSX.utils.book_append_sheet(wb, ws, profileName.split(' ')[0]+' Entries');
+    const safeName = profileName.replace(/[^a-z0-9]/gi,'_');
+    XLSX.writeFile(wb, `${safeName}_entries_${from}_to_${to}.xlsx`);
+    showToast('Report downloaded ✓','success');
+  } catch(e){showToast('Error generating report','error');console.error(e);}
+  finally{hideLoading();}
 }
 
 </script>
