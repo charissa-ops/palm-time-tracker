@@ -2704,8 +2704,12 @@ async function downloadStaffEntriesExcel() {
     const totalBillable = rows.reduce((s,r)=>s+(typeof r.billableHrs==='number'?r.billableHrs:0),0);
     const totalPay = rows.reduce((s,r)=>s+(typeof r.pay==='number'?r.pay:0),0);
 
+    // Load SheetJS if not already loaded
+    if(!window.XLSX){
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    }
     // Build Excel
-    const wb = XLSX.utils.book_new();
+    const wb = window.XLSX.utils.book_new();
 
     // Header info
     const info = [
@@ -2726,14 +2730,14 @@ async function downloadStaffEntriesExcel() {
     ];
 
     const wsData = [...info,[...headers],...dataRows,...summary];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const ws = window.XLSX.utils.aoa_to_sheet(wsData);
 
     // Column widths
     ws['!cols'] = [{wch:14},{wch:14},{wch:14},{wch:12},{wch:16},{wch:14},{wch:10},{wch:10},{wch:6}];
 
-    XLSX.utils.book_append_sheet(wb, ws, profileName.split(' ')[0]+' Entries');
+    window.XLSX.utils.book_append_sheet(wb, ws, profileName.split(' ')[0]+' Entries');
     const safeName = profileName.replace(/[^a-z0-9]/gi,'_');
-    XLSX.writeFile(wb, `${safeName}_entries_${from}_to_${to}.xlsx`);
+    window.XLSX.writeFile(wb, `${safeName}_entries_${from}_to_${to}.xlsx`);
     showToast('Report downloaded ✓','success');
   } catch(e){showToast('Error generating report','error');console.error(e);}
   finally{hideLoading();}
