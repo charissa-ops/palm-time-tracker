@@ -2328,8 +2328,64 @@ function clearLoginFilters(){
 
 
 // ══════════ SEND PAYSLIPS VIA SLACK ══════════
+
+// Build payslip HTML string for a given staff member
+function buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay) {
+  const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
+  const extrasHTMLRows = extrasRows.map(ex=>`<tr><td>${ex.label}</td><td class="dim">—</td><td class="dim">—</td><td class="r">$${parseFloat(ex.amount).toFixed(2)}</td></tr>`).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:40px;max-width:780px;margin:0 auto;}
+    .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1e3a5f;}
+    .company{font-size:20px;font-weight:bold;color:#1e3a5f;}
+    .meta{font-size:11px;color:#888;margin-top:3px;}
+    .info-bar{display:flex;gap:0;margin-bottom:20px;border:1px solid #ddd;}
+    .info-cell{flex:1;padding:10px 14px;border-right:1px solid #ddd;}
+    .info-cell:last-child{border-right:none;}
+    .info-label{font-size:10px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:#888;margin-bottom:4px;}
+    .info-value{font-size:13px;color:#1a1a1a;font-weight:500;}
+    table{width:100%;border-collapse:collapse;margin-bottom:0;}
+    .earn-head th{font-size:10px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;background:#e8edf2;color:#444;text-align:left;border-bottom:1.5px solid #1e3a5f;}
+    .earn-head th.r{text-align:right;}
+    td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;}
+    td.r{text-align:right;}
+    td.dim{color:#aaa;text-align:right;}
+    .gross-row td{font-weight:bold;font-size:13px;background:#e8edf2;border-top:1.5px solid #1e3a5f;padding:10px;}
+    .gross-row td.r{text-align:right;color:#1e3a5f;font-size:14px;}
+    .footer{margin-top:24px;padding-top:12px;border-top:1px solid #ddd;text-align:center;font-size:10px;color:#aaa;}
+  </style></head><body>
+  <div class="top">
+    <div><div class="company">${company}</div><div class="meta">Overseas Payroll</div></div>
+    <div style="text-align:right;">
+      <div style="font-size:16px;font-weight:bold;color:#1e3a5f;">PAYSLIP</div>
+      <div class="meta">Pay Period: ${label}</div>
+      ${checkFmt?`<div class="meta">Check Date: ${checkFmt}</div>`:''}
+    </div>
+  </div>
+  <div class="info-bar">
+    <div class="info-cell"><div class="info-label">Employee</div><div class="info-value">${name}</div></div>
+    <div class="info-cell"><div class="info-label">Payment method</div><div class="info-value">${PAYMENT_METHODS[name]||'—'}</div></div>
+    <div class="info-cell"><div class="info-label">Hourly rate</div><div class="info-value">$${rate.toFixed(2)} / hr</div></div>
+  </div>
+  <table>
+    <thead class="earn-head">
+      <tr><th>Earnings</th><th class="r">Hours</th><th class="r">Rate</th><th class="r">Current</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>
+      ${ptoPay>0?`<tr><td>PTO Pay (${ptoDays} day${ptoDays>1?'s':''})</td><td class="r">${(ptoDays*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${ptoPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#aaa;">PTO Pay</td><td class="dim">—</td><td class="dim">—</td><td class="dim">-</td></tr>'}
+      ${holidayPay>0?`<tr><td>Holiday Pay (${holidayCount} day${holidayCount>1?'s':''})</td><td class="r">${(holidayCount*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${holidayPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#aaa;">Holiday Pay</td><td class="dim">—</td><td class="dim">—</td><td class="dim">-</td></tr>'}
+      ${extrasHTMLRows}
+      <tr class="gross-row"><td colspan="3">Gross Pay</td><td class="r">$${totalPay.toFixed(2)}</td></tr>
+    </tbody>
+  </table>
+  <div class="footer">This is a computer-generated payslip. For questions, contact your administrator.</div>
+  </body></html>`;
+}
+
 async function sendPayslips(periodId, label, from, to, checkDate) {
-  if(!confirm(`Send payslips for "${label}" to all 16 staff via Slack DM?`)) return;
+  if(!confirm(`Send payslips for "${label}" to all staff via Slack DM?`)) return;
   showLoading('Sending payslips...');
   const results = [];
   try {
@@ -2343,66 +2399,52 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
       if(!slackId) continue;
       const rate = RATES[name]||0;
       const group = USERS[name]?.group||'';
-      const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
 
       // Calc billable hours
       const userEntries = allEntries.filter(e=>e.name===name);
       let totalHours = 0;
       for(const e of userEntries){const b=calcBillableHours(e);if(b.total!==null)totalHours+=b.total;}
 
-      // PTO
+      // PTO & holiday
       const ptoDays = await getPTODaysInRange(name, from, to);
       const ptoPay = ptoDays*8*rate;
       const holidayPay = holidayCount*8*rate;
-      const basePay = totalHours*rate;
-      const totalPay = basePay+ptoPay+holidayPay;
+      const basePay = Math.round(totalHours*rate*100)/100;
 
-      // Build Slack message with payslip summary
-      const ptoLine = ptoPay>0?`• PTO Pay (${ptoDays} day${ptoDays>1?'s':''}): $${ptoPay.toFixed(2)}
-`:'';
-      const holLine = holidayPay>0?`• Holiday Pay (${holidayCount} day${holidayCount>1?'s':''}): $${holidayPay.toFixed(2)}
-`:'';
-      const firstName = name.split(' ')[0];
+      // Extras from DB
+      let extrasRows = [];
+      let extrasTotal = 0;
+      try {
+        const dbExtras = await sbFetch(`staff_extras?name=eq.${encodeURIComponent(name)}&order=created_at.asc`);
+        extrasRows = dbExtras||[];
+        extrasTotal = extrasRows.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+      } catch(e){}
 
-      const message =
-        `💰 *Payslip — ${label}*
+      const totalPay = Math.round((basePay+ptoPay+holidayPay+extrasTotal)*100)/100;
 
-` +
-        `*${company}*
-` +
-        `Employee: ${name}
-` +
-        `Pay Period: ${label}
-` +
-        `${checkFmt?`Check Date: ${checkFmt}
-`:''}
-` +
-        `*Earnings:*
-` +
-        `• Regular Pay (${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}): $${basePay.toFixed(2)}
-` +
-        ptoLine +
-        holLine +
-        `
-*Gross Pay: $${totalPay.toFixed(2)}*
+      // Build payslip HTML
+      const html = buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay);
 
-` +
-        `_This is your official payslip for the above pay period. For questions, contact Charissa._`;
-
-      // Send via slack-notify edge function
+      // Send via slack-notify edge function (with html payload for PDF)
       try {
         await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
-          body:JSON.stringify({userId:slackId, message})
+          body:JSON.stringify({
+            userId: slackId,
+            message: `💰 Your payslip for *${label}* is attached below.`,
+            payslipHtml: html,
+            payslipFilename: `Payslip_${name.replace(/\s+/g,'_')}_${label.replace(/\s+/g,'_')}.html`
+          })
         });
         results.push(`✅ ${name}`);
       } catch(e) {
         results.push(`❌ ${name}: failed`);
+        console.error(e);
       }
     }
     showToast(`Payslips sent to ${results.filter(r=>r.startsWith('✅')).length} staff ✓`,'success');
-    console.log('Payslip send results:', results);
+    console.log('Results:', results);
   } catch(e){showToast('Error sending payslips','error');console.error(e);}
   finally{hideLoading();}
 }
