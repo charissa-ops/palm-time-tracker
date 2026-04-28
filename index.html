@@ -2426,6 +2426,7 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
       const html = buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay);
 
       // Build Slack message
+      const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
       const firstName = name.split(' ')[0];
       const ptoLine = ptoPay>0?`• PTO Pay (${ptoDays} day${ptoDays>1?'s':''}): $${ptoPay.toFixed(2)}
 `:'';
