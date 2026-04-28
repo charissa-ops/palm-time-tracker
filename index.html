@@ -2425,17 +2425,43 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
       // Build payslip HTML
       const html = buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay);
 
-      // Send via slack-notify edge function (with html payload for PDF)
+      // Build Slack message
+      const firstName = name.split(' ')[0];
+      const ptoLine = ptoPay>0?`• PTO Pay (${ptoDays} day${ptoDays>1?'s':''}): $${ptoPay.toFixed(2)}
+`:'';
+      const holLine = holidayPay>0?`• Holiday Pay (${holidayCount} day${holidayCount>1?'s':''}): $${holidayPay.toFixed(2)}
+`:'';
+      const extrasLines = extrasRows.map(ex=>`• ${ex.label}: $${parseFloat(ex.amount).toFixed(2)}
+`).join('');
+      const message =
+        `💰 *Payslip — ${label}*
+
+` +
+        `*${company}*
+` +
+        `Employee: ${name}
+` +
+        `Pay Period: ${label}
+` +
+        `${checkFmt?`Check Date: ${checkFmt}
+`:''}
+` +
+        `*Earnings:*
+` +
+        `• Regular Pay (${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}): $${basePay.toFixed(2)}
+` +
+        ptoLine + holLine + extrasLines +
+        `
+*Gross Pay: $${totalPay.toFixed(2)}*
+
+` +
+        `_This is your official payslip for the above pay period. For questions, contact Charissa._`;
+
       try {
         await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
           method:'POST',
           headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
-          body:JSON.stringify({
-            userId: slackId,
-            message: `💰 Your payslip for *${label}* is attached below.`,
-            payslipHtml: html,
-            payslipFilename: `Payslip_${name.replace(/\s+/g,'_')}_${label.replace(/\s+/g,'_')}.html`
-          })
+          body:JSON.stringify({userId:slackId, message})
         });
         results.push(`✅ ${name}`);
       } catch(e) {
