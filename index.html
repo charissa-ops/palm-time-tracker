@@ -230,7 +230,7 @@
     <div class="status-bar">
       <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
       <div class="stat-card"><div class="stat-label">Hours Today</div><div class="stat-val green" id="stat-today">0.0h</div></div>
-      <div class="stat-card"><div class="stat-label">Total Hours</div><div class="stat-val" id="stat-total-hours">0.0h</div></div>
+      <div class="stat-card"><div class="stat-label" id="stat-total-label">This Period</div><div class="stat-val" id="stat-total-hours">0.0h</div></div>
     </div>
     <div class="action-row">
       <button class="action-btn clock-in-btn" id="btn-clock-in" onclick="clockIn()"><div class="btn-icon">▶</div><div class="btn-label">Clock In</div><div class="btn-sub">Start shift</div></button>
@@ -549,7 +549,7 @@
     <div class="profile-stats">
       <div class="profile-stat"><div class="profile-stat-label">Today</div><div class="profile-stat-val" id="profile-today">—</div></div>
       <div class="profile-stat"><div class="profile-stat-label">This Week</div><div class="profile-stat-val" id="profile-week">—</div></div>
-      <div class="profile-stat"><div class="profile-stat-label">Total</div><div class="profile-stat-val" id="profile-total">—</div></div>
+      <div class="profile-stat"><div class="profile-stat-label">This Period</div><div class="profile-stat-val" id="profile-total">—</div></div>
     </div>
 
     <!-- Extras / Incentives -->
@@ -848,6 +848,19 @@ async function doAdminLogin(){
 function logout(){currentUser=null;clearInterval(clockInterval);document.getElementById('login-name-select').value='';pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';showScreen('login');}
 
 // ── User Dashboard ──
+
+// ══════════ ACTIVE PAY PERIOD ══════════
+let _activePeriod = null;
+
+async function getActivePeriod() {
+  if(_activePeriod) return _activePeriod;
+  try {
+    const list = await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active&limit=1`);
+    _activePeriod = list && list[0] ? list[0] : null;
+  } catch(e){ _activePeriod = null; }
+  return _activePeriod;
+}
+
 async function enterUserDashboard(){
   showScreen('user');
   document.getElementById('display-name').textContent=currentUser;
@@ -872,8 +885,16 @@ async function loadUserDashboard(){
     else if(onBreak){el.textContent='On Break';el.style.color='var(--orange)';}
     else{el.textContent='Clocked In';el.style.color='var(--green)';}
     const today=todayESTStr();
+    // Use active pay period for period total
+    const ap = await getActivePeriod();
+    const apFrom = ap ? ap.date_from : null;
+    const apTo = ap ? ap.date_to : null;
     const todayH=all.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
-    const totalH=all.reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+    const totalH=all.filter(e=>{
+      if(!apFrom||!apTo) return true;
+      const d=toESTDateStr(e.clock_in);
+      return d>=apFrom&&d<=apTo;
+    }).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
     document.getElementById('stat-today').textContent=todayH.toFixed(1)+'h';
     document.getElementById('stat-total-hours').textContent=totalH.toFixed(1)+'h';
     document.getElementById('btn-clock-in').disabled=isIn;
@@ -2155,7 +2176,7 @@ function renderAdminPayPeriods(list) {
   if(!list||!list.length){el.innerHTML='<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div>';return;}
   let html='<table><thead><tr><th>Label</th><th>Period</th><th>Check Date</th><th>Status</th><th></th></tr></thead><tbody>';
   for(const p of list){
-    const statusColor = p.status==='Finalized'?'var(--green)':'var(--orange)';
+    const statusColor = p.status==='Active'?'var(--accent)':p.status==='Finalized'?'var(--green)':'var(--orange)';
     html+=`<tr>
       <td style="color:var(--text);font-family:'Syne',sans-serif;font-weight:500;">${p.label}</td>
       <td>${fmtLeaveDate(p.date_from)} – ${fmtLeaveDate(p.date_to)}</td>
@@ -2608,15 +2629,21 @@ async function openStaffProfile(name) {
     return `${ws.getFullYear()}-${p(ws.getMonth()+1)}-${p(ws.getDate())}`;
   })();
   const allEntries = await getEntries({name});
+  const ap2 = await getActivePeriod();
+  const apFrom2 = ap2 ? ap2.date_from : null;
+  const apTo2 = ap2 ? ap2.date_to : null;
   const todayH = allEntries.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{
     const b=calcBillableHours(e);
     if(b.total!==null) return s+b.total;
-    // For active entries, calculate hours so far
     if(!e.clock_out){const raw=(Date.now()-new Date(e.clock_in).getTime())/3600000;const {net}=applyHourRules(e.name,raw);return s+net;}
     return s;
   },0);
   const weekH = allEntries.filter(e=>toESTDateStr(e.clock_in)>=weekStart).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
-  const totalH = allEntries.reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+  const totalH = allEntries.filter(e=>{
+    if(!apFrom2||!apTo2) return true;
+    const d=toESTDateStr(e.clock_in);
+    return d>=apFrom2&&d<=apTo2;
+  }).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
   document.getElementById('profile-today').textContent = todayH.toFixed(1)+'h';
   document.getElementById('profile-week').textContent = weekH.toFixed(1)+'h';
   document.getElementById('profile-total').textContent = totalH.toFixed(1)+'h';
@@ -2858,6 +2885,23 @@ async function downloadStaffEntriesExcel() {
     window.XLSX.writeFile(wb, `${safeName}_entries_${from}_to_${to}.xlsx`);
     showToast('Report downloaded ✓','success');
   } catch(e){showToast('Error generating report','error');console.error(e);}
+  finally{hideLoading();}
+}
+
+
+async function setActivePeriod(id) {
+  if(!confirm('Set this as the Active pay period? The current Active period will be changed to Finalized.')) return;
+  showLoading('Updating...');
+  try {
+    // Set current Active to Finalized
+    await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active`, 'PATCH', {status:'Finalized'});
+    // Set this one to Active
+    await updatePayPeriod(id, {status:'Active'});
+    // Reset cached active period
+    _activePeriod = null;
+    showToast('Active pay period updated ✓','success');
+    await loadAdminPayPeriods();
+  } catch(e){showToast('Error','error');console.error(e);}
   finally{hideLoading();}
 }
 
