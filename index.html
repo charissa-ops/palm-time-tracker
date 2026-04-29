@@ -1060,7 +1060,7 @@ const RATES = {
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,'Elvin Juvel C. Pizarras':5.50,
   'Bridgette Anne Benolirao':5.50,'Ren Tan':5.20,'Griz Fuentes':6.80,'May Castillo':5.00,
-  'Ciara Andrade':4.00,'Miko Dioquino':5.50
+  'Ciara Andrade':5.00,'Miko Dioquino':5.50
 };
 const PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
@@ -1624,18 +1624,24 @@ async function loadUserLeave() {
 function renderUserLeave(list) {
   const el = document.getElementById('user-leave-list');
   if (!list || !list.length) { el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🏖</div>No leave requests yet.</div>'; return; }
+  const SC = {Approved:{border:'#1D9E75',bg:'#E1F5EE',color:'#0F6E56'},Denied:{border:'#A32D2D',bg:'#FCEBEB',color:'#A32D2D'},Pending:{border:'#BA7517',bg:'#FAEEDA',color:'#854F0B'}};
+  const TM = {'PTO':{abbr:'PTO',color:'#0F6E56',bg:'#E1F5EE'},'Sick Leave':{abbr:'SL',color:'#A32D2D',bg:'#FCEBEB'},'Emergency':{abbr:'EM',color:'#854F0B',bg:'#FAEEDA'},'Unpaid':{abbr:'UP',color:'#185FA5',bg:'#E6F1FB'}};
   let html = '';
   for (const r of list) {
+    const st = r.status||'Pending'; const c = SC[st]||SC.Pending;
+    const tm = TM[r.leave_type]||{abbr:r.leave_type?.slice(0,2)||'?',color:'#5F5E5A',bg:'#F1EFE8'};
     const days = dayCount(r.date_from, r.date_to);
-    html += `<div class="leave-card">
-      <div class="leave-card-header">
+    const dateRange = r.date_from!==r.date_to?`${fmtLeaveDate(r.date_from)} – ${fmtLeaveDate(r.date_to)}`:fmtLeaveDate(r.date_from);
+    html += `<div style="background:var(--surface1);border:1px solid var(--border);border-left:3px solid ${c.border};border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:${tm.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${tm.color};flex-shrink:0;">${tm.abbr}</div>
         <div>
-          <div class="leave-card-title">${leaveTypePill(r.leave_type)} &nbsp;${fmtLeaveDate(r.date_from)}${r.date_from!==r.date_to?` – ${fmtLeaveDate(r.date_to)}`:''} <span style="color:var(--text3);font-size:11px;">(${days} day${days>1?'s':''})</span></div>
-          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
-          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+          <div style="font-size:13px;font-weight:600;color:var(--text);">${r.leave_type} — ${dateRange} <span style="font-size:11px;font-weight:400;color:var(--text3);">(${days} day${days>1?'s':''})</span></div>
+          ${r.reason?`<div style="font-size:12px;color:var(--text3);margin-top:2px;">${r.reason}</div>`:''}
+          ${r.admin_note?`<div style="font-size:11px;color:var(--orange);margin-top:3px;">Admin: ${r.admin_note}</div>`:''}
         </div>
-        <div>${statusPill(r.status)}</div>
       </div>
+      <span style="font-size:11px;font-weight:600;background:${c.bg};color:${c.color};padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${st}</span>
     </div>`;
   }
   el.innerHTML = html;
@@ -1656,21 +1662,29 @@ async function loadAdminLeave() {
 function renderAdminLeave(list) {
   const el = document.getElementById('admin-leave-list');
   if (!list || !list.length) { el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📋</div>No leave requests found.</div>'; return; }
+  const SC = {Approved:{border:'#1D9E75',bg:'#E1F5EE',color:'#0F6E56'},Denied:{border:'#A32D2D',bg:'#FCEBEB',color:'#A32D2D'},Pending:{border:'#BA7517',bg:'#FAEEDA',color:'#854F0B'}};
+  const TM = {'PTO':{abbr:'PTO',color:'#0F6E56',bg:'#E1F5EE'},'Sick Leave':{abbr:'SL',color:'#A32D2D',bg:'#FCEBEB'},'Emergency':{abbr:'EM',color:'#854F0B',bg:'#FAEEDA'},'Unpaid':{abbr:'UP',color:'#185FA5',bg:'#E6F1FB'}};
   let html = '';
   for (const r of list) {
+    const st = r.status||'Pending'; const c = SC[st]||SC.Pending;
+    const tm = TM[r.leave_type]||{abbr:r.leave_type?.slice(0,2)||'?',color:'#5F5E5A',bg:'#F1EFE8'};
     const days = dayCount(r.date_from, r.date_to);
-    html += `<div class="leave-card">
-      <div class="leave-card-header">
-        <div>
-          <div class="leave-card-title">${r.name}</div>
-          <div class="leave-card-meta">${leaveTypePill(r.leave_type)} &nbsp;${fmtLeaveDate(r.date_from)}${r.date_from!==r.date_to?` – ${fmtLeaveDate(r.date_to)}`:''} · ${days} day${days>1?'s':''}</div>
-          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
-          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+    const dateRange = r.date_from!==r.date_to?`${fmtLeaveDate(r.date_from)} – ${fmtLeaveDate(r.date_to)}`:fmtLeaveDate(r.date_from);
+    html += `<div style="background:var(--surface1);border:1px solid var(--border);border-left:3px solid ${c.border};border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:${tm.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${tm.color};flex-shrink:0;">${tm.abbr}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);">${r.name}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px;">${r.leave_type} · ${dateRange} · ${days} day${days>1?'s':''}</div>
+            ${r.reason?`<div style="font-size:12px;color:var(--text2);margin-top:3px;font-style:italic;">"${r.reason}"</div>`:''}
+            ${r.admin_note?`<div style="font-size:11px;color:var(--orange);margin-top:3px;">Admin: ${r.admin_note}</div>`:''}
+          </div>
         </div>
-        <div>${statusPill(r.status)}</div>
+        <span style="font-size:11px;font-weight:600;background:${c.bg};color:${c.color};padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${st}</span>
       </div>
-      <div class="leave-card-actions">
-        ${r.attachment_url?`<a href="${r.attachment_url}" target="_blank" class="btn btn-ghost btn-sm">📎 View Attachment</a>`:''}
+      <div style="display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+        ${r.attachment_url?`<a href="${r.attachment_url}" target="_blank" class="btn btn-ghost btn-sm">📎 Staff Attachment</a>`:''}
         <button class="btn btn-ghost btn-sm" onclick="openAdminLeaveModal(${r.id})">Review</button>
       </div>
     </div>`;
@@ -1693,11 +1707,22 @@ async function openAdminLeaveModal(id) {
     document.getElementById('admin-leave-modal-title').textContent = `Review — ${r.name}`;
     document.getElementById('admin-leave-modal-sub').textContent = `${r.leave_type} · ${fmtLeaveDate(r.date_from)}${r.date_from!==r.date_to?` – ${fmtLeaveDate(r.date_to)}`:''} · ${days} day${days>1?'s':''}`;
     document.getElementById('admin-leave-note').value = r.admin_note || '';
+    const SC = {Approved:{border:'#1D9E75',bg:'#E1F5EE',color:'#0F6E56'},Denied:{border:'#A32D2D',bg:'#FCEBEB',color:'#A32D2D'},Pending:{border:'#BA7517',bg:'#FAEEDA',color:'#854F0B'}};
+    const stc = SC[r.status||'Pending']||SC.Pending;
     document.getElementById('admin-leave-modal-body').innerHTML = `
-      <div style="margin:1rem 0;padding:1rem;background:var(--surface2);border-radius:var(--radius-sm);">
-        ${r.reason?`<div style="font-size:13px;color:var(--text2);margin-bottom:.5rem;"><strong>Reason:</strong> ${r.reason}</div>`:''}
-        <div style="font-size:12px;color:var(--text3);">Current status: ${statusPill(r.status)}</div>
-        ${r.attachment_url?`<div style="margin-top:.75rem;"><a href="${r.attachment_url}" target="_blank" class="btn btn-ghost btn-sm">📎 View Attachment</a></div>`:'<div style="font-size:12px;color:var(--text3);margin-top:.5rem;">No attachment provided.</div>'}
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:1rem;margin:1rem 0;">
+        ${r.reason?`<div style="font-size:13px;color:var(--text2);margin-bottom:.75rem;font-style:italic;">"${r.reason}"</div>`:''}
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);">Status: <span style="font-size:11px;font-weight:600;background:${stc.bg};color:${stc.color};padding:2px 8px;border-radius:20px;">${r.status||'Pending'}</span></div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem;">Staff Attachment</div>
+        ${r.attachment_url?`<a href="${r.attachment_url}" target="_blank" class="btn btn-ghost btn-sm">📎 View Staff Attachment</a>`:'<div style="font-size:12px;color:var(--text3);">No attachment from staff.</div>'}
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem;">Admin Proof Upload</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:.5rem;">Upload supporting document or proof for your records.</div>
+        <input type="file" id="admin-proof-upload" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="font-size:12px;color:var(--text2);" />
+        ${r.admin_attachment_url?`<div style="margin-top:.5rem;"><a href="${r.admin_attachment_url}" target="_blank" class="btn btn-ghost btn-sm">📎 View Uploaded Proof</a></div>`:''}
       </div>`;
     document.getElementById('admin-leave-modal-overlay').classList.remove('hidden');
   } catch(e) { hideLoading(); showToast('Error','error'); console.error(e); }
@@ -1706,9 +1731,23 @@ function closeAdminLeaveModal() { document.getElementById('admin-leave-modal-ove
 
 async function reviewLeave(status) {
   const note = document.getElementById('admin-leave-note').value;
+  const proofFile = document.getElementById('admin-proof-upload')?.files[0];
   showLoading('Saving...');
   try {
-    await updateLeave(reviewingLeaveId, {status, admin_note: note});
+    let adminAttachmentUrl = null;
+    if(proofFile) {
+      const ext = proofFile.name.split('.').pop();
+      const path = `admin-proof/${reviewingLeaveId}_${Date.now()}.${ext}`;
+      const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/leave-attachments/${path}`,{
+        method:'POST',
+        headers:{'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':proofFile.type},
+        body:proofFile
+      });
+      if(uploadRes.ok) adminAttachmentUrl = `${SUPABASE_URL}/storage/v1/object/public/leave-attachments/${path}`;
+    }
+    const updateData = {status, admin_note: note};
+    if(adminAttachmentUrl) updateData.admin_attachment_url = adminAttachmentUrl;
+    await updateLeave(reviewingLeaveId, updateData);
     const r = _adminLeaveMap[reviewingLeaveId];
     // Notify staff on Slack
     const staffSlackId = SLACK_IDS[r.name];
@@ -1935,20 +1974,23 @@ async function loadUserTimeEditRequests() {
 function renderUserTimeEditRequests(list) {
   const el = document.getElementById('user-time-edit-list');
   if(!list||!list.length) { el.innerHTML='<div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div>'; return; }
+  const SC = {Approved:{border:'#1D9E75',bg:'#E1F5EE',color:'#0F6E56'},Denied:{border:'#A32D2D',bg:'#FCEBEB',color:'#A32D2D'},Pending:{border:'#BA7517',bg:'#FAEEDA',color:'#854F0B'}};
+  const TM = {clock_in:{abbr:'CI',bg:'#E6F1FB',color:'#185FA5',label:'Clock-in correction'},clock_out:{abbr:'CO',bg:'#EEEDFE',color:'#534AB7',label:'End shift correction'},break_waiver:{abbr:'BW',bg:'#E1F5EE',color:'#0F6E56',label:'Break waiver'},break_end:{abbr:'BE',bg:'#FAEEDA',color:'#854F0B',label:'Forgot to end break'},other:{abbr:'?',bg:'#F1EFE8',color:'#5F5E5A',label:'Other'}};
   let html = '';
   for(const r of list) {
-    const [h,m] = r.actual_time.split(':').map(Number);
-    const fmtT = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
-    html += `<div class="leave-card">
-      <div class="leave-card-header">
+    const st = r.status||'Pending'; const c = SC[st]||SC.Pending;
+    const tm = TM[r.request_type||'clock_in']||TM.other;
+    const fmtActual = r.actual_time ? (([h,m])=>`${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`)(r.actual_time.split(':').map(Number)) : null;
+    html += `<div style="background:var(--surface1);border:1px solid var(--border);border-left:3px solid ${c.border};border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:${tm.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${tm.color};flex-shrink:0;">${tm.abbr}</div>
         <div>
-          <div class="leave-card-title">${r.request_type?({clock_in:'Clock-In Correction',clock_out:'End Shift Correction',break_waiver:'Break Waiver',break_end:'Forgot to End Break',other:'Other'}[r.request_type]||r.request_type):'Clock-In Correction'} — ${fmtLeaveDate(r.date)}${r.actual_time?` @ ${(([h,m])=>`${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`)(r.actual_time.split(':').map(Number))}`:''}
-</div>
-          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
-          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+          <div style="font-size:13px;font-weight:600;color:var(--text);">${tm.label} — ${fmtLeaveDate(r.date)}${fmtActual?` @ ${fmtActual}`:''}</div>
+          ${r.reason?`<div style="font-size:12px;color:var(--text3);margin-top:2px;">${r.reason}</div>`:''}
+          ${r.admin_note?`<div style="font-size:11px;color:var(--orange);margin-top:3px;">Admin: ${r.admin_note}</div>`:''}
         </div>
-        <div>${statusPill(r.status)}</div>
       </div>
+      <span style="font-size:11px;font-weight:600;background:${c.bg};color:${c.color};padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${st}</span>
     </div>`;
   }
   el.innerHTML = html;
@@ -1966,22 +2008,29 @@ function renderAdminTimeEditRequests(list) {
   const el = document.getElementById('admin-time-edit-list');
   if(!el) return;
   if(!list||!list.length) { el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:.5rem 0">No time edit requests.</div>'; return; }
+  const SC = {Approved:{border:'#1D9E75',bg:'#E1F5EE',color:'#0F6E56'},Denied:{border:'#A32D2D',bg:'#FCEBEB',color:'#A32D2D'},Pending:{border:'#BA7517',bg:'#FAEEDA',color:'#854F0B'}};
+  const TM = {clock_in:{abbr:'CI',bg:'#E6F1FB',color:'#185FA5',label:'Clock-in correction'},clock_out:{abbr:'CO',bg:'#EEEDFE',color:'#534AB7',label:'End shift correction'},break_waiver:{abbr:'BW',bg:'#E1F5EE',color:'#0F6E56',label:'Break waiver'},break_end:{abbr:'BE',bg:'#FAEEDA',color:'#854F0B',label:'Forgot to end break'},other:{abbr:'?',bg:'#F1EFE8',color:'#5F5E5A',label:'Other'}};
   let html = '';
   for(const r of list) {
-    const [h,m] = r.actual_time.split(':').map(Number);
-    const fmtT = `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`;
-    html += `<div class="leave-card">
-      <div class="leave-card-header">
-        <div>
-          <div class="leave-card-title" style="font-size:13px;">${r.name}</div>
-          <div class="leave-card-meta">${fmtLeaveDate(r.date)} — Actual clock-in: ${fmtT}</div>
-          ${r.reason?`<div class="leave-card-reason">"${r.reason}"</div>`:''}
-          ${r.admin_note?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">📝 ${r.admin_note}</div>`:''}
+    const st = r.status||'Pending'; const c = SC[st]||SC.Pending;
+    const tm = TM[r.request_type||'clock_in']||TM.other;
+    const fmtActual = r.actual_time ? (([h,m])=>`${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`)(r.actual_time.split(':').map(Number)) : null;
+    html += `<div style="background:var(--surface1);border:1px solid var(--border);border-left:3px solid ${c.border};border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:${tm.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${tm.color};flex-shrink:0;">${tm.abbr}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);">${r.name}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px;">${tm.label} · ${fmtLeaveDate(r.date)}${fmtActual?` @ ${fmtActual}`:''}</div>
+            ${r.reason?`<div style="font-size:12px;color:var(--text2);margin-top:3px;font-style:italic;">"${r.reason}"</div>`:''}
+            ${r.admin_note?`<div style="font-size:11px;color:var(--orange);margin-top:3px;">Admin: ${r.admin_note}</div>`:''}
+          </div>
         </div>
-        <div>${statusPill(r.status)}</div>
+        <span style="font-size:11px;font-weight:600;background:${c.bg};color:${c.color};padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${st}</span>
       </div>
-      <div class="leave-card-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openAdminTimeEditModal(${r.id})">Review</button>
+      <div style="display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+        <button class="btn btn-ghost btn-sm" onclick="approveTimeEdit(${r.id},'Approved')">✓ Approve</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="approveTimeEdit(${r.id},'Denied')">✗ Deny</button>
       </div>
     </div>`;
   }
