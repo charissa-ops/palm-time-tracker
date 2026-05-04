@@ -227,6 +227,11 @@
       <div class="header-right"><div class="clock-display" id="live-clock"></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
     </div>
     <div class="user-bar"><div><div class="user-name" id="display-name"></div><div class="user-group" id="display-group"></div></div></div>
+    <div id="user-period-banner" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:10px 16px;margin:0 1rem 1rem;display:none;">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:2px;">Current Pay Period</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);" id="user-period-label">—</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:1px;" id="user-period-dates"></div>
+    </div>
     <div class="status-bar">
       <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
       <div class="stat-card"><div class="stat-label">Hours Today</div><div class="stat-val green" id="stat-today">0.0h</div></div>
@@ -291,6 +296,18 @@
       <button class="tab-btn" id="tab-btn-logins" onclick="switchTab('logins')">Login Activity</button>
     </div>
     <div id="tab-entries" class="tab-pane active">
+      <!-- Active Pay Period Banner -->
+      <div id="active-period-banner" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:3px;">Active Pay Period</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);" id="active-period-label">Loading...</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="active-period-dates"></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--text3);">Check Date</div>
+          <div style="font-size:13px;font-weight:500;color:var(--text2);" id="active-period-check">—</div>
+        </div>
+      </div>
       <!-- Staff Overview Grid -->
       <div class="card" style="margin-bottom:1.25rem;">
         <div class="card-title-row">
@@ -570,7 +587,7 @@
       <select id="profile-payperiod-select" style="flex:1;">
         <option value="">— Select a pay period —</option>
       </select>
-      <button class="btn btn-primary btn-sm" onclick="adminDownloadPayslip()" style="white-space:nowrap;">⬇ Download</button>
+      <button class="btn btn-primary btn-sm" onclick="adminDownloadPayslip()" style="white-space:nowrap;">⬇ PDF</button>
     </div>
 
     <!-- Entries report download -->
@@ -870,6 +887,7 @@ async function enterUserDashboard(){
   loadUserLeave();
   loadUserTimeEditRequests();
   loadUserExtras();
+  loadUserPeriodBanner();
   logLogin(currentUser);
 }
 
@@ -1515,6 +1533,24 @@ document.getElementById('edit-modal-overlay').addEventListener('click',function(
 const LEAVE_TABLE = 'leave_requests';
 // Slack IDs (not sensitive - just user identifiers, no tokens)
 const ADMIN_SLACK_ID = 'U06AX80SAUF';
+const STAFF_EMAILS = {
+  'Charissa Mercado':               'charissa@palmpts.com',
+  'Camille Uy':                     'camille@palmpts.com',
+  'Edeleign Jean Manicad':          'jean@palmpts.com',
+  'Richmond Yambot Nicolas':        'rich@palmbld.com',
+  'John Vens Clair Magbnua Solano': 'vens@palmbld.com',
+  'Mary Lynn Trias Mercado':        'mary@palmbld.com',
+  'Janna Alonto':                   'janna@palmbld.com',
+  'John Lester Solano':             'john@palmbld.com',
+  'Kristina Marie (Kim) Mercado':   'kim@palmbld.com',
+  'Elvin Juvel C. Pizarras':        'elvin@palmbld.com',
+  'Bridgette Anne Benolirao':       'bridgette@palmbld.com',
+  'Ren Tan':                        'gloren@palmbld.com',
+  'Griz Fuentes':                   'griz@palmbld.com',
+  'May Castillo':                   'may@palmbld.com',
+  'Ciara Andrade':                  'ciara@palmbld.com',
+  'Miko Dioquino':                  'miko@palmbld.com',
+};
 const SLACK_IDS = {
   'Charissa Mercado':'U06AX80SAUF','Camille Uy':'U06BBLWCH6F',
   'Edeleign Jean Manicad':'U06HQ9BAP0W','Richmond Yambot Nicolas':'U07CJ1HB7R6',
@@ -1890,16 +1926,15 @@ async function getPTODaysInRange(name, from, to) {
   try {
     const rows = await sbFetch(`${LEAVE_TABLE}?name=eq.${encodeURIComponent(name)}&leave_type=eq.PTO&status=eq.Approved&order=date_from.asc`);
     let totalDays = 0;
-    const f = new Date(from + 'T00:00:00');
-    const t = new Date(to + 'T23:59:59');
     for (const r of rows) {
-      const rFrom = new Date(r.date_from + 'T00:00:00');
-      const rTo = new Date(r.date_to + 'T23:59:59');
-      // Find overlap
-      const overlapStart = rFrom < f ? f : rFrom;
-      const overlapEnd = rTo > t ? t : rTo;
-      if (overlapEnd >= overlapStart) {
-        totalDays += Math.round((overlapEnd - overlapStart) / 86400000) + 1;
+      // Use date strings directly for comparison to avoid timezone issues
+      const rFrom = r.date_from > from ? r.date_from : from;
+      const rTo = r.date_to < to ? r.date_to : to;
+      if (rTo >= rFrom) {
+        // Count days inclusively using date math
+        const start = new Date(rFrom + 'T12:00:00');
+        const end = new Date(rTo + 'T12:00:00');
+        totalDays += Math.round((end - start) / 86400000) + 1;
       }
     }
     return totalDays;
@@ -2555,6 +2590,16 @@ let profileExtras = [];
 // ── Staff Overview Grid ──
 async function loadAdminDashboard() {
   try {
+    // Load active pay period
+    const ap = await getActivePeriod();
+    if(ap) {
+      document.getElementById('active-period-label').textContent = ap.label;
+      document.getElementById('active-period-dates').textContent = `${fmtLeaveDate(ap.date_from)} – ${fmtLeaveDate(ap.date_to)}`;
+      document.getElementById('active-period-check').textContent = ap.check_date ? fmtLeaveDate(ap.check_date) : '—';
+    } else {
+      document.getElementById('active-period-label').textContent = 'No active period set';
+      document.getElementById('active-period-dates').textContent = 'Go to Pay Periods tab to set one';
+    }
     // Get all active entries
     const active = await sbFetch(`${TABLE}?select=*&clock_out=is.null`);
     const activeMap = {};
@@ -2897,12 +2942,27 @@ async function setActivePeriod(id) {
     await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active`, 'PATCH', {status:'Finalized'});
     // Set this one to Active
     await updatePayPeriod(id, {status:'Active'});
-    // Reset cached active period
+    // Reset cached active period and refresh banners
     _activePeriod = null;
     showToast('Active pay period updated ✓','success');
     await loadAdminPayPeriods();
+    await loadAdminDashboard();
   } catch(e){showToast('Error','error');console.error(e);}
   finally{hideLoading();}
+}
+
+
+async function loadUserPeriodBanner() {
+  try {
+    const ap = await getActivePeriod();
+    const banner = document.getElementById('user-period-banner');
+    if(!ap || !banner) return;
+    banner.style.display = '';
+    document.getElementById('user-period-label').textContent = ap.label;
+    document.getElementById('user-period-dates').textContent = 
+      `${fmtLeaveDate(ap.date_from)} – ${fmtLeaveDate(ap.date_to)}` +
+      (ap.check_date ? ` · Check: ${fmtLeaveDate(ap.check_date)}` : '');
+  } catch(e) { console.error(e); }
 }
 
 </script>
