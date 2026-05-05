@@ -603,6 +603,7 @@
     <div class="modal-actions" style="margin-top:.5rem;">
       <button class="btn btn-ghost btn-sm" onclick="closeProfileModal()">Close</button>
       <div class="modal-actions-right">
+        <button class="btn btn-ghost btn-sm" onclick="sendOnboardingToStaff()" style="color:var(--accent);">📱 Send Instructions</button>
         <button class="btn btn-primary btn-sm" onclick="saveExtras()">Save Extras</button>
       </div>
     </div>
@@ -715,13 +716,12 @@ const USERS = {
   'Janna Alonto':                   {h:'2f9adfd357017bc1384ff780ec8b742f4a56d59126d4d70a75ca5d636351ba63',group:'PALM BUILD'},
   'John Lester Solano':             {h:'7c1f9eaf9d87af4725b78d67caa54fb510dc6447a128a7b18f950d10347688b3',group:'PALM BUILD'},
   'Kristina Marie (Kim) Mercado':   {h:'e8729ad0cc2820a56593012d538c39d36c4f6e0bb5c1748c70fbe23137514d90',group:'PALM BUILD'},
-  'Elvin Juvel C. Pizarras':        {h:'df17359f5486f8237b91d48eb7e5370d45124c5ec40a0322c0eaef39e49a4d13',group:'PALM BUILD'},
   'Bridgette Anne Benolirao':       {h:'0dc4b599ca3a9039e7f98155b38d5c983ef4fb417011d06425e163050f21ac38',group:'PALM BUILD'},
-  'Ren Tan':                        {h:'56ead25c7d77c2ca9a8c96af0cf411aa128143885ede704b8b9ce06e6b1520b0',group:'PALM BUILD'},
   'Griz Fuentes':                   {h:'26e0f5de8edcb104beb11064698b6c5daf25b60070bab35a844cc7fab088727d',group:'PALM BUILD'},
   'May Castillo':                   {h:'29938117374f7b9b033b09adecf079c898da1f73ca6457edc8b7e0eb73382bdc',group:'PALM BUILD'},
   'Ciara Andrade':                  {h:'09a050e836d917076fb70552ee096c8bd19fa09bdf7bad0f58d8fd81284293b4',group:'PALM BUILD'},
   'Miko Dioquino':                  {h:'e20f1af5f6204c5d38e6d3b075b9848d335f00ccd5d5d01b9f13965a71e1b98d',group:'PALM BUILD'},
+  'Yvonne Duna':                    {h:'b6755e8fdd445b11c3854113d667536caad8372dcc3576d724694b361e0b2467',group:'PALM BUILD'},
 };
 
 let currentUser = null, pinBuffer = '', adminPinBuffer = '', clockInterval = null;
@@ -1123,23 +1123,23 @@ const RATES = {
   'Charissa Mercado':9.50,'Camille Uy':8.00,'Edeleign Jean Manicad':8.00,'Richmond Yambot Nicolas':7.00,
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,'Elvin Juvel C. Pizarras':5.50,
-  'Bridgette Anne Benolirao':5.50,'Ren Tan':5.20,'Griz Fuentes':6.80,'May Castillo':5.00,
-  'Ciara Andrade':5.00,'Miko Dioquino':5.50
+  'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
+  'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50
 };
 const PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
   'Richmond Yambot Nicolas':'Payoneer','John Vens Clair Magbnua Solano':'Wise- US bank',
   'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
-  'Kristina Marie (Kim) Mercado':'Wise- US bank','Elvin Juvel C. Pizarras':'Wise- US bank',
-  'Bridgette Anne Benolirao':'Payoneer','Ren Tan':'Wise- US bank','Griz Fuentes':'Payoneer',
-  'May Castillo':'Wise- US bank','Ciara Andrade':'Wise- US bank','Miko Dioquino':'Wise- US bank'
+  'Kristina Marie (Kim) Mercado':'Wise- US bank',
+  'Bridgette Anne Benolirao':'Payoneer','Griz Fuentes':'Payoneer',
+  'May Castillo':'Wise- US bank','Ciara Andrade':'Wise- US bank','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer'
 };
 
 // ── Hour rules ──
 // Break deduction: 1hr/day for everyone except these:
 const NO_BREAK_DEDUCTION = new Set([
   'Charissa Mercado','Camille Uy',
-  'Kristina Marie (Kim) Mercado','Elvin Juvel C. Pizarras'
+  'Kristina Marie (Kim) Mercado'
 ]);
 
 // Daily hour caps (after break deduction). null = no cap, 'flag' = no cap but flag if >8
@@ -1153,13 +1153,12 @@ const DAILY_MAX = {
   'Janna Alonto':               11,
   'John Lester Solano':         8,
   'Kristina Marie (Kim) Mercado': 8,
-  'Elvin Juvel C. Pizarras':    8,
   'Bridgette Anne Benolirao':   8,
-  'Ren Tan':                    8,
   'Griz Fuentes':               8,
   'May Castillo':               8,
   'Ciara Andrade':              8,
   'Miko Dioquino':              8,
+  'Yvonne Duna':              8,
 };
 
 // Apply hour rules to a person's raw hours for a single day
@@ -1568,23 +1567,22 @@ const STAFF_EMAILS = {
   'Janna Alonto':                   'janna@palmbld.com',
   'John Lester Solano':             'john@palmbld.com',
   'Kristina Marie (Kim) Mercado':   'kim@palmbld.com',
-  'Elvin Juvel C. Pizarras':        'elvin@palmbld.com',
   'Bridgette Anne Benolirao':       'bridgette@palmbld.com',
-  'Ren Tan':                        'gloren@palmbld.com',
   'Griz Fuentes':                   'griz@palmbld.com',
   'May Castillo':                   'may@palmbld.com',
   'Ciara Andrade':                  'ciara@palmbld.com',
   'Miko Dioquino':                  'miko@palmbld.com',
+  'Yvonne Duna':                    'yvonne@palmbld.com',
 };
 const SLACK_IDS = {
   'Charissa Mercado':'U06AX80SAUF','Camille Uy':'U06BBLWCH6F',
   'Edeleign Jean Manicad':'U06HQ9BAP0W','Richmond Yambot Nicolas':'U07CJ1HB7R6',
   'John Vens Clair Magbnua Solano':'U07ME7TP8PN','Mary Lynn Trias Mercado':'U07QR0DHYG2',
   'Janna Alonto':'U096BJQGJ4R','John Lester Solano':'U09AZQN9LBA',
-  'Kristina Marie (Kim) Mercado':'U09BKFA2NJX','Elvin Juvel C. Pizarras':'U09JGNU8YGY',
-  'Bridgette Anne Benolirao':'U09K7JJNAQ6','Ren Tan':'U09M0P6JNBH',
+  'Kristina Marie (Kim) Mercado':'U09BKFA2NJX',
+  'Bridgette Anne Benolirao':'U09K7JJNAQ6',
   'Griz Fuentes':'U0A0CS9CGV8','May Castillo':'U0ACEEGNV4H',
-  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7'
+  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN'
 };
 
 let reviewingLeaveId = null;
@@ -3019,6 +3017,56 @@ async function loadUserPeriodBanner() {
       `${fmtLeaveDate(ap.date_from)} – ${fmtLeaveDate(ap.date_to)}` +
       (ap.check_date ? ` · Check: ${fmtLeaveDate(ap.check_date)}` : '');
   } catch(e) { console.error(e); }
+}
+
+
+// ── Send onboarding instructions to a specific staff member ──
+const STAFF_PINS = {
+  'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
+  'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
+  'Mary Lynn Trias Mercado':'8519','Janna Alonto':'1637','John Lester Solano':'9204',
+  'Kristina Marie (Kim) Mercado':'5478','Bridgette Anne Benolirao':'7195',
+  'Griz Fuentes':'6341','May Castillo':'8752','Ciara Andrade':'3097',
+  'Miko Dioquino':'5684','Yvonne Duna':'7249'
+};
+
+async function sendOnboardingToStaff() {
+  if(!profileName) return;
+  const slackId = SLACK_IDS[profileName];
+  const pin = STAFF_PINS[profileName];
+  if(!slackId || !pin) { showToast('No Slack ID or PIN found for this staff','error'); return; }
+  if(!confirm(`Send Palm Time instructions to ${profileName} via Slack?`)) return;
+  showLoading('Sending...');
+  try {
+    const firstName = profileName.split(' ')[0];
+    const message =
+      `👋 *Hi ${firstName}! Welcome to Palm Time Tracker.*\n\n` +
+      `Please use this app to clock in and out every shift.\n\n` +
+      `🔗 *Link:* https://charissa-ops.github.io/palm-time-tracker\n` +
+      `👤 *Your name:* ${profileName}\n` +
+      `🔐 *Your PIN:* \`${pin}\`\n\n` +
+      `*How to use it:*\n` +
+      `1️⃣ Open the link above\n` +
+      `2️⃣ Select your name from the dropdown\n` +
+      `3️⃣ Enter your PIN\n` +
+      `4️⃣ Tap *Clock In* when your shift starts\n` +
+      `5️⃣ Use *Break Start / Break End* for breaks\n` +
+      `6️⃣ Tap *Clock Out* when your shift ends\n\n` +
+      `*📱 Install on your phone:*\n` +
+      `• *iPhone:* Open the link in Safari → tap the Share button → tap *Add to Home Screen*\n` +
+      `• *Android:* Open the link in Chrome → tap the 3-dot menu → tap *Add to Home Screen*\n\n` +
+      `*💻 Install on your computer:*\n` +
+      `• Open the link in Chrome/Edge → look for the install icon ⊕ in the address bar\n\n` +
+      `If you have any questions, reach out to Charissa. Have a great shift! 🌴`;
+
+    await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+      body:JSON.stringify({userId:slackId, message})
+    });
+    showToast(`Instructions sent to ${firstName} ✓`,'success');
+  } catch(e){ showToast('Error sending','error'); console.error(e); }
+  finally{ hideLoading(); }
 }
 
 </script>
