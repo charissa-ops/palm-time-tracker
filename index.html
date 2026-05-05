@@ -908,11 +908,36 @@ async function loadUserDashboard(){
     const apFrom = ap ? ap.date_from : null;
     const apTo = ap ? ap.date_to : null;
     const todayH=all.filter(e=>toESTDateStr(e.clock_in)===today).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+    // Get PTO days in active period (no duplicates — skip days already logged)
+    let ptoBonusHours = 0;
+    if(apFrom && apTo) {
+      const ptoDays = await getPTODaysInRange(currentUser, apFrom, apTo);
+      if(ptoDays > 0) {
+        // Find which PTO dates already have logged entries to avoid duplicates
+        const loggedDates = new Set(all.filter(e=>{
+          const d=toESTDateStr(e.clock_in);
+          return d>=apFrom&&d<=apTo;
+        }).map(e=>toESTDateStr(e.clock_in)));
+        // Get approved PTO leave records
+        try {
+          const leaves = await sbFetch(`${LEAVE_TABLE}?name=eq.${encodeURIComponent(currentUser)}&leave_type=eq.PTO&status=eq.Approved`);
+          for(const l of leaves||[]) {
+            let d = new Date(l.date_from+'T12:00:00');
+            const end = new Date(l.date_to+'T12:00:00');
+            while(d<=end) {
+              const ds = d.toISOString().slice(0,10);
+              if(ds>=apFrom && ds<=apTo && !loggedDates.has(ds)) ptoBonusHours += 8;
+              d.setDate(d.getDate()+1);
+            }
+          }
+        } catch(e){}
+      }
+    }
     const totalH=all.filter(e=>{
       if(!apFrom||!apTo) return true;
       const d=toESTDateStr(e.clock_in);
       return d>=apFrom&&d<=apTo;
-    }).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+    }).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0) + ptoBonusHours;
     document.getElementById('stat-today').textContent=todayH.toFixed(1)+'h';
     document.getElementById('stat-total-hours').textContent=totalH.toFixed(1)+'h';
     document.getElementById('btn-clock-in').disabled=isIn;
@@ -2155,7 +2180,7 @@ const PAY_PERIODS_TABLE = 'pay_periods';
 
 async function getPayPeriods(onlyFinalized=false) {
   let qs = `${PAY_PERIODS_TABLE}?order=date_from.desc`;
-  if(onlyFinalized) qs += `&status=eq.Finalized`;
+  if(onlyFinalized) qs += `&status=in.(Finalized,Active)`;
   return await sbFetch(qs);
 }
 async function insertPayPeriod(row) { return await sbFetch(PAY_PERIODS_TABLE,'POST',row); }
@@ -2218,8 +2243,9 @@ function renderAdminPayPeriods(list) {
       <td>${p.check_date?fmtLeaveDate(p.check_date):'—'}</td>
       <td><span style="color:${statusColor};font-size:12px;font-weight:600;">${p.status}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${p.status==='Draft'?`<button class="admin-edit-btn" style="color:var(--green);border-color:#205a30;" onclick="finalizePayPeriod(${p.id})">Finalize</button>`:''}
-        ${p.status==='Finalized'?`<button class="admin-edit-btn" style="color:var(--accent);border-color:#4a6020;" onclick="sendPayslips(${p.id},'${p.label.replace(/'/g,'\'')}','${p.date_from}','${p.date_to}','${p.check_date||''}')">📤 Send Payslips</button>`:''}
+        ${p.status==='Draft'||p.status==='Active'?`<button class="admin-edit-btn" style="color:var(--green);border-color:#205a30;" onclick="finalizePayPeriod(${p.id})">Finalize</button>`:''}
+        ${p.status!=='Active'?`<button class="admin-edit-btn" style="color:var(--accent);border-color:#4a6020;" onclick="setActivePeriod(${p.id})">Set Active</button>`:''}
+        ${p.status==='Active'||p.status==='Finalized'?`<button class="admin-edit-btn" style="color:var(--accent);border-color:#4a6020;" onclick="sendPayslips(${p.id},'${p.label.replace(/'/g,'\'')}','${p.date_from}','${p.date_to}','${p.check_date||''}')">📤 Send Payslips</button>`:''}
         <button class="admin-edit-btn" style="color:var(--red);border-color:#5a2020;" onclick="deletePayPeriodItem(${p.id})">Delete</button>
       </td>
     </tr>`;
@@ -2684,11 +2710,30 @@ async function openStaffProfile(name) {
     return s;
   },0);
   const weekH = allEntries.filter(e=>toESTDateStr(e.clock_in)>=weekStart).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+  let profilePtoBonus = 0;
+  if(apFrom2 && apTo2) {
+    try {
+      const leaves = await sbFetch(`${LEAVE_TABLE}?name=eq.${encodeURIComponent(name)}&leave_type=eq.PTO&status=eq.Approved`);
+      const loggedDates2 = new Set(allEntries.filter(e=>{
+        const d=toESTDateStr(e.clock_in);
+        return d>=apFrom2&&d<=apTo2;
+      }).map(e=>toESTDateStr(e.clock_in)));
+      for(const l of leaves||[]) {
+        let d = new Date(l.date_from+'T12:00:00');
+        const end = new Date(l.date_to+'T12:00:00');
+        while(d<=end){
+          const ds=d.toISOString().slice(0,10);
+          if(ds>=apFrom2&&ds<=apTo2&&!loggedDates2.has(ds)) profilePtoBonus+=8;
+          d.setDate(d.getDate()+1);
+        }
+      }
+    } catch(e){}
+  }
   const totalH = allEntries.filter(e=>{
     if(!apFrom2||!apTo2) return true;
     const d=toESTDateStr(e.clock_in);
     return d>=apFrom2&&d<=apTo2;
-  }).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0);
+  }).reduce((s,e)=>{const b=calcBillableHours(e);return b.total!==null?s+b.total:s;},0) + profilePtoBonus;
   document.getElementById('profile-today').textContent = todayH.toFixed(1)+'h';
   document.getElementById('profile-week').textContent = weekH.toFixed(1)+'h';
   document.getElementById('profile-total').textContent = totalH.toFixed(1)+'h';
@@ -2766,9 +2811,10 @@ function renderProfileExtras() {
   }
   let html = '';
   profileExtras.forEach((ex,i) => {
-    html += `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-      <input type="text" style="flex:2;min-width:0;" placeholder="Label (e.g. Performance Bonus)" value="${ex.label||''}" onchange="profileExtras[${i}].label=this.value" />
+    html += `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+      <input type="text" style="flex:2;min-width:120px;" placeholder="Label (e.g. Performance Bonus)" value="${ex.label||''}" onchange="profileExtras[${i}].label=this.value" />
       <input type="number" style="flex:1;min-width:80px;" min="0" step="0.01" placeholder="0.00" value="${ex.amount||''}" onchange="profileExtras[${i}].amount=parseFloat(this.value)||0" />
+      <input type="date" style="flex:1;min-width:110px;" value="${ex.extra_date||''}" onchange="profileExtras[${i}].extra_date=this.value" />
       <button style="background:var(--red-dim);border:1px solid #5a2020;color:var(--red);border-radius:var(--radius-sm);padding:7px 10px;cursor:pointer;font-size:12px;font-family:'Syne',sans-serif;font-weight:600;white-space:nowrap;flex-shrink:0;" onclick="removeExtra(${i})">✕</button>
     </div>`;
   });
@@ -2800,11 +2846,16 @@ async function saveExtras() {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${EXTRAS_TABLE}?name=eq.${encodeURIComponent(profileName)}`,{
       method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=minimal'}
     });
+    // Get active pay period id
+    const ap = await getActivePeriod();
     // Re-insert valid extras
     for(const ex of profileExtras) {
       if(ex.label && ex.label.trim() && parseFloat(ex.amount)>0) {
         const id = Date.now() + Math.floor(Math.random()*10000);
-        await sbFetch(EXTRAS_TABLE,'POST',{id,name:profileName,label:ex.label.trim(),amount:parseFloat(ex.amount)});
+        const row = {id, name:profileName, label:ex.label.trim(), amount:parseFloat(ex.amount)};
+        if(ex.extra_date) row.extra_date = ex.extra_date;
+        if(ap) row.pay_period_id = ap.id;
+        await sbFetch(EXTRAS_TABLE,'POST',row);
       }
     }
     showToast('Extras saved ✓','success');
@@ -2944,7 +2995,12 @@ async function setActivePeriod(id) {
     await updatePayPeriod(id, {status:'Active'});
     // Reset cached active period and refresh banners
     _activePeriod = null;
-    showToast('Active pay period updated ✓','success');
+    // Clear all staff extras (they reset per pay period)
+    await fetch(`${SUPABASE_URL}/rest/v1/${EXTRAS_TABLE}`,{
+      method:'DELETE',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=minimal'}
+    });
+    showToast('Active pay period updated — extras cleared ✓','success');
     await loadAdminPayPeriods();
     await loadAdminDashboard();
   } catch(e){showToast('Error','error');console.error(e);}
