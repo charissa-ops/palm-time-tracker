@@ -1180,6 +1180,7 @@ const PAYMENT_METHODS = {
 const NO_BREAK_DEDUCTION = new Set([
   'Charissa Mercado','Camille Uy',
   'Kristina Marie (Kim) Mercado'
+  // Yvonne handled separately: no break weekdays, 1hr break weekends
 ]);
 
 // Daily hour caps (after break deduction). null = no cap, 'flag' = no cap but flag if >8
@@ -1202,11 +1203,18 @@ const DAILY_MAX = {
 };
 
 // Apply hour rules to a person's raw hours for a single day
-function applyHourRules(name, rawHours) {
-  // 1. Deduct break
-  const breakDeduction = NO_BREAK_DEDUCTION.has(name) ? 0 : 1;
+function applyHourRules(name, rawHours, clockInISO=null) {
+  // Special case: Yvonne gets no break on weekdays, 1hr on weekends
+  let breakDeduction;
+  if(name === 'Yvonne Duna' && clockInISO) {
+    const et = toET(clockInISO);
+    const dow = et.getDay(); // 0=Sun, 6=Sat
+    breakDeduction = (dow === 0 || dow === 6) ? 1 : 0;
+  } else {
+    breakDeduction = NO_BREAK_DEDUCTION.has(name) ? 0 : 1;
+  }
   let net = Math.max(0, rawHours - breakDeduction);
-  // 2. Apply cap
+  // Apply cap
   const cap = DAILY_MAX[name];
   const flagged = cap === 'flag' && rawHours > 8;
   if (typeof cap === 'number') net = Math.min(net, cap);
@@ -1226,7 +1234,7 @@ function calcBillableHours(entry) {
     if(typeof cap === 'number') net = Math.min(net, cap);
     return { total: net, flagged };
   }
-  const { net, flagged } = applyHourRules(entry.name, rawHours);
+  const { net, flagged } = applyHourRules(entry.name, rawHours, entry.clock_in);
   return { total: net, flagged };
 }
 
@@ -1558,7 +1566,7 @@ function openEditModal(id){
   document.getElementById('edit-clock-out').value=isoToInputEST(e.clock_out);
   document.getElementById('edit-waive-break').checked=!!e.waive_break;
   // Hide waive break option for staff who already have no break deduction
-  const noBreakStaff = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado'];
+  const noBreakStaff = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Yvonne Duna'];
   document.getElementById('edit-waive-break').closest('div[style]').style.display = noBreakStaff.includes(e.name)?'none':'flex';
   renderBreakRows();
   document.getElementById('edit-modal-overlay').classList.remove('hidden');
@@ -2972,7 +2980,7 @@ async function downloadStaffEntriesExcel() {
         clockIn: fmtTime(e.clock_in),
         clockOut: e.clock_out ? fmtTime(e.clock_out) : '—',
         rawHrs: rawHrs!==null ? parseFloat(rawHrs.toFixed(2)) : '—',
-        breakDeducted: (!e.waive_break && !['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado'].includes(profileName)) ? 1 : 0,
+        breakDeducted: (!e.waive_break && !['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Yvonne Duna'].includes(profileName)) ? 1 : 0,
         billableHrs: b.total!==null ? parseFloat(b.total.toFixed(2)) : '—',
         pay: b.total!==null ? parseFloat((b.total*rate).toFixed(2)) : '—',
         status: e.clock_out ? 'Complete' : 'Active',
@@ -3123,7 +3131,7 @@ function openAddEntryModal() {
   document.getElementById('add-entry-clock-out').value = '17:00';
   document.getElementById('add-entry-waive-break').checked = false;
   // Hide waive break for staff with no break deduction
-  const noBreak = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado'];
+  const noBreak = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Yvonne Duna'];
   document.getElementById('add-entry-waive-break').closest('.field').style.display = noBreak.includes(profileName)?'none':'';
   document.getElementById('add-entry-modal-overlay').classList.remove('hidden');
 }
