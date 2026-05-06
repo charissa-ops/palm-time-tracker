@@ -579,7 +579,10 @@
     <div id="profile-extras-container"></div>
 
     <!-- Recent entries -->
-    <div class="modal-section" style="margin-top:1rem;">Recent Entries</div>
+    <div class="modal-section" style="margin-top:1rem;display:flex;justify-content:space-between;align-items:center;">
+      <span>Recent Entries</span>
+      <button class="edit-action-btn" onclick="openAddEntryModal()">+ Add Entry</button>
+    </div>
     <div id="profile-recent-entries" style="overflow-x:auto;"></div>
 
     <!-- Payslip download for admin -->
@@ -606,6 +609,42 @@
       <div class="modal-actions-right">
         <button class="btn btn-ghost btn-sm" onclick="sendOnboardingToStaff()" style="color:var(--accent);">📱 Send Instructions</button>
         <button class="btn btn-primary btn-sm" onclick="saveExtras()">Save Extras</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ENTRY MODAL -->
+<div id="add-entry-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Add Entry</div>
+    <div class="modal-sub" id="add-entry-modal-sub">—</div>
+    <div class="modal-row" style="margin-top:1rem;">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="add-entry-date" />
+      </div>
+    </div>
+    <div class="modal-row">
+      <div class="field">
+        <label>Clock In (ET)</label>
+        <input type="time" id="add-entry-clock-in" value="09:00" />
+      </div>
+      <div class="field">
+        <label>Clock Out (ET)</label>
+        <input type="time" id="add-entry-clock-out" />
+      </div>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="add-entry-waive-break" style="width:16px;height:16px;accent-color:var(--accent);" />
+        <span>Waive break deduction for this entry</span>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeAddEntryModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="saveAddEntry()">Save Entry</button>
       </div>
     </div>
   </div>
@@ -3067,6 +3106,61 @@ async function sendOnboardingToStaff() {
     });
     showToast(`Instructions sent to ${firstName} ✓`,'success');
   } catch(e){ showToast('Error sending','error'); console.error(e); }
+  finally{ hideLoading(); }
+}
+
+
+// ══════════ ADD ENTRY (ADMIN) ══════════
+function openAddEntryModal() {
+  if(!profileName) return;
+  document.getElementById('add-entry-modal-sub').textContent = profileName;
+  // Default to yesterday
+  const et = toET(new Date().toISOString());
+  et.setDate(et.getDate()-1);
+  const p = n=>String(n).padStart(2,'0');
+  document.getElementById('add-entry-date').value = `${et.getFullYear()}-${p(et.getMonth()+1)}-${p(et.getDate())}`;
+  document.getElementById('add-entry-clock-in').value = '09:00';
+  document.getElementById('add-entry-clock-out').value = '17:00';
+  document.getElementById('add-entry-waive-break').checked = false;
+  // Hide waive break for staff with no break deduction
+  const noBreak = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado'];
+  document.getElementById('add-entry-waive-break').closest('.field').style.display = noBreak.includes(profileName)?'none':'';
+  document.getElementById('add-entry-modal-overlay').classList.remove('hidden');
+}
+
+function closeAddEntryModal() {
+  document.getElementById('add-entry-modal-overlay').classList.add('hidden');
+}
+document.getElementById('add-entry-modal-overlay').addEventListener('click', function(ev){
+  if(ev.target===this) closeAddEntryModal();
+});
+
+async function saveAddEntry() {
+  const date = document.getElementById('add-entry-date').value;
+  const ci = document.getElementById('add-entry-clock-in').value;
+  const co = document.getElementById('add-entry-clock-out').value;
+  const waive = document.getElementById('add-entry-waive-break').checked;
+  if(!date) { showToast('Please select a date','error'); return; }
+  if(!ci) { showToast('Please enter clock-in time','error'); return; }
+  showLoading('Saving entry...');
+  try {
+    const clockIn = inputESTToISO(`${date}T${ci}`);
+    const clockOut = co ? inputESTToISO(`${date}T${co}`) : null;
+    const id = Date.now();
+    await sbFetch(TABLE,'POST',{
+      id,
+      name: profileName,
+      clock_in: clockIn,
+      clock_out: clockOut,
+      breaks: [],
+      waive_break: waive
+    });
+    showToast('Entry added ✓','success');
+    closeAddEntryModal();
+    // Refresh profile recent entries
+    await openStaffProfile(profileName);
+    await loadAdminEntries();
+  } catch(e){ showToast('Error saving entry','error'); console.error(e); }
   finally{ hideLoading(); }
 }
 
