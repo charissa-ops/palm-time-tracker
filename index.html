@@ -170,10 +170,11 @@
           <optgroup label="PALM BUILD">
             <option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option>
             <option>Janna Alonto</option><option>John Lester Solano</option>
-            <option>Kristina Marie (Kim) Mercado</option><option>Elvin Juvel C. Pizarras</option>
-            <option>Bridgette Anne Benolirao</option><option>Ren Tan</option>
+            <option>Kristina Marie (Kim) Mercado</option>
+            <option>Bridgette Anne Benolirao</option>
             <option>Griz Fuentes</option><option>May Castillo</option>
             <option>Ciara Andrade</option><option>Miko Dioquino</option>
+            <option>Yvonne Duna</option>
           </optgroup>
         </select>
       </div>
@@ -323,7 +324,7 @@
           <select id="admin-filter-name" onchange="loadAdminEntries()">
             <option value="">All Staff</option>
             <optgroup label="PALM PARTNERS"><option>Charissa Mercado</option><option>Camille Uy</option><option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option></optgroup>
-            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Elvin Juvel C. Pizarras</option><option>Bridgette Anne Benolirao</option><option>Ren Tan</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option></optgroup>
+            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Bridgette Anne Benolirao</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option><option>Yvonne Duna</option></optgroup>
           </select>
           <div class="date-filter">
             <input type="date" id="admin-filter-date-from" onchange="loadAdminEntries()" />
@@ -440,8 +441,8 @@
             <optgroup label="PALM BUILD">
               <option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option>
               <option>Janna Alonto</option><option>John Lester Solano</option>
-              <option>Kristina Marie (Kim) Mercado</option><option>Elvin Juvel C. Pizarras</option>
-              <option>Bridgette Anne Benolirao</option><option>Ren Tan</option>
+              <option>Kristina Marie (Kim) Mercado</option>
+              <option>Bridgette Anne Benolirao</option>
               <option>Griz Fuentes</option><option>May Castillo</option>
               <option>Ciara Andrade</option><option>Miko Dioquino</option>
             </optgroup>
@@ -1122,7 +1123,7 @@ async function loadHoursSummary(){
 const RATES = {
   'Charissa Mercado':9.50,'Camille Uy':8.00,'Edeleign Jean Manicad':8.00,'Richmond Yambot Nicolas':7.00,
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
-  'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,'Elvin Juvel C. Pizarras':5.50,
+  'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,
   'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
   'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50
 };
@@ -1518,7 +1519,7 @@ function openEditModal(id){
   document.getElementById('edit-clock-out').value=isoToInputEST(e.clock_out);
   document.getElementById('edit-waive-break').checked=!!e.waive_break;
   // Hide waive break option for staff who already have no break deduction
-  const noBreakStaff = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Elvin Juvel C. Pizarras'];
+  const noBreakStaff = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado'];
   document.getElementById('edit-waive-break').closest('div[style]').style.display = noBreakStaff.includes(e.name)?'none':'flex';
   renderBreakRows();
   document.getElementById('edit-modal-overlay').classList.remove('hidden');
@@ -2932,7 +2933,7 @@ async function downloadStaffEntriesExcel() {
         clockIn: fmtTime(e.clock_in),
         clockOut: e.clock_out ? fmtTime(e.clock_out) : '—',
         rawHrs: rawHrs!==null ? parseFloat(rawHrs.toFixed(2)) : '—',
-        breakDeducted: (!e.waive_break && !['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Elvin Juvel C. Pizarras'].includes(profileName)) ? 1 : 0,
+        breakDeducted: (!e.waive_break && !['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado'].includes(profileName)) ? 1 : 0,
         billableHrs: b.total!==null ? parseFloat(b.total.toFixed(2)) : '—',
         pay: b.total!==null ? parseFloat((b.total*rate).toFixed(2)) : '—',
         status: e.clock_out ? 'Complete' : 'Active',
