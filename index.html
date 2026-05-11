@@ -604,10 +604,14 @@
       <button class="btn btn-primary btn-sm" onclick="downloadStaffEntriesExcel()" style="white-space:nowrap;">⬇ Excel</button>
     </div>
 
-    <div class="modal-actions" style="margin-top:.5rem;">
-      <button class="btn btn-ghost btn-sm" onclick="closeProfileModal()">Close</button>
-      <div class="modal-actions-right">
+    <div class="modal-actions" style="margin-top:.5rem;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeProfileModal()">Close</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteStaff()">🗑 Delete Staff</button>
+      </div>
+      <div class="modal-actions-right" style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="sendOnboardingToStaff()" style="color:var(--accent);">📱 Send Instructions</button>
+        <button class="btn btn-ghost btn-sm" onclick="sendIndividualPayslip()" style="color:var(--accent);">💰 Send Payslip</button>
         <button class="btn btn-primary btn-sm" onclick="saveExtras()">Save Extras</button>
       </div>
     </div>
@@ -1049,7 +1053,18 @@ async function breakEnd(){
 }
 
 // ── Admin Dashboard ──
-async function enterAdminDashboard(){showScreen('admin');startClock('admin-live-clock','admin-date-display');await loadAdminEntries();await loadAdminDashboard();}
+async function enterAdminDashboard(){
+  showScreen('admin');
+  startClock('admin-live-clock','admin-date-display');
+  // Default entries to active pay period
+  const ap = await getActivePeriod();
+  if(ap){
+    document.getElementById('admin-filter-date-from').value = ap.date_from;
+    document.getElementById('admin-filter-date-to').value = ap.date_to;
+  }
+  await loadAdminEntries();
+  await loadAdminDashboard();
+}
 
 async function loadAdminEntries(){
   showLoading('Loading entries...');
@@ -1179,7 +1194,7 @@ const PAYMENT_METHODS = {
 // Break deduction: 1hr/day for everyone except these:
 const NO_BREAK_DEDUCTION = new Set([
   'Charissa Mercado','Camille Uy',
-  'Kristina Marie (Kim) Mercado'
+  'Kristina Marie (Kim) Mercado','Janna Alonto'
   // Yvonne handled separately: no break weekdays, 1hr break weekends
 ]);
 
@@ -3169,6 +3184,149 @@ async function saveAddEntry() {
     await openStaffProfile(profileName);
     await loadAdminEntries();
   } catch(e){ showToast('Error saving entry','error'); console.error(e); }
+  finally{ hideLoading(); }
+}
+
+
+// ══════════ DELETE STAFF ══════════
+async function deleteStaff() {
+  if(!profileName) return;
+  if(!confirm(`Are you sure you want to remove ${profileName} from Palm Time? This will not delete their time entries.`)) return;
+  // Remove from USERS object
+  delete USERS[profileName];
+  delete RATES[profileName];
+  delete PAYMENT_METHODS[profileName];
+  delete SLACK_IDS[profileName];
+  delete DAILY_MAX[profileName];
+  NO_BREAK_DEDUCTION.delete(profileName);
+  // Update staff count
+  document.getElementById('admin-stat-total').textContent = Object.keys(USERS).length;
+  // Update dropdowns
+  updateStaffDropdowns();
+  showToast(`${profileName} removed from Palm Time ✓`,'success');
+  closeProfileModal();
+  await loadAdminDashboard();
+}
+
+function updateStaffDropdowns() {
+  // Rebuild all staff dropdowns dynamically
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[]};
+  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  const dropdownIds = ['admin-filter-name','login-filter-name'];
+  for(const id of dropdownIds) {
+    const sel = document.getElementById(id);
+    if(!sel) continue;
+    const firstOpt = sel.options[0];
+    sel.innerHTML = '';
+    sel.appendChild(firstOpt);
+    for(const [group, names] of Object.entries(groups)) {
+      const og = document.createElement('optgroup');
+      og.label = group;
+      for(const n of names) {
+        const opt = document.createElement('option');
+        opt.textContent = n;
+        og.appendChild(opt);
+      }
+      sel.appendChild(og);
+    }
+  }
+  // Also update login name select
+  const loginSel = document.getElementById('login-name-select');
+  if(loginSel) {
+    const firstOpt = loginSel.options[0];
+    loginSel.innerHTML = '';
+    loginSel.appendChild(firstOpt);
+    for(const [group, names] of Object.entries(groups)) {
+      const og = document.createElement('optgroup');
+      og.label = group;
+      for(const n of names) {
+        const opt = document.createElement('option');
+        opt.textContent = n;
+        og.appendChild(opt);
+      }
+      loginSel.appendChild(og);
+    }
+  }
+}
+
+// ══════════ SEND INDIVIDUAL PAYSLIP ══════════
+async function sendIndividualPayslip() {
+  if(!profileName) return;
+  const sel = document.getElementById('profile-payperiod-select');
+  const opt = sel ? sel.options[sel.selectedIndex] : null;
+  if(!opt || !opt.value) { showToast('Please select a pay period first','error'); return; }
+  if(!confirm(`Send payslip for "${opt.textContent}" to ${profileName} via Slack?`)) return;
+  showLoading('Sending payslip...');
+  try {
+    const from = opt.dataset.from;
+    const to = opt.dataset.to;
+    const checkDate = opt.dataset.check;
+    const label = opt.textContent;
+    const slackId = SLACK_IDS[profileName];
+    if(!slackId) { showToast('No Slack ID found','error'); hideLoading(); return; }
+    const rate = RATES[profileName]||0;
+    const group = USERS[profileName]?.group||'';
+    const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
+    const checkFmt = checkDate ? new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
+
+    const entries = await getEntries({name:profileName, from, to});
+    let totalHours = 0;
+    for(const e of entries){const b=calcBillableHours(e);if(b.total!==null)totalHours+=b.total;}
+
+    const holidays = await getHolidays();
+    const holidayCount = countHolidaysInRange(from, to, holidays);
+    const ptoDays = await getPTODaysInRange(profileName, from, to);
+    const ptoPay = ptoDays*8*rate;
+    const holidayPay = holidayCount*8*rate;
+    const basePay = Math.round(totalHours*rate*100)/100;
+
+    let extrasRows = [], extrasTotal = 0;
+    try {
+      const dbExtras = await sbFetch(`staff_extras?name=eq.${encodeURIComponent(profileName)}&order=created_at.asc`);
+      extrasRows = dbExtras||[];
+      extrasTotal = extrasRows.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    } catch(e){}
+
+    const totalPay = Math.round((basePay+ptoPay+holidayPay+extrasTotal)*100)/100;
+    const firstName = profileName.split(' ')[0];
+    const ptoLine = ptoPay>0?`• PTO Pay (${ptoDays} day${ptoDays>1?'s':''}): $${ptoPay.toFixed(2)}
+`:'';
+    const holLine = holidayPay>0?`• Holiday Pay (${holidayCount} day${holidayCount>1?'s':''}): $${holidayPay.toFixed(2)}
+`:'';
+    const extrasLines = extrasRows.map(ex=>`• ${ex.label}: $${parseFloat(ex.amount).toFixed(2)}
+`).join('');
+
+    const message =
+      `💰 *Payslip — ${label}*
+
+` +
+      `*${company}*
+` +
+      `Employee: ${profileName}
+` +
+      `Pay Period: ${label}
+` +
+      `${checkFmt?`Check Date: ${checkFmt}
+`:''}
+` +
+      `*Earnings:*
+` +
+      `• Regular Pay (${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}): $${basePay.toFixed(2)}
+` +
+      ptoLine + holLine + extrasLines +
+      `
+*Gross Pay: $${totalPay.toFixed(2)}*
+
+` +
+      `_This is your official payslip. For questions, contact Charissa._`;
+
+    await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+      body:JSON.stringify({userId:slackId, message})
+    });
+    showToast(`Payslip sent to ${firstName} ✓`,'success');
+  } catch(e){ showToast('Error sending payslip','error'); console.error(e); }
   finally{ hideLoading(); }
 }
 
