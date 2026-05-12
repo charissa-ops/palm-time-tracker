@@ -324,7 +324,7 @@
           <select id="admin-filter-name" onchange="loadAdminEntries()">
             <option value="">All Staff</option>
             <optgroup label="PALM PARTNERS"><option>Charissa Mercado</option><option>Camille Uy</option><option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option></optgroup>
-            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Bridgette Anne Benolirao</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option><option>Yvonne Duna</option></optgroup>
+            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Bridgette Anne Benolirao</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option><option>Yvonne Duna</option><option>Talita David Brandao</option></optgroup>
           </select>
           <div class="date-filter">
             <input type="date" id="admin-filter-date-from" onchange="loadAdminEntries()" />
@@ -611,7 +611,6 @@
       </div>
       <div class="modal-actions-right" style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="sendOnboardingToStaff()" style="color:var(--accent);">📱 Send Instructions</button>
-        <button class="btn btn-ghost btn-sm" onclick="sendIndividualPayslip()" style="color:var(--accent);">💰 Send Payslip</button>
         <button class="btn btn-primary btn-sm" onclick="saveExtras()">Save Extras</button>
       </div>
     </div>
@@ -649,6 +648,30 @@
       <button class="btn btn-ghost btn-sm" onclick="closeAddEntryModal()">Cancel</button>
       <div class="modal-actions-right">
         <button class="btn btn-primary btn-sm" onclick="saveAddEntry()">Save Entry</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SEND PAYSLIP MODAL -->
+<div id="send-payslip-modal-overlay" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-title">Send Payslips</div>
+    <div class="modal-sub" id="send-payslip-modal-sub">Select who to send to</div>
+    <div style="margin:1rem 0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+        <span style="font-size:12px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;">Recipients</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="selectAllPayslip()">Select All</button>
+          <button class="btn btn-ghost btn-sm" onclick="deselectAllPayslip()">Deselect All</button>
+        </div>
+      </div>
+      <div id="send-payslip-recipients" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeSendPayslipModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="confirmSendPayslips()">📤 Send</button>
       </div>
     </div>
   </div>
@@ -766,6 +789,7 @@ const USERS = {
   'Ciara Andrade':                  {h:'09a050e836d917076fb70552ee096c8bd19fa09bdf7bad0f58d8fd81284293b4',group:'PALM BUILD'},
   'Miko Dioquino':                  {h:'e20f1af5f6204c5d38e6d3b075b9848d335f00ccd5d5d01b9f13965a71e1b98d',group:'PALM BUILD'},
   'Yvonne Duna':                    {h:'b6755e8fdd445b11c3854113d667536caad8372dcc3576d724694b361e0b2467',group:'PALM BUILD'},
+  'Talita David Brandao':           {h:'b27aa2e5e66fcdee4678346ea8cc0c6b894976b3aa4d64730f5ffbe8a11bce81',group:'PALM BUILD'},
 };
 
 let currentUser = null, pinBuffer = '', adminPinBuffer = '', clockInterval = null;
@@ -1179,15 +1203,15 @@ const RATES = {
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,
   'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
-  'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50
+  'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50
 };
 const PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
-  'Richmond Yambot Nicolas':'Payoneer','John Vens Clair Magbnua Solano':'Wise- US bank',
+  'Richmond Yambot Nicolas':'Wise- US bank','John Vens Clair Magbnua Solano':'Wise- US bank',
   'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
   'Kristina Marie (Kim) Mercado':'Wise- US bank',
   'Bridgette Anne Benolirao':'Payoneer','Griz Fuentes':'Payoneer',
-  'May Castillo':'Wise- US bank','Ciara Andrade':'Wise- US bank','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer'
+  'May Castillo':'Wise- US bank','Ciara Andrade':'Payoneer','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank'
 };
 
 // ── Hour rules ──
@@ -1215,6 +1239,7 @@ const DAILY_MAX = {
   'Ciara Andrade':              8,
   'Miko Dioquino':              8,
   'Yvonne Duna':              8,
+  'Talita David Brandao':     null,
 };
 
 // Apply hour rules to a person's raw hours for a single day
@@ -1636,6 +1661,7 @@ const STAFF_EMAILS = {
   'Ciara Andrade':                  'ciara@palmbld.com',
   'Miko Dioquino':                  'miko@palmbld.com',
   'Yvonne Duna':                    'yvonne@palmbld.com',
+  'Talita David Brandao':           'talita@palmbld.com',
 };
 const SLACK_IDS = {
   'Charissa Mercado':'U06AX80SAUF','Camille Uy':'U06BBLWCH6F',
@@ -1645,7 +1671,7 @@ const SLACK_IDS = {
   'Kristina Marie (Kim) Mercado':'U09BKFA2NJX',
   'Bridgette Anne Benolirao':'U09K7JJNAQ6',
   'Griz Fuentes':'U0A0CS9CGV8','May Castillo':'U0ACEEGNV4H',
-  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN'
+  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN','Talita David Brandao':'U0AJDHX28AG'
 };
 
 let reviewingLeaveId = null;
@@ -2576,8 +2602,49 @@ function buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePa
   </body></html>`;
 }
 
+let _payslipParams = null;
+
 async function sendPayslips(periodId, label, from, to, checkDate) {
-  if(!confirm(`Send payslips for "${label}" to all staff via Slack DM?`)) return;
+  _payslipParams = {periodId, label, from, to, checkDate};
+  // Open recipient selector
+  document.getElementById('send-payslip-modal-sub').textContent = `Pay Period: ${label}`;
+  const container = document.getElementById('send-payslip-recipients');
+  container.innerHTML = '';
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[]};
+  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  for(const [group, names] of Object.entries(groups)) {
+    const groupLabel = document.createElement('div');
+    groupLabel.style.cssText = 'font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:8px;margin-bottom:4px;';
+    groupLabel.textContent = group;
+    container.appendChild(groupLabel);
+    for(const name of names) {
+      const row = document.createElement('label');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;cursor:pointer;';
+      row.innerHTML = `<input type="checkbox" checked value="${name}" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;" /><span style="font-size:13px;color:var(--text);">${name}</span>`;
+      container.appendChild(row);
+    }
+  }
+  document.getElementById('send-payslip-modal-overlay').classList.remove('hidden');
+}
+
+function selectAllPayslip() {
+  document.querySelectorAll('#send-payslip-recipients input[type="checkbox"]').forEach(cb=>cb.checked=true);
+}
+function deselectAllPayslip() {
+  document.querySelectorAll('#send-payslip-recipients input[type="checkbox"]').forEach(cb=>cb.checked=false);
+}
+function closeSendPayslipModal() {
+  document.getElementById('send-payslip-modal-overlay').classList.add('hidden');
+  _payslipParams = null;
+}
+document.getElementById('send-payslip-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeSendPayslipModal();});
+
+async function confirmSendPayslips() {
+  if(!_payslipParams) return;
+  const selected = [...document.querySelectorAll('#send-payslip-recipients input[type="checkbox"]:checked')].map(cb=>cb.value);
+  if(!selected.length){showToast('Please select at least one staff member','error');return;}
+  closeSendPayslipModal();
+  const {label, from, to, checkDate} = _payslipParams;
   showLoading('Sending payslips...');
   const results = [];
   try {
@@ -2586,7 +2653,7 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
     const holidayCount = countHolidaysInRange(from, to, holidays);
     const checkFmt = checkDate ? new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
 
-    for(const name of Object.keys(USERS)) {
+    for(const name of selected) {
       const slackId = SLACK_IDS[name];
       if(!slackId) continue;
       const rate = RATES[name]||0;
@@ -2662,7 +2729,7 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
         console.error(e);
       }
     }
-    showToast(`Payslips sent to ${results.filter(r=>r.startsWith('✅')).length} staff ✓`,'success');
+    showToast(`Payslips sent to ${results.filter(r=>r.startsWith('✅')).length} of ${selected.length} staff ✓`,'success');
     console.log('Results:', results);
   } catch(e){showToast('Error sending payslips','error');console.error(e);}
   finally{hideLoading();}
@@ -3090,7 +3157,8 @@ const STAFF_PINS = {
   'Mary Lynn Trias Mercado':'8519','Janna Alonto':'1637','John Lester Solano':'9204',
   'Kristina Marie (Kim) Mercado':'5478','Bridgette Anne Benolirao':'7195',
   'Griz Fuentes':'6341','May Castillo':'8752','Ciara Andrade':'3097',
-  'Miko Dioquino':'5684','Yvonne Duna':'7249'
+  'Miko Dioquino':'5684',
+  'Talita David Brandao':'7220','Yvonne Duna':'7249'
 };
 
 async function sendOnboardingToStaff() {
