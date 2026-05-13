@@ -174,7 +174,7 @@
             <option>Bridgette Anne Benolirao</option>
             <option>Griz Fuentes</option><option>May Castillo</option>
             <option>Ciara Andrade</option><option>Miko Dioquino</option>
-            <option>Yvonne Duna</option>
+            <option>Yvonne Duna</option><option>Talita David Brandao</option>
           </optgroup>
         </select>
       </div>
@@ -876,6 +876,27 @@ function showLoading(msg='Loading...'){document.getElementById('loading-text').t
 function hideLoading(){document.getElementById('loading-overlay').classList.add('hidden');}
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className=type?`show ${type}`:'show';clearTimeout(t._t);t._t=setTimeout(()=>{t.className='';},3000);}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');}
+
+// Auto-populate login dropdown from USERS object
+function initLoginDropdown() {
+  const sel = document.getElementById('login-name-select');
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[]};
+  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  // Clear existing optgroups
+  while(sel.options.length > 1) sel.remove(1);
+  for(const [group, names] of Object.entries(groups)) {
+    const og = document.createElement('optgroup');
+    og.label = group;
+    for(const n of names) {
+      const opt = document.createElement('option');
+      opt.textContent = n;
+      og.appendChild(opt);
+    }
+    sel.appendChild(og);
+  }
+}
+// Call on load
+document.addEventListener('DOMContentLoaded', initLoginDropdown);
 function updateDots(id,total,filled){document.getElementById(id).querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled',i<filled));}
 
 function startClock(clockId,dateId){
