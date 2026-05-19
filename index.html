@@ -790,6 +790,7 @@ const USERS = {
   'Miko Dioquino':                  {h:'e20f1af5f6204c5d38e6d3b075b9848d335f00ccd5d5d01b9f13965a71e1b98d',group:'PALM BUILD'},
   'Yvonne Duna':                    {h:'b6755e8fdd445b11c3854113d667536caad8372dcc3576d724694b361e0b2467',group:'PALM BUILD'},
   'Talita David Brandao':           {h:'b27aa2e5e66fcdee4678346ea8cc0c6b894976b3aa4d64730f5ffbe8a11bce81',group:'PALM BUILD'},
+  'Vincent Chavarria':              {h:'21a224dab2f87f934b2a6854291ad5effcaa8a6dcebbf92565d47dbc0dbe1356',group:'PALM BUILD'},
 };
 
 let currentUser = null, pinBuffer = '', adminPinBuffer = '', clockInterval = null;
@@ -1224,7 +1225,7 @@ const RATES = {
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,
   'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
-  'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50
+  'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Vincent Chavarria':6.00
 };
 const PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
@@ -1232,7 +1233,7 @@ const PAYMENT_METHODS = {
   'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
   'Kristina Marie (Kim) Mercado':'Wise- US bank',
   'Bridgette Anne Benolirao':'Payoneer','Griz Fuentes':'Payoneer',
-  'May Castillo':'Wise- US bank','Ciara Andrade':'Payoneer','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank'
+  'May Castillo':'Wise- US bank','Ciara Andrade':'Payoneer','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank','Vincent Chavarria':'Payoneer'
 };
 
 // ── Hour rules ──
@@ -1261,6 +1262,7 @@ const DAILY_MAX = {
   'Miko Dioquino':              8,
   'Yvonne Duna':              8,
   'Talita David Brandao':     null,
+  'Vincent Chavarria':        8,
 };
 
 // Apply hour rules to a person's raw hours for a single day
@@ -1683,6 +1685,7 @@ const STAFF_EMAILS = {
   'Miko Dioquino':                  'miko@palmbld.com',
   'Yvonne Duna':                    'yvonne@palmbld.com',
   'Talita David Brandao':           'talita@palmbld.com',
+  'Vincent Chavarria':              'vincent@palmbld.com',
 };
 const SLACK_IDS = {
   'Charissa Mercado':'U06AX80SAUF','Camille Uy':'U06BBLWCH6F',
@@ -1692,7 +1695,7 @@ const SLACK_IDS = {
   'Kristina Marie (Kim) Mercado':'U09BKFA2NJX',
   'Bridgette Anne Benolirao':'U09K7JJNAQ6',
   'Griz Fuentes':'U0A0CS9CGV8','May Castillo':'U0ACEEGNV4H',
-  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN','Talita David Brandao':'U0AJDHX28AG'
+  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN','Talita David Brandao':'U0AJDHX28AG','Vincent Chavarria':'U0B3BV52JKY'
 };
 
 let reviewingLeaveId = null;
@@ -3179,7 +3182,8 @@ const STAFF_PINS = {
   'Kristina Marie (Kim) Mercado':'5478','Bridgette Anne Benolirao':'7195',
   'Griz Fuentes':'6341','May Castillo':'8752','Ciara Andrade':'3097',
   'Miko Dioquino':'5684',
-  'Talita David Brandao':'7220','Yvonne Duna':'7249'
+  'Talita David Brandao':'7220',
+  'Vincent Chavarria':'5612','Yvonne Duna':'7249'
 };
 
 async function sendOnboardingToStaff() {
