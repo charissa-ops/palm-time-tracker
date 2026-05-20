@@ -596,8 +596,8 @@
     <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:1rem;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Earned so far</div>
-          <div style="font-size:16px;font-weight:600;color:var(--text);font-family:'DM Mono',monospace;" id="profile-earned-so-far">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Hours × Rate</div>
+          <div style="font-size:13px;font-weight:500;color:var(--text);font-family:'DM Mono',monospace;" id="profile-earned-so-far">—</div>
         </div>
         <div style="text-align:right;">
           <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Projected total</div>
@@ -2948,8 +2948,13 @@ async function openStaffProfile(name) {
   document.getElementById('profile-today').textContent = todayH.toFixed(1)+'h';
   document.getElementById('profile-week').textContent = weekH.toFixed(1)+'h';
   document.getElementById('profile-total').textContent = totalH.toFixed(1)+'h';
-  // Load projected pay
-  await loadProjectedPay(name, totalH);
+  // Load projected pay (pass all period entries)
+  const periodEntries2 = allEntries.filter(e=>{
+    if(!apFrom2||!apTo2) return true;
+    const dd=toESTDateStr(e.clock_in);
+    return dd>=apFrom2&&dd<=apTo2;
+  });
+  await loadProjectedPay(name, periodEntries2);
 
   // Load entries for active period date range
   renderProfileEntries(allEntries);
@@ -3532,7 +3537,7 @@ async function setProfileEntriesToActivePeriod() {
 
 
 // ══════════ PROJECTED PAY ══════════
-async function loadProjectedPay(name, earnedHours) {
+async function loadProjectedPay(name, periodEntries) {
   const ap = await getActivePeriod();
   if(!ap) {
     document.getElementById('profile-earned-so-far').textContent = '—';
@@ -3543,54 +3548,78 @@ async function loadProjectedPay(name, earnedHours) {
 
   const rate = RATES[name]||0;
   const cap = DAILY_MAX[name];
-  // Daily billable hours = cap if set, else 8 for projection
-  const dailyHours = typeof cap === 'number' ? cap : (name === 'Janna Alonto' ? 11 : 8);
-  const earnedPay = Math.round(earnedHours * rate * 100) / 100;
+  const dailyCapHours = typeof cap === 'number' ? cap : 8;
 
-  document.getElementById('profile-earned-so-far').textContent = `$${earnedPay.toFixed(2)} (${earnedHours.toFixed(1)}h)`;
+  // Get extras total
+  let extrasTotal = 0;
+  try {
+    const dbExtras = await sbFetch(`staff_extras?name=eq.${encodeURIComponent(name)}&order=created_at.asc`);
+    extrasTotal = (dbExtras||[]).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  } catch(e){}
 
-  // Get remaining days from today to end of period
-  const today = new Date();
-  const etToday = toET(today.toISOString());
+  // Build day map from period entries (actual billable hours per day)
+  const dayBillable = {};
+  for(const e of periodEntries) {
+    const d = toESTDateStr(e.clock_in);
+    const b = calcBillableHours(e);
+    if(b.total !== null) dayBillable[d] = (dayBillable[d]||0) + b.total;
+  }
+
+  // Get ET today
+  const etToday = toET(new Date().toISOString());
   const etTodayStr = etToday.toISOString().slice(0,10);
-  const periodEnd = new Date(ap.date_to + 'T12:00:00');
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-  const remainingDays = [];
-  let d = new Date(etTodayStr + 'T12:00:00');
-  d.setDate(d.getDate() + 1); // start from tomorrow
+  // Build all days in pay period
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const allDays = [];
+  let d = new Date(ap.date_from + 'T12:00:00');
+  const periodEnd = new Date(ap.date_to + 'T12:00:00');
   while(d <= periodEnd) {
-    remainingDays.push({
-      date: d.toISOString().slice(0,10),
-      label: `${dayNames[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`
+    const ds = d.toISOString().slice(0,10);
+    const isPast = ds < etTodayStr;
+    const isToday = ds === etTodayStr;
+    const actualHours = dayBillable[ds] || null;
+    // For past days with no entry, hours = 0; for today/future, use daily cap
+    let projHours;
+    if(isPast) projHours = actualHours || 0;
+    else projHours = dailyCapHours; // today and future use cap
+    allDays.push({
+      date: ds,
+      label: `${dayNames[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`,
+      isPast,
+      isToday,
+      actualHours,
+      projHours,
+      hasEntry: actualHours !== null
     });
     d.setDate(d.getDate()+1);
   }
 
   // Render checkboxes
   const container = document.getElementById('profile-remaining-days');
-  if(!remainingDays.length) {
-    container.innerHTML = '<div style="font-size:12px;color:var(--text3);">No remaining days in this period.</div>';
-    document.getElementById('profile-projected-total').textContent = `$${earnedPay.toFixed(2)}`;
-    return;
-  }
+  container.innerHTML = allDays.map(day => {
+    const labelExtra = day.isPast && day.hasEntry
+      ? `<span style="color:var(--accent);font-family:'DM Mono',monospace;margin-left:4px;">${day.actualHours.toFixed(1)}h</span>`
+      : day.isToday
+      ? `<span style="color:var(--orange);font-size:10px;margin-left:4px;">today</span>`
+      : `<span style="color:var(--text3);font-size:10px;margin-left:4px;">${day.projHours}h</span>`;
+    const checked = day.hasEntry || day.isToday || !day.isPast ? 'checked' : '';
+    return `<label style="display:flex;align-items:center;gap:6px;background:var(--surface${day.isPast&&day.hasEntry?'1':'2'});border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text2);">
+      <input type="checkbox" ${checked} value="${day.projHours}" style="accent-color:var(--accent);width:14px;height:14px;" onchange="updateProjectedPay('${name}', ${rate}, ${extrasTotal})" />
+      ${day.label}${labelExtra}
+    </label>`;
+  }).join('');
 
-  container.innerHTML = remainingDays.map(day => `
-    <label style="display:flex;align-items:center;gap:6px;background:var(--surface1);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text2);">
-      <input type="checkbox" checked value="${dailyHours}" style="accent-color:var(--accent);width:14px;height:14px;" onchange="updateProjectedPay('${name}', ${earnedPay}, ${rate})" />
-      ${day.label}
-    </label>
-  `).join('');
-
-  updateProjectedPay(name, earnedPay, rate);
+  updateProjectedPay(name, rate, extrasTotal);
 }
 
-function updateProjectedPay(name, earnedPay, rate) {
+function updateProjectedPay(name, rate, extrasTotal) {
   const checkboxes = document.querySelectorAll('#profile-remaining-days input[type="checkbox"]');
-  let projectedHours = 0;
-  checkboxes.forEach(cb => { if(cb.checked) projectedHours += parseFloat(cb.value)||0; });
-  const projectedPay = Math.round((earnedPay + projectedHours * rate) * 100) / 100;
-  document.getElementById('profile-projected-total').textContent = `$${projectedPay.toFixed(2)}`;
+  let totalHours = 0;
+  checkboxes.forEach(cb => { if(cb.checked) totalHours += parseFloat(cb.value)||0; });
+  const totalPay = Math.round((totalHours * rate + extrasTotal) * 100) / 100;
+  document.getElementById('profile-earned-so-far').textContent = `${totalHours.toFixed(1)}h × $${rate.toFixed(2)}${extrasTotal>0?' + $'+extrasTotal.toFixed(2)+' extras':''}`;
+  document.getElementById('profile-projected-total').textContent = `$${totalPay.toFixed(2)}`;
 }
 
 </script>
