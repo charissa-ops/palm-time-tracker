@@ -580,10 +580,16 @@
 
     <!-- Recent entries -->
     <div class="modal-section" style="margin-top:1rem;display:flex;justify-content:space-between;align-items:center;">
-      <span>Recent Entries</span>
+      <span>Entries</span>
       <button class="edit-action-btn" onclick="openAddEntryModal()">+ Add Entry</button>
     </div>
-    <div id="profile-recent-entries" style="overflow-x:auto;"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+      <input type="date" id="profile-entries-from" onchange="reloadProfileEntries()" style="flex:1;min-width:120px;font-size:12px;" />
+      <span style="color:var(--text3);font-size:12px;">to</span>
+      <input type="date" id="profile-entries-to" onchange="reloadProfileEntries()" style="flex:1;min-width:120px;font-size:12px;" />
+      <button class="btn btn-ghost btn-sm" onclick="setProfileEntriesToActivePeriod()">This Period</button>
+    </div>
+    <div id="profile-recent-entries" style="overflow-x:auto;max-height:280px;overflow-y:auto;"></div>
 
     <!-- Payslip download for admin -->
     <div class="modal-section" style="margin-top:1rem;">Payslip</div>
@@ -2926,29 +2932,25 @@ async function openStaffProfile(name) {
   document.getElementById('profile-week').textContent = weekH.toFixed(1)+'h';
   document.getElementById('profile-total').textContent = totalH.toFixed(1)+'h';
 
-  // Recent entries (last 5)
-  const recent = allEntries.slice(0,5);
-  let recHtml = '';
-  if(recent.length) {
-    recHtml = '<table style="width:100%;font-size:12px;"><thead><tr><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Date</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock In</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock Out</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Billable</th><th style="padding:6px 8px;border-bottom:1px solid var(--border);"></th></tr></thead><tbody>';
-    for(const e of recent) {
-      const b = calcBillableHours(e);
-      recHtml += `<tr>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtDate(e.clock_in)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_in)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_out)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;">${b.total!==null?b.total.toFixed(2)+'h':'—'}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid var(--border);"><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td>
-      </tr>`;
-    }
-    recHtml += '</tbody></table>';
-  } else {
-    recHtml = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">No entries yet.</div>';
-  }
-  document.getElementById('profile-recent-entries').innerHTML = recHtml;
+  // Load entries for active period date range
+  renderProfileEntries(allEntries);
 
   // Load extras
   await loadProfileExtras(name);
+
+  // Set entries date range to active pay period
+  const ap0 = await getActivePeriod();
+  if(ap0) {
+    document.getElementById('profile-entries-from').value = ap0.date_from;
+    document.getElementById('profile-entries-to').value = ap0.date_to;
+  } else {
+    const now0 = new Date();
+    const y0 = now0.getFullYear();
+    const m0 = String(now0.getMonth()+1).padStart(2,'0');
+    document.getElementById('profile-entries-from').value = `${y0}-${m0}-01`;
+    const lastDay0 = new Date(y0,now0.getMonth()+1,0).getDate();
+    document.getElementById('profile-entries-to').value = `${y0}-${m0}-${String(lastDay0).padStart(2,'0')}`;
+  }
 
   // Set default date range for entries report (current month)
   const now = new Date();
@@ -3457,6 +3459,56 @@ async function sendIndividualPayslip() {
     showToast(`Payslip sent to ${firstName} ✓`,'success');
   } catch(e){ showToast('Error sending payslip','error'); console.error(e); }
   finally{ hideLoading(); }
+}
+
+
+// ── Profile entries with date filter ──
+function renderProfileEntries(entries) {
+  const from = document.getElementById('profile-entries-from')?.value;
+  const to = document.getElementById('profile-entries-to')?.value;
+  // Filter by date range if set
+  const filtered = entries.filter(e => {
+    const d = toESTDateStr(e.clock_in);
+    if(from && d < from) return false;
+    if(to && d > to) return false;
+    return true;
+  });
+  const el = document.getElementById('profile-recent-entries');
+  if(!filtered.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">No entries for this period.</div>'; return; }
+  let recHtml = '<table style="width:100%;font-size:12px;"><thead><tr>';
+  recHtml += '<th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Date</th>';
+  recHtml += '<th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock In</th>';
+  recHtml += '<th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Clock Out</th>';
+  recHtml += '<th style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;">Billable</th>';
+  recHtml += '<th style="padding:6px 8px;border-bottom:1px solid var(--border);"></th></tr></thead><tbody>';
+  for(const e of filtered) {
+    const b = calcBillableHours(e);
+    recHtml += `<tr>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtDate(e.clock_in)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_in)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;">${fmtTime(e.clock_out)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);color:var(--accent);font-family:'DM Mono',monospace;">${b.total!==null?b.total.toFixed(2)+'h':'—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid var(--border);"><button class="admin-edit-btn" onclick="openEditModal(${e.id})">Edit</button></td>
+    </tr>`;
+  }
+  recHtml += '</tbody></table>';
+  el.innerHTML = recHtml;
+}
+
+async function reloadProfileEntries() {
+  if(!profileName) return;
+  const from = document.getElementById('profile-entries-from').value;
+  const to = document.getElementById('profile-entries-to').value;
+  const entries = await getEntries({name: profileName, from, to});
+  renderProfileEntries(entries);
+}
+
+async function setProfileEntriesToActivePeriod() {
+  const ap = await getActivePeriod();
+  if(!ap) return;
+  document.getElementById('profile-entries-from').value = ap.date_from;
+  document.getElementById('profile-entries-to').value = ap.date_to;
+  await reloadProfileEntries();
 }
 
 </script>
