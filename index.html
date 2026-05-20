@@ -591,6 +591,23 @@
     </div>
     <div id="profile-recent-entries" style="overflow-x:auto;max-height:280px;overflow-y:auto;"></div>
 
+    <!-- Projected Pay -->
+    <div class="modal-section" style="margin-top:1rem;">Projected Pay</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Earned so far</div>
+          <div style="font-size:16px;font-weight:600;color:var(--text);font-family:'DM Mono',monospace;" id="profile-earned-so-far">—</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Projected total</div>
+          <div style="font-size:18px;font-weight:700;color:var(--accent);font-family:'DM Mono',monospace;" id="profile-projected-total">—</div>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Remaining days to work</div>
+      <div id="profile-remaining-days" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+
     <!-- Payslip download for admin -->
     <div class="modal-section" style="margin-top:1rem;">Payslip</div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:1rem;">
@@ -2931,6 +2948,8 @@ async function openStaffProfile(name) {
   document.getElementById('profile-today').textContent = todayH.toFixed(1)+'h';
   document.getElementById('profile-week').textContent = weekH.toFixed(1)+'h';
   document.getElementById('profile-total').textContent = totalH.toFixed(1)+'h';
+  // Load projected pay
+  await loadProjectedPay(name, totalH);
 
   // Load entries for active period date range
   renderProfileEntries(allEntries);
@@ -3509,6 +3528,69 @@ async function setProfileEntriesToActivePeriod() {
   document.getElementById('profile-entries-from').value = ap.date_from;
   document.getElementById('profile-entries-to').value = ap.date_to;
   await reloadProfileEntries();
+}
+
+
+// ══════════ PROJECTED PAY ══════════
+async function loadProjectedPay(name, earnedHours) {
+  const ap = await getActivePeriod();
+  if(!ap) {
+    document.getElementById('profile-earned-so-far').textContent = '—';
+    document.getElementById('profile-projected-total').textContent = '—';
+    document.getElementById('profile-remaining-days').innerHTML = '<div style="font-size:12px;color:var(--text3);">No active pay period set.</div>';
+    return;
+  }
+
+  const rate = RATES[name]||0;
+  const cap = DAILY_MAX[name];
+  // Daily billable hours = cap if set, else 8 for projection
+  const dailyHours = typeof cap === 'number' ? cap : (name === 'Janna Alonto' ? 11 : 8);
+  const earnedPay = Math.round(earnedHours * rate * 100) / 100;
+
+  document.getElementById('profile-earned-so-far').textContent = `$${earnedPay.toFixed(2)} (${earnedHours.toFixed(1)}h)`;
+
+  // Get remaining days from today to end of period
+  const today = new Date();
+  const etToday = toET(today.toISOString());
+  const etTodayStr = etToday.toISOString().slice(0,10);
+  const periodEnd = new Date(ap.date_to + 'T12:00:00');
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  const remainingDays = [];
+  let d = new Date(etTodayStr + 'T12:00:00');
+  d.setDate(d.getDate() + 1); // start from tomorrow
+  while(d <= periodEnd) {
+    remainingDays.push({
+      date: d.toISOString().slice(0,10),
+      label: `${dayNames[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`
+    });
+    d.setDate(d.getDate()+1);
+  }
+
+  // Render checkboxes
+  const container = document.getElementById('profile-remaining-days');
+  if(!remainingDays.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text3);">No remaining days in this period.</div>';
+    document.getElementById('profile-projected-total').textContent = `$${earnedPay.toFixed(2)}`;
+    return;
+  }
+
+  container.innerHTML = remainingDays.map(day => `
+    <label style="display:flex;align-items:center;gap:6px;background:var(--surface1);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text2);">
+      <input type="checkbox" checked value="${dailyHours}" style="accent-color:var(--accent);width:14px;height:14px;" onchange="updateProjectedPay('${name}', ${earnedPay}, ${rate})" />
+      ${day.label}
+    </label>
+  `).join('');
+
+  updateProjectedPay(name, earnedPay, rate);
+}
+
+function updateProjectedPay(name, earnedPay, rate) {
+  const checkboxes = document.querySelectorAll('#profile-remaining-days input[type="checkbox"]');
+  let projectedHours = 0;
+  checkboxes.forEach(cb => { if(cb.checked) projectedHours += parseFloat(cb.value)||0; });
+  const projectedPay = Math.round((earnedPay + projectedHours * rate) * 100) / 100;
+  document.getElementById('profile-projected-total').textContent = `$${projectedPay.toFixed(2)}`;
 }
 
 </script>
