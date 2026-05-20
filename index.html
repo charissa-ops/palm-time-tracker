@@ -594,17 +594,15 @@
     <!-- Projected Pay -->
     <div class="modal-section" style="margin-top:1rem;">Projected Pay</div>
     <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Hours × Rate</div>
-          <div style="font-size:13px;font-weight:500;color:var(--text);font-family:'DM Mono',monospace;" id="profile-earned-so-far">—</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Projected total</div>
-          <div style="font-size:18px;font-weight:700;color:var(--accent);font-family:'DM Mono',monospace;" id="profile-projected-total">—</div>
-        </div>
+      <!-- Breakdown rows -->
+      <div id="profile-pay-breakdown" style="margin-bottom:12px;"></div>
+      <!-- Divider + Total -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);">Projected Total</div>
+        <div style="font-size:20px;font-weight:700;color:var(--accent);font-family:'DM Mono',monospace;" id="profile-projected-total">—</div>
       </div>
-      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Remaining days to work</div>
+      <!-- Days checklist -->
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-top:12px;margin-bottom:8px;">Pay Period Days</div>
       <div id="profile-remaining-days" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
 
@@ -3565,6 +3563,22 @@ async function loadProjectedPay(name, periodEntries) {
     if(b.total !== null) dayBillable[d] = (dayBillable[d]||0) + b.total;
   }
 
+  // Add approved PTO days (8hrs each, no duplicate if already has entry)
+  try {
+    const leaves = await sbFetch(`${LEAVE_TABLE}?name=eq.${encodeURIComponent(name)}&leave_type=eq.PTO&status=eq.Approved`);
+    for(const l of leaves||[]) {
+      let ld = new Date(l.date_from+'T12:00:00');
+      const lend = new Date(l.date_to+'T12:00:00');
+      while(ld<=lend){
+        const ds = ld.toISOString().slice(0,10);
+        if(ds >= ap.date_from && ds <= ap.date_to && !dayBillable[ds]) {
+          dayBillable[ds] = 8; // PTO = 8hrs
+        }
+        ld.setDate(ld.getDate()+1);
+      }
+    }
+  } catch(e){}
+
   // Get ET today
   const etToday = toET(new Date().toISOString());
   const etTodayStr = etToday.toISOString().slice(0,10);
@@ -3598,14 +3612,16 @@ async function loadProjectedPay(name, periodEntries) {
   // Render checkboxes
   const container = document.getElementById('profile-remaining-days');
   container.innerHTML = allDays.map(day => {
+    const isPTO = day.hasEntry && dayBillable[day.date] === 8 && !periodEntries.find(e=>toESTDateStr(e.clock_in)===day.date);
+    const typeAttr = isPTO ? 'data-type="pto"' : '';
     const labelExtra = day.isPast && day.hasEntry
-      ? `<span style="color:var(--accent);font-family:'DM Mono',monospace;margin-left:4px;">${day.actualHours.toFixed(1)}h</span>`
+      ? `<span style="color:${isPTO?'var(--orange)':'var(--accent)'};font-family:'DM Mono',monospace;font-size:11px;margin-left:4px;">${isPTO?'PTO':day.actualHours.toFixed(1)+'h'}</span>`
       : day.isToday
       ? `<span style="color:var(--orange);font-size:10px;margin-left:4px;">today</span>`
       : `<span style="color:var(--text3);font-size:10px;margin-left:4px;">${day.projHours}h</span>`;
     const checked = day.hasEntry || day.isToday || !day.isPast ? 'checked' : '';
-    return `<label style="display:flex;align-items:center;gap:6px;background:var(--surface${day.isPast&&day.hasEntry?'1':'2'});border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text2);">
-      <input type="checkbox" ${checked} value="${day.projHours}" style="accent-color:var(--accent);width:14px;height:14px;" onchange="updateProjectedPay('${name}', ${rate}, ${extrasTotal})" />
+    return `<label style="display:flex;align-items:center;gap:6px;background:var(--surface${day.isPast&&day.hasEntry?'1':'2'});border:1px solid var(--border)${isPTO?';border-color:var(--orange)':''};border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text2);">
+      <input type="checkbox" ${checked} value="${day.projHours}" ${typeAttr} style="accent-color:var(--accent);width:14px;height:14px;" onchange="updateProjectedPay('${name}', ${rate}, ${extrasTotal})" />
       ${day.label}${labelExtra}
     </label>`;
   }).join('');
@@ -3615,10 +3631,36 @@ async function loadProjectedPay(name, periodEntries) {
 
 function updateProjectedPay(name, rate, extrasTotal) {
   const checkboxes = document.querySelectorAll('#profile-remaining-days input[type="checkbox"]');
-  let totalHours = 0;
-  checkboxes.forEach(cb => { if(cb.checked) totalHours += parseFloat(cb.value)||0; });
-  const totalPay = Math.round((totalHours * rate + extrasTotal) * 100) / 100;
-  document.getElementById('profile-earned-so-far').textContent = `${totalHours.toFixed(1)}h × $${rate.toFixed(2)}${extrasTotal>0?' + $'+extrasTotal.toFixed(2)+' extras':''}`;
+  let regularHours = 0, ptoHours = 0;
+  checkboxes.forEach(cb => {
+    if(cb.checked) {
+      if(cb.dataset.type === 'pto') ptoHours += parseFloat(cb.value)||0;
+      else regularHours += parseFloat(cb.value)||0;
+    }
+  });
+  const regularPay = Math.round(regularHours * rate * 100) / 100;
+  const ptoPay = Math.round(ptoHours * rate * 100) / 100;
+  const totalPay = Math.round((regularPay + ptoPay + extrasTotal) * 100) / 100;
+
+  // Build breakdown
+  let breakdown = '';
+  breakdown += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+    <div style="font-size:12px;color:var(--text2);">Regular Pay <span style="color:var(--text3);font-size:11px;">(${regularHours.toFixed(1)}h × $${rate.toFixed(2)})</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text);">$${regularPay.toFixed(2)}</div>
+  </div>`;
+  if(ptoHours > 0) {
+    breakdown += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:12px;color:var(--text2);">PTO Pay <span style="color:var(--text3);font-size:11px;">(${ptoHours.toFixed(1)}h × $${rate.toFixed(2)})</span></div>
+      <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text);">$${ptoPay.toFixed(2)}</div>
+    </div>`;
+  }
+  if(extrasTotal > 0) {
+    breakdown += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:12px;color:var(--text2);">Extras / Incentives</div>
+      <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text);">$${extrasTotal.toFixed(2)}</div>
+    </div>`;
+  }
+  document.getElementById('profile-pay-breakdown').innerHTML = breakdown;
   document.getElementById('profile-projected-total').textContent = `$${totalPay.toFixed(2)}`;
 }
 
