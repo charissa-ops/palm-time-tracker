@@ -283,7 +283,7 @@
       <div class="header-right"><div class="clock-display" id="admin-live-clock"></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
     </div>
     <div class="status-bar">
-      <div class="stat-card"><div class="stat-label">Total Staff</div><div class="stat-val">16</div></div>
+      <div class="stat-card"><div class="stat-label">Total Staff</div><div class="stat-val" id="admin-stat-total">—</div></div>
       <div class="stat-card"><div class="stat-label">Clocked In Now</div><div class="stat-val green" id="admin-stat-in">0</div></div>
       <div class="stat-card"><div class="stat-label">On Break</div><div class="stat-val orange" id="admin-stat-break">0</div></div>
     </div>
@@ -1055,20 +1055,32 @@ function renderUserTable(list){
 async function clockIn(){
   showLoading('Clocking in...');
   try{const a=await getActiveEntry(currentUser);if(a){showToast('Already clocked in!','error');return;}
-  // If clocking in before 9:00 AM ET, record as 9:00 AM ET instead
+  // Auto-correct clock-in to scheduled start time if clocking in early
   const now = new Date();
   const etNow = toET(now.toISOString());
   const etHour = etNow.getHours();
   const etMin = etNow.getMinutes();
   let clockInTime;
-  if(etHour < 9){
-    // Set to 9:00 AM ET today
-    const offsetMin = getETOffset(now);
-    const utcMs = now.getTime() + (now.getTimezoneOffset()*60000);
-    const etMidnight = new Date(utcMs + offsetMin*60000);
-    etMidnight.setHours(9,0,0,0);
-    // Convert back to UTC ISO
-    clockInTime = new Date(etMidnight.getTime() - offsetMin*60000 - now.getTimezoneOffset()*60000).toISOString();
+
+  // Get scheduled start hour for this user
+  let scheduledHour = SCHEDULED_START[currentUser] ?? 9;
+  // Special case: Yvonne weekdays start at 17:00, weekends at 9:00
+  if(currentUser === 'Yvonne Duna') {
+    const dow = etNow.getDay();
+    scheduledHour = (dow === 0 || dow === 6) ? 9 : 17;
+  }
+
+  if(etHour < scheduledHour || (etHour === scheduledHour && etMin === 0)) {
+    // Only auto-correct if before scheduled start
+    if(etHour < scheduledHour) {
+      const offsetMin = getETOffset(now);
+      const utcMs = now.getTime() + (now.getTimezoneOffset()*60000);
+      const etMidnight = new Date(utcMs + offsetMin*60000);
+      etMidnight.setHours(scheduledHour, 0, 0, 0);
+      clockInTime = new Date(etMidnight.getTime() - offsetMin*60000 - now.getTimezoneOffset()*60000).toISOString();
+    } else {
+      clockInTime = now.toISOString();
+    }
   } else {
     clockInTime = now.toISOString();
   }
@@ -1102,6 +1114,8 @@ async function breakEnd(){
 async function enterAdminDashboard(){
   showScreen('admin');
   startClock('admin-live-clock','admin-date-display');
+  // Set total staff count immediately
+  document.getElementById('admin-stat-total').textContent = Object.keys(USERS).length;
   // Default entries to active pay period
   const ap = await getActivePeriod();
   if(ap){
@@ -1243,6 +1257,28 @@ const NO_BREAK_DEDUCTION = new Set([
   'Kristina Marie (Kim) Mercado','Janna Alonto'
   // Yvonne handled separately: no break weekdays, 1hr break weekends
 ]);
+
+// Scheduled start times for auto-correction (24hr format, ET)
+// If staff clocks in before this time, it gets auto-corrected to this time
+const SCHEDULED_START = {
+  'Charissa Mercado':               9,
+  'Camille Uy':                     9,
+  'Edeleign Jean Manicad':          9,
+  'Richmond Yambot Nicolas':        9,
+  'John Vens Clair Magbnua Solano': 9,
+  'Mary Lynn Trias Mercado':        9,
+  'Janna Alonto':                   9,
+  'John Lester Solano':             9,
+  'Kristina Marie (Kim) Mercado':   9,
+  'Bridgette Anne Benolirao':       9,
+  'Griz Fuentes':                   9,
+  'May Castillo':                   9,
+  'Ciara Andrade':                  9,
+  'Miko Dioquino':                  9,
+  'Talita David Brandao':           9,
+  'Vincent Chavarria':              8,
+  'Yvonne Duna':                    null, // handled separately (weekday 17:00, weekend 9:00)
+};
 
 // Daily hour caps (after break deduction). null = no cap, 'flag' = no cap but flag if >8
 const DAILY_MAX = {
