@@ -180,7 +180,15 @@
             <option>Bridgette Anne Benolirao</option>
             <option>Griz Fuentes</option><option>May Castillo</option>
             <option>Ciara Andrade</option><option>Miko Dioquino</option>
-            <option>Yvonne Duna</option><option>Talita David Brandao</option>
+            <option>Yvonne Duna</option>
+          </optgroup>
+          <optgroup label="PALM BUILD - US">
+            <option>Talita David Brandao</option>
+            <option>Ian Jaja Kariuki</option>
+            <option>Luis Ramirez</option>
+            <option>Ernesto S</option>
+            <option>Alejandra</option>
+            <option>Zelfar</option>
           </optgroup>
         </select>
       </div>
@@ -438,7 +446,7 @@
           <select id="admin-filter-name" onchange="loadAdminEntries()">
             <option value="">All Staff</option>
             <optgroup label="PALM PARTNERS"><option>Charissa Mercado</option><option>Camille Uy</option><option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option></optgroup>
-            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Bridgette Anne Benolirao</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option><option>Yvonne Duna</option><option>Talita David Brandao</option></optgroup>
+            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Bridgette Anne Benolirao</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option><option>Yvonne Duna</option></optgroup><optgroup label="PALM BUILD - US"><option>Talita David Brandao</option><option>Ian Jaja Kariuki</option><option>Luis Ramirez</option><option>Ernesto S</option><option>Alejandra</option><option>Zelfar</option></optgroup>
           </select>
           <div class="date-filter">
             <input type="date" id="admin-filter-date-from" onchange="loadAdminEntries()" />
@@ -929,7 +937,12 @@ const USERS = {
   'Ciara Andrade':                  {h:'09a050e836d917076fb70552ee096c8bd19fa09bdf7bad0f58d8fd81284293b4',group:'PALM BUILD'},
   'Miko Dioquino':                  {h:'e20f1af5f6204c5d38e6d3b075b9848d335f00ccd5d5d01b9f13965a71e1b98d',group:'PALM BUILD'},
   'Yvonne Duna':                    {h:'b6755e8fdd445b11c3854113d667536caad8372dcc3576d724694b361e0b2467',group:'PALM BUILD'},
-  'Talita David Brandao':           {h:'b27aa2e5e66fcdee4678346ea8cc0c6b894976b3aa4d64730f5ffbe8a11bce81',group:'PALM BUILD'},
+  'Talita David Brandao':           {h:'b27aa2e5e66fcdee4678346ea8cc0c6b894976b3aa4d64730f5ffbe8a11bce81',group:'PALM BUILD - US'},
+  'Ian Jaja Kariuki':               {h:'5e2680f314b286007ec8a9d235d9f3d9d63e94fa98c8e851db3fe948a36182d8',group:'PALM BUILD - US'},
+  'Luis Ramirez':                   {h:'fc9e4c0cc8c454df23c9a84cc53940ffb84c5e47617e6865c7de6214921a0e4b',group:'PALM BUILD - US'},
+  'Ernesto S':                      {h:'fabc705292fa5f9e677e17f0337a8eb3d5f757566f0e3cb71e5444deeed6f60f',group:'PALM BUILD - US'},
+  'Alejandra':                      {h:'f6cb9752dd938f7ee2c077e589b21daa1d463f4320ad0002d35dc9d043521b9a',group:'PALM BUILD - US'},
+  'Zelfar':                         {h:'f8291363a1a61246688887ab7cb8f6b6467ec4b7ab852c8509599a228056372c',group:'PALM BUILD - US'},
   'Vincent Chavarria':              {h:'21a224dab2f87f934b2a6854291ad5effcaa8a6dcebbf92565d47dbc0dbe1356',group:'PALM BUILD'},
 };
 
@@ -1021,8 +1034,8 @@ function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classL
 // Auto-populate login dropdown from USERS object
 function initLoginDropdown() {
   const sel = document.getElementById('login-name-select');
-  const groups = {'PALM PARTNERS':[],'PALM BUILD':[]};
-  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[]};
+  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   // Clear existing optgroups
   while(sel.options.length > 1) sel.remove(1);
   for(const [group, names] of Object.entries(groups)) {
@@ -1381,7 +1394,7 @@ const RATES = {
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,'Kristina Marie (Kim) Mercado':9.00,
   'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
-  'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Vincent Chavarria':6.00
+  'Ciara Andrade':5.00,'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Ian Jaja Kariuki':8.00,'Luis Ramirez':19.50,'Ernesto S':19.50,'Alejandra':19.50,'Zelfar':0,'Vincent Chavarria':6.00
 };
 const PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
@@ -1389,7 +1402,7 @@ const PAYMENT_METHODS = {
   'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
   'Kristina Marie (Kim) Mercado':'Wise- US bank',
   'Bridgette Anne Benolirao':'Payoneer','Griz Fuentes':'Payoneer',
-  'May Castillo':'Wise- US bank','Ciara Andrade':'Payoneer','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank','Vincent Chavarria':'Payoneer'
+  'May Castillo':'Wise- US bank','Ciara Andrade':'Payoneer','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank','Ian Jaja Kariuki':'US Bank','Luis Ramirez':'Agency','Ernesto S':'Agency','Alejandra':'Agency','Zelfar':'Agency','Vincent Chavarria':'Payoneer'
 };
 
 // ── Hour rules ──
@@ -1399,6 +1412,15 @@ const NO_BREAK_DEDUCTION = new Set([
   'Kristina Marie (Kim) Mercado','Janna Alonto'
   // Yvonne handled separately: no break weekdays, 1hr break weekends
 ]);
+// Custom break durations (in hours) — default is 1hr for everyone else
+const BREAK_DURATION = {
+  'Ian Jaja Kariuki':  0.5,
+  'Luis Ramirez':      0.5,
+  'Ernesto S':         0.5,
+  'Alejandra':         0.5,
+  'Zelfar':            0.5,
+  'Talita David Brandao': 0.5,
+};
 
 // Scheduled start times for auto-correction (24hr format, ET)
 // If staff clocks in before this time, it gets auto-corrected to this time
@@ -1419,6 +1441,11 @@ const SCHEDULED_START = {
   'Miko Dioquino':                  9,
   'Talita David Brandao':           9,
   'Vincent Chavarria':              8,
+  'Ian Jaja Kariuki':               8,
+  'Luis Ramirez':                   8,
+  'Ernesto S':                      8,
+  'Alejandra':                      8,
+  'Zelfar':                         8,
   'Yvonne Duna':                    null, // handled separately (weekday 17:00, weekend 9:00)
 };
 
@@ -1440,6 +1467,11 @@ const DAILY_MAX = {
   'Miko Dioquino':              8,
   'Yvonne Duna':              8,
   'Talita David Brandao':     null,
+  'Ian Jaja Kariuki':         8,
+  'Luis Ramirez':             8,
+  'Ernesto S':                8,
+  'Alejandra':                8,
+  'Zelfar':                   8,
   'Vincent Chavarria':        8,
 };
 
@@ -1451,6 +1483,8 @@ function applyHourRules(name, rawHours, clockInISO=null) {
     const et = toET(clockInISO);
     const dow = et.getDay(); // 0=Sun, 6=Sat
     breakDeduction = (dow === 0 || dow === 6) ? 1 : 0;
+  } else if(BREAK_DURATION[name] !== undefined) {
+    breakDeduction = BREAK_DURATION[name];
   } else {
     breakDeduction = NO_BREAK_DEDUCTION.has(name) ? 0 : 1;
   }
@@ -1552,9 +1586,10 @@ async function loadPayrollPreview(){
 
 function getPayrollRows(){
   const allNames=Object.keys(USERS);
-  const groups={'PALM PARTNERS / PALM BUILD':[],'PALM BUILD':[]};
+  const groups={'PALM PARTNERS / PALM BUILD':[],'PALM BUILD':[],'PALM BUILD - US':[]};
   for(const n of allNames){
     if(USERS[n].group==='PALM PARTNERS')groups['PALM PARTNERS / PALM BUILD'].push(n);
+    else if(USERS[n].group==='PALM BUILD - US')groups['PALM BUILD - US'].push(n);
     else groups['PALM BUILD'].push(n);
   }
   return groups;
@@ -1863,6 +1898,11 @@ const STAFF_EMAILS = {
   'Miko Dioquino':                  'miko@palmbld.com',
   'Yvonne Duna':                    'yvonne@palmbld.com',
   'Talita David Brandao':           'talita@palmbld.com',
+  'Ian Jaja Kariuki':               'ian@palmbld.com',
+  'Luis Ramirez':                   'luis@palmbld.com',
+  'Ernesto S':                      'ernesto@palmbld.com',
+  'Alejandra':                      'alejandra@palmbld.com',
+  'Zelfar':                         'zelfar@palmbld.com',
   'Vincent Chavarria':              'vincent@palmbld.com',
 };
 const SLACK_IDS = {
@@ -1873,7 +1913,7 @@ const SLACK_IDS = {
   'Kristina Marie (Kim) Mercado':'U09BKFA2NJX',
   'Bridgette Anne Benolirao':'U09K7JJNAQ6',
   'Griz Fuentes':'U0A0CS9CGV8','May Castillo':'U0ACEEGNV4H',
-  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN','Talita David Brandao':'U0AJDHX28AG','Vincent Chavarria':'U0B3BV52JKY'
+  'Ciara Andrade':'U0AD29NFT9S','Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN','Talita David Brandao':'U0AJDHX28AG','Ian Jaja Kariuki':'U0B3G4X9XLK','Luis Ramirez':'U0B47SQMLSV','Ernesto S':'U0B42L3A1RB','Alejandra':'U0B47TZNF5F','Zelfar':'U0B0BU2Q9UY','Vincent Chavarria':'U0B3BV52JKY'
 };
 
 let reviewingLeaveId = null;
@@ -2814,8 +2854,8 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
   document.getElementById('send-payslip-modal-sub').textContent = `Pay Period: ${label}`;
   const container = document.getElementById('send-payslip-recipients');
   container.innerHTML = '';
-  const groups = {'PALM PARTNERS':[],'PALM BUILD':[]};
-  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[]};
+  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   for(const [group, names] of Object.entries(groups)) {
     const groupLabel = document.createElement('div');
     groupLabel.style.cssText = 'font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:8px;margin-bottom:4px;';
@@ -2988,8 +3028,8 @@ async function loadAdminDashboard() {
 function renderStaffOverview(activeMap) {
   const el = document.getElementById('staff-overview-grid');
   if(!el) return;
-  const groups = {'PALM PARTNERS':[], 'PALM BUILD':[]};
-  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[]};
+  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   let html = '<div style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;">';
   for(const [group, names] of Object.entries(groups)) {
     for(const name of names) {
@@ -3377,6 +3417,11 @@ const STAFF_PINS = {
   'Griz Fuentes':'6341','May Castillo':'8752','Ciara Andrade':'3097',
   'Miko Dioquino':'5684',
   'Talita David Brandao':'7220',
+  'Ian Jaja Kariuki':'3939',
+  'Luis Ramirez':'1795',
+  'Ernesto S':'5435',
+  'Alejandra':'2583',
+  'Zelfar':'4828',
   'Vincent Chavarria':'5612','Yvonne Duna':'7249'
 };
 
@@ -3497,8 +3542,8 @@ async function deleteStaff() {
 
 function updateStaffDropdowns() {
   // Rebuild all staff dropdowns dynamically
-  const groups = {'PALM PARTNERS':[],'PALM BUILD':[]};
-  for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[]};
+  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   const dropdownIds = ['admin-filter-name','login-filter-name'];
   for(const id of dropdownIds) {
     const sel = document.getElementById(id);
