@@ -290,15 +290,15 @@
   <div style="display:flex;height:calc(100vh - 52px);overflow:hidden;">
     <!-- Sidebar -->
     <div style="width:210px;flex-shrink:0;background:#0a0a0a;border-right:1px solid #1c1c1c;padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;">
-      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:10px 8px 6px;">Main</div>
+      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#3a3a3a;padding:10px 8px 6px;border-bottom:1px solid #1c1c1c;margin-bottom:4px;">Main</div>
       <button class="adm-nav active" id="tab-btn-home" onclick="switchTab('home')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Home</button>
       <button class="adm-nav" id="tab-btn-entries" onclick="switchTab('entries')"><i class="ti ti-clock" aria-hidden="true"></i>All Entries</button>
       <button class="adm-nav" id="tab-btn-summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar" aria-hidden="true"></i>Hours Summary</button>
       <button class="adm-nav" id="tab-btn-payroll" onclick="switchTab('payroll')"><i class="ti ti-receipt" aria-hidden="true"></i>Payroll Export</button>
-      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:10px 8px 6px;">Requests</div>
+      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#3a3a3a;padding:10px 8px 6px;border-bottom:1px solid #1c1c1c;margin-bottom:4px;">Requests</div>
       <button class="adm-nav" id="tab-btn-leave" onclick="switchTab('leave')"><i class="ti ti-beach" aria-hidden="true"></i>Leave Requests<span id="leave-badge" style="display:none;font-size:10px;background:rgba(240,160,80,.15);color:#f0a050;padding:1px 6px;border-radius:4px;margin-left:auto;font-weight:600;"></span></button>
       <button class="adm-nav" id="tab-btn-timeedit" onclick="switchTab('timeedit')"><i class="ti ti-clock-edit" aria-hidden="true"></i>Time Edit<span id="timeedit-badge" style="display:none;font-size:10px;background:rgba(240,160,80,.15);color:#f0a050;padding:1px 6px;border-radius:4px;margin-left:auto;font-weight:600;"></span></button>
-      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:10px 8px 6px;">Settings</div>
+      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#3a3a3a;padding:10px 8px 6px;border-bottom:1px solid #1c1c1c;margin-bottom:4px;">Settings</div>
       <button class="adm-nav" id="tab-btn-holidays" onclick="switchTab('holidays')"><i class="ti ti-calendar" aria-hidden="true"></i>Holidays</button>
       <button class="adm-nav" id="tab-btn-payperiods" onclick="switchTab('payperiods')"><i class="ti ti-calendar-stats" aria-hidden="true"></i>Pay Periods</button>
       <button class="adm-nav" id="tab-btn-logins" onclick="switchTab('logins')"><i class="ti ti-activity" aria-hidden="true"></i>Login Activity</button>
@@ -2374,9 +2374,14 @@ function renderAdminTimeEditRequests(list) {
         </div>
         <span style="font-size:11px;font-weight:600;background:${c.bg};color:${c.color};padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${st}</span>
       </div>
-      <div style="display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
-        <button class="btn btn-ghost btn-sm" onclick="approveTimeEdit(${r.id},'Approved')">✓ Approve</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="approveTimeEdit(${r.id},'Denied')">✗ Deny</button>
+      <div style="display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);justify-content:space-between;">
+        <div style="display:flex;gap:8px;">
+          ${st==='Pending'?`
+            <button class="btn btn-ghost btn-sm" onclick="approveTimeEdit(${r.id},'Approved')">✓ Approve</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="approveTimeEdit(${r.id},'Denied')">✗ Deny</button>
+          `:''}
+        </div>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteTimeEditRequest(${r.id})">🗑 Delete</button>
       </div>
     </div>`;
   }
@@ -2964,7 +2969,7 @@ function renderStaffOverview(activeMap) {
   if(!el) return;
   const groups = {'PALM PARTNERS':[], 'PALM BUILD':[]};
   for(const name of Object.keys(USERS)) groups[USERS[name].group].push(name);
-  let html = '<div style="display:flex;flex-direction:column;gap:0;">';
+  let html = '<div style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;">';
   for(const [group, names] of Object.entries(groups)) {
     for(const name of names) {
       const status = activeMap[name] || 'out';
@@ -3851,7 +3856,12 @@ async function approveTimeEdit(id, status) {
 
     // Reload
     await loadAdminLeave();
+    await loadAdminTimeEditRequests();
     await loadAdminEntries();
+    // Update badge
+    const rows = await sbFetch(`${TIME_EDIT_TABLE}?status=eq.Pending`);
+    const badge = document.getElementById('timeedit-badge');
+    if(badge){const cnt=rows?.length||0;badge.textContent=cnt;badge.style.display=cnt?'':'none';}
   } catch(e) { showToast('Error: ' + e.message, 'error'); console.error(e); }
   finally { hideLoading(); }
 }
@@ -3931,16 +3941,35 @@ async function loadHomeSummary() {
         : isActive ? '<span style="font-size:10px;background:rgba(196,240,96,.1);color:#c4f060;padding:2px 8px;border-radius:4px;font-weight:600;">Clocked In</span>'
         : '<span style="font-size:10px;background:#1a1a1a;color:#555;padding:2px 8px;border-radius:4px;font-weight:600;">Out</span>';
       const time = isActive ? fmtTime(e.clock_in) : fmtTime(e.clock_out||e.clock_in);
-      actHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #1a1a1a;">
+      actHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;margin-bottom:3px;background:#191919;border:1px solid #222;">
         <div>
-          <div style="font-size:13px;color:#ccc;font-weight:500;">${e.name}</div>
-          <div style="font-size:11px;color:#555;font-family:'DM Mono',monospace;">${time}</div>
+          <div style="font-size:12px;color:#ccc;font-weight:500;">${e.name}</div>
+          <div style="font-size:11px;color:#555;font-family:'DM Mono',monospace;margin-top:1px;">${time}</div>
         </div>
         ${badge}
       </div>`;
     }
     document.getElementById('home-recent-activity').innerHTML = actHtml || '<div style="font-size:12px;color:#555;padding:.5rem 0;">No activity yet.</div>';
   } catch(e){ console.error(e); }
+}
+
+
+async function deleteTimeEditRequest(id) {
+  if(!confirm('Delete this time edit request?')) return;
+  showLoading('Deleting...');
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/${TIME_EDIT_TABLE}?id=eq.${id}`,{
+      method:'DELETE',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=minimal'}
+    });
+    showToast('Request deleted','success');
+    await loadAdminTimeEditRequests();
+    // Update badge
+    const rows = await sbFetch(`${TIME_EDIT_TABLE}?status=eq.Pending`);
+    const badge = document.getElementById('timeedit-badge');
+    if(badge){const cnt=rows?.length||0;badge.textContent=cnt;badge.style.display=cnt?'':'none';}
+  } catch(e){ showToast('Error deleting','error'); console.error(e); }
+  finally{ hideLoading(); }
 }
 
 </script>
