@@ -3664,4 +3664,88 @@ function updateProjectedPay(name, rate, extrasTotal) {
   document.getElementById('profile-projected-total').textContent = `$${totalPay.toFixed(2)}`;
 }
 
+
+// ══════════ APPROVE / DENY TIME EDIT REQUESTS ══════════
+async function approveTimeEdit(id, status) {
+  showLoading(status === 'Approved' ? 'Approving...' : 'Denying...');
+  try {
+    // Get the request details
+    const rows = await sbFetch(`${TIME_EDIT_TABLE}?id=eq.${id}`);
+    const r = rows && rows[0];
+    if(!r) { showToast('Request not found','error'); hideLoading(); return; }
+
+    // Update status
+    await sbFetch(`${TIME_EDIT_TABLE}?id=eq.${id}`, 'PATCH', {status});
+
+    // If approved, auto-apply the change to the time entry
+    if(status === 'Approved' && r.actual_time) {
+      const requestType = r.request_type || 'clock_in';
+
+      if(requestType === 'clock_in' || requestType === 'clock_out' || requestType === 'break_end') {
+        // Find the entry for this date and person
+        const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+        const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
+
+        if(targetEntry) {
+          const [h, m] = r.actual_time.split(':').map(Number);
+          const newTimeISO = inputESTToISO(`${r.date}T${r.actual_time}`);
+
+          if(requestType === 'clock_in') {
+            await updateEntry(targetEntry.id, {clock_in: newTimeISO});
+            showToast(`✓ Approved & clock-in updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
+          } else if(requestType === 'clock_out') {
+            await updateEntry(targetEntry.id, {clock_out: newTimeISO});
+            showToast(`✓ Approved & clock-out updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
+          } else if(requestType === 'break_end') {
+            // Close the last open break
+            const breaks = JSON.parse(JSON.stringify(targetEntry.breaks || []));
+            const openBreak = breaks.findLast ? breaks.findLast(b => !b.end) : [...breaks].reverse().find(b => !b.end);
+            if(openBreak) {
+              openBreak.end = newTimeISO;
+              await updateEntry(targetEntry.id, {breaks});
+              showToast(`✓ Approved & break end updated`, 'success');
+            } else {
+              showToast(`✓ Approved (no open break found to update)`, 'success');
+            }
+          }
+        } else {
+          showToast(`✓ Approved (no matching entry found for ${r.date})`, 'success');
+        }
+      } else if(requestType === 'break_waiver') {
+        // Find entry and set waive_break = true
+        const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+        const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
+        if(targetEntry) {
+          await updateEntry(targetEntry.id, {waive_break: true});
+          showToast(`✓ Approved & break waiver applied`, 'success');
+        } else {
+          showToast(`✓ Approved`, 'success');
+        }
+      } else {
+        showToast(`✓ Approved`, 'success');
+      }
+    } else if(status === 'Denied') {
+      showToast('Request denied', 'success');
+    } else {
+      showToast(`✓ ${status}`, 'success');
+    }
+
+    // Notify staff via Slack
+    const slackId = SLACK_IDS[r.name];
+    if(slackId) {
+      const firstName = r.name.split(' ')[0];
+      const typeLabels = {clock_in:'Clock-in correction',clock_out:'End shift correction',break_waiver:'Break waiver',break_end:'Forgot to end break',other:'Time edit'};
+      const msg = status === 'Approved'
+        ? `✅ *Your ${typeLabels[r.request_type||'clock_in']} request for ${fmtLeaveDate(r.date)} has been approved.*${r.actual_time?' Your time has been updated automatically.':''}`
+        : `❌ *Your ${typeLabels[r.request_type||'clock_in']} request for ${fmtLeaveDate(r.date)} has been denied.* If you have questions, contact Charissa.`;
+      await sendSlackDM(slackId, msg);
+    }
+
+    // Reload
+    await loadAdminLeave();
+    await loadAdminEntries();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
 </script>
