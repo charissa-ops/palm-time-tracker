@@ -2375,11 +2375,8 @@ function renderAdminTimeEditRequests(list) {
         <span style="font-size:11px;font-weight:600;background:${c.bg};color:${c.color};padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${st}</span>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);justify-content:space-between;">
-        <div style="display:flex;gap:8px;">
-          ${st==='Pending'?`
-            <button class="btn btn-ghost btn-sm" onclick="approveTimeEdit(${r.id},'Approved')">✓ Approve</button>
-            <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="approveTimeEdit(${r.id},'Denied')">✗ Deny</button>
-          `:''}
+        <div style="display:flex;gap:8px;" id="timeedit-actions-${r.id}">
+          ${st==='Pending'?`<button class="btn btn-ghost btn-sm" onclick="approveTimeEdit(${r.id},'Approved')">✓ Approve</button><button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="approveTimeEdit(${r.id},'Denied')">✗ Deny</button>`:''}
         </div>
         <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteTimeEditRequest(${r.id})">🗑 Delete</button>
       </div>
@@ -3859,9 +3856,9 @@ async function approveTimeEdit(id, status) {
     await loadAdminTimeEditRequests();
     await loadAdminEntries();
     // Update badge
-    const rows = await sbFetch(`${TIME_EDIT_TABLE}?status=eq.Pending`);
+    const pendingRows = await sbFetch(`${TIME_EDIT_TABLE}?status=eq.Pending`);
     const badge = document.getElementById('timeedit-badge');
-    if(badge){const cnt=rows?.length||0;badge.textContent=cnt;badge.style.display=cnt?'':'none';}
+    if(badge){const cnt=pendingRows?.length||0;badge.textContent=cnt;badge.style.display=cnt?'':'none';}
   } catch(e) { showToast('Error: ' + e.message, 'error'); console.error(e); }
   finally { hideLoading(); }
 }
