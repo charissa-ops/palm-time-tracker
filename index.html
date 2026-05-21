@@ -289,19 +289,37 @@
   <!-- Sidebar + Content Layout -->
   <div style="display:flex;height:calc(100vh - 52px);overflow:hidden;">
     <!-- Sidebar -->
-    <div style="width:210px;flex-shrink:0;background:#0a0a0a;border-right:1px solid #1c1c1c;padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;">
-      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#3a3a3a;padding:10px 8px 6px;border-bottom:1px solid #1c1c1c;margin-bottom:4px;">Main</div>
-      <button class="adm-nav active" id="tab-btn-home" onclick="switchTab('home')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Home</button>
-      <button class="adm-nav" id="tab-btn-entries" onclick="switchTab('entries')"><i class="ti ti-clock" aria-hidden="true"></i>All Entries</button>
-      <button class="adm-nav" id="tab-btn-summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar" aria-hidden="true"></i>Hours Summary</button>
-      <button class="adm-nav" id="tab-btn-payroll" onclick="switchTab('payroll')"><i class="ti ti-receipt" aria-hidden="true"></i>Payroll Export</button>
-      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#3a3a3a;padding:10px 8px 6px;border-bottom:1px solid #1c1c1c;margin-bottom:4px;">Requests</div>
-      <button class="adm-nav" id="tab-btn-leave" onclick="switchTab('leave')"><i class="ti ti-beach" aria-hidden="true"></i>Leave Requests<span id="leave-badge" style="display:none;font-size:10px;background:rgba(240,160,80,.15);color:#f0a050;padding:1px 6px;border-radius:4px;margin-left:auto;font-weight:600;"></span></button>
-      <button class="adm-nav" id="tab-btn-timeedit" onclick="switchTab('timeedit')"><i class="ti ti-clock-edit" aria-hidden="true"></i>Time Edit<span id="timeedit-badge" style="display:none;font-size:10px;background:rgba(240,160,80,.15);color:#f0a050;padding:1px 6px;border-radius:4px;margin-left:auto;font-weight:600;"></span></button>
-      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#3a3a3a;padding:10px 8px 6px;border-bottom:1px solid #1c1c1c;margin-bottom:4px;">Settings</div>
-      <button class="adm-nav" id="tab-btn-holidays" onclick="switchTab('holidays')"><i class="ti ti-calendar" aria-hidden="true"></i>Holidays</button>
-      <button class="adm-nav" id="tab-btn-payperiods" onclick="switchTab('payperiods')"><i class="ti ti-calendar-stats" aria-hidden="true"></i>Pay Periods</button>
-      <button class="adm-nav" id="tab-btn-logins" onclick="switchTab('logins')"><i class="ti ti-activity" aria-hidden="true"></i>Login Activity</button>
+    <div style="width:220px;flex-shrink:0;background:#0a0a0a;border-right:1px solid #1c1c1c;display:flex;flex-direction:column;">
+      <!-- Brand -->
+      <div style="padding:18px 16px 14px;border-bottom:1px solid #1c1c1c;flex-shrink:0;">
+        <div style="font-size:15px;font-weight:500;color:#fff;letter-spacing:.05em;">PALM <span style="color:#c4f060;">TIME</span></div>
+        <div style="font-size:10px;color:#333;margin-top:3px;letter-spacing:.06em;text-transform:uppercase;">Admin Dashboard</div>
+      </div>
+      <!-- Nav items -->
+      <div style="flex:1;padding:8px;overflow-y:auto;">
+        <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Main</div>
+        <button class="adm-nav active" id="tab-btn-home" onclick="switchTab('home')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Home</button>
+        <button class="adm-nav" id="tab-btn-entries" onclick="switchTab('entries')"><i class="ti ti-clock" aria-hidden="true"></i>All Entries</button>
+        <button class="adm-nav" id="tab-btn-summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar" aria-hidden="true"></i>Hours Summary</button>
+        <button class="adm-nav" id="tab-btn-payroll" onclick="switchTab('payroll')"><i class="ti ti-receipt" aria-hidden="true"></i>Payroll Export</button>
+        <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Requests</div>
+        <button class="adm-nav" id="tab-btn-leave" onclick="switchTab('leave')"><i class="ti ti-beach" aria-hidden="true"></i>Leave Requests<span class="sb-badge" id="leave-badge" style="display:none;"></span></button>
+        <button class="adm-nav" id="tab-btn-timeedit" onclick="switchTab('timeedit')"><i class="ti ti-clock-edit" aria-hidden="true"></i>Time Edit<span class="sb-badge" id="timeedit-badge" style="display:none;"></span></button>
+        <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Settings</div>
+        <button class="adm-nav" id="tab-btn-holidays" onclick="switchTab('holidays')"><i class="ti ti-calendar" aria-hidden="true"></i>Holidays</button>
+        <button class="adm-nav" id="tab-btn-payperiods" onclick="switchTab('payperiods')"><i class="ti ti-calendar-stats" aria-hidden="true"></i>Pay Periods</button>
+        <button class="adm-nav" id="tab-btn-logins" onclick="switchTab('logins')"><i class="ti ti-activity" aria-hidden="true"></i>Login Activity</button>
+      </div>
+      <!-- User footer -->
+      <div style="padding:12px;border-top:1px solid #1c1c1c;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#141414;">
+          <div style="width:30px;height:30px;border-radius:50%;background:#1e2f0a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#c4f060;flex-shrink:0;">CM</div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:#ccc;">Charissa</div>
+            <div style="font-size:10px;color:#444;margin-top:1px;">Administrator</div>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- Main Content -->
     <div style="flex:1;overflow-y:auto;padding:24px 28px;background:#0f0f0f;" id="admin-main-content">
