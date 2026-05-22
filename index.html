@@ -675,9 +675,12 @@
         <button class="btn btn-primary btn-sm" onclick="submitTimeEditRequest()">Submit Request</button>
       </div>
     </div>
+  </div>
+</div>
+
     </div><!-- end admin-main-content -->
   </div><!-- end sidebar+content layout -->
-</div>
+</div><!-- end screen-admin -->
 
 <!-- STAFF PROFILE MODAL -->
 <div id="profile-modal-overlay" class="modal-overlay hidden">
@@ -2341,10 +2344,11 @@ async function submitTimeEditRequest() {
   if(!date) { showToast('Please select a date','error'); return; }
   const needsTime = ['clock_in','clock_out','break_end'].includes(type);
   if(needsTime && !actual) { showToast('Please enter the actual time','error'); return; }
-  // Only validate before 9AM for clock_in
+  // Validate clock_in time against scheduled start
   if(type==='clock_in') {
     const [h] = actual.split(':').map(Number);
-    if(h >= 9) { showToast('Only clock-ins before 9:00 AM can be requested','error'); return; }
+    const scheduledH = SCHEDULED_START[currentUser] ?? 9;
+    if(h >= scheduledH) { showToast(`Only clock-ins before ${scheduledH}:00 AM can be requested`,'error'); return; }
   }
   const typeLabels = {
     clock_in:'Early Clock-In Correction',
@@ -3666,6 +3670,8 @@ async function sendIndividualPayslip() {
 
 // ── Profile entries with date filter ──
 function renderProfileEntries(entries) {
+  // Always add profile entries to _adminEntryMap so Edit button works
+  for(const e of entries) _adminEntryMap[e.id] = e;
   const from = document.getElementById('profile-entries-from')?.value;
   const to = document.getElementById('profile-entries-to')?.value;
   // Filter by date range if set
