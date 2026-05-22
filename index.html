@@ -642,7 +642,655 @@
   </div>
 </div>
 
+<!-- TIME EDIT REQUEST MODAL -->YPE html>
+<!-- v2.1 - 2026-05-21 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Palm Time Tracker</title>
+<meta name="description" content="Palm Build time tracking and payroll management" />
+<meta name="theme-color" content="#0f0f0f" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Palm Time" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#222;--surface3:#2a2a2a;
+    --border:#2e2e2e;--border2:#3a3a3a;--text:#f0ede8;--text2:#9a9690;--text3:#5a5652;
+    --accent:#c8f060;--accent2:#a8d040;
+    --red:#ff5f5f;--red-dim:#3a1a1a;--orange:#ffaa44;--orange-dim:#3a2a0a;
+    --green:#60d080;--green-dim:#0a2a1a;--blue:#60a8ff;--blue-dim:#0a1a3a;
+    --radius:12px;--radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem 1rem 4rem;}
+  .adm-nav{display:flex!important;align-items:center!important;gap:10px!important;padding:9px 10px!important;border-radius:8px!important;font-size:13px!important;color:#666!important;cursor:pointer!important;font-weight:400!important;background:transparent!important;width:100%!important;margin-bottom:1px!important;line-height:1.4!important;border:none!important;box-shadow:none!important;letter-spacing:0!important;text-transform:none!important;white-space:normal!important;}
+  .adm-nav:hover{background:#141414!important;color:#aaa!important;}
+  .adm-nav.active{background:#141f09!important;color:#c4f060!important;font-weight:500!important;}
+  .adm-nav i{font-size:16px!important;flex-shrink:0!important;color:#444!important;font-weight:400!important;}
+  .adm-nav.active i{color:#c4f060!important;}
+  .sb-badge{margin-left:auto!important;font-size:10px!important;font-weight:600!important;background:rgba(240,160,80,.15)!important;color:#f0a050!important;padding:2px 7px!important;border-radius:10px!important;line-height:1.4!important;}
+  .page{max-width:860px;margin:0 auto;}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:2.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px;}
+  .logo-name{font-size:22px;font-weight:700;letter-spacing:-0.5px;}
+  .logo-name span{color:var(--accent);}
+  .logo-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);letter-spacing:.05em;}
+  .header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .clock-display{font-family:'DM Mono',monospace;font-size:13px;color:var(--text2);background:var(--surface);padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.25rem;}
+  .card-title{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:1.25rem;}
+  .btn{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:var(--radius-sm);border:1px solid transparent;cursor:pointer;transition:all .15s;letter-spacing:.02em;white-space:nowrap;}
+  .btn-primary{background:var(--accent);color:#0f0f0f;border-color:var(--accent);}
+  .btn-primary:hover{background:var(--accent2);}
+  .btn-ghost{background:transparent;color:var(--text2);border-color:var(--border2);}
+  .btn-ghost:hover{background:var(--surface2);color:var(--text);}
+  .btn-sm{padding:6px 12px;font-size:12px;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  input,select{font-family:'Syne',sans-serif;font-size:14px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;width:100%;outline:none;transition:border-color .15s;}
+  input:focus,select:focus{border-color:var(--accent);}
+  input::placeholder{color:var(--text3);}
+  select option{background:var(--surface2);}
+  label{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+  .field{margin-bottom:14px;}
+  .screen{display:none;}.screen.active{display:block;}
+  .login-wrap{max-width:420px;margin:4rem auto 0;}
+  .login-header{text-align:center;margin-bottom:2rem;}
+  .login-title{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:6px;}
+  .login-title span{color:var(--accent);}
+  .login-sub{font-size:13px;color:var(--text2);}
+  .pin-dots{display:flex;gap:10px;justify-content:center;margin:1rem 0 1.5rem;}
+  .pin-dot{width:14px;height:14px;border-radius:50%;background:var(--surface3);border:1.5px solid var(--border2);transition:all .15s;}
+  .pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+  .numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem;}
+  .numpad-btn{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;padding:16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;transition:all .1s;text-align:center;}
+  .numpad-btn:hover{background:var(--surface3);border-color:var(--border2);}
+  .numpad-btn:active{transform:scale(.95);}
+  .numpad-btn.del{font-size:14px;color:var(--text2);}
+  .numpad-btn.wide{grid-column:span 3;background:var(--accent);color:#0f0f0f;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;}
+  .numpad-btn.wide:hover{background:var(--accent2);}
+  .login-error{text-align:center;font-size:13px;color:var(--red);min-height:20px;margin-bottom:.5rem;}
+  .select-wrap{margin-bottom:1.25rem;}
+  .admin-link{text-align:center;margin-top:1.5rem;font-size:12px;color:var(--text3);}
+  .admin-link a{color:var(--text2);cursor:pointer;text-decoration:underline;}
+  .admin-link a:hover{color:var(--text);}
+  .user-bar{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.5rem;margin-bottom:1.25rem;}
+  .user-name{font-size:16px;font-weight:600;}
+  .user-group{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;}
+  .status-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;}
+  .stat-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+  .stat-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--text);}
+  .stat-val.green{color:var(--green);}.stat-val.orange{color:var(--orange);}
+  .action-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.25rem;}
+  .action-btn{flex:1;min-width:130px;padding:14px 16px;border-radius:var(--radius);border:1.5px solid transparent;cursor:pointer;font-family:'Syne',sans-serif;font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:4px;transition:all .15s;text-align:left;}
+  .action-btn .btn-icon{font-size:20px;}.action-btn .btn-label{font-size:13px;font-weight:700;}
+  .action-btn .btn-sub{font-size:11px;opacity:.7;font-family:'DM Mono',monospace;}
+  .action-btn.clock-in-btn{background:var(--green-dim);border-color:#205a30;color:var(--green);}
+  .action-btn.clock-in-btn:hover{background:#0d3a20;}
+  .action-btn.clock-out-btn{background:var(--red-dim);border-color:#5a2020;color:var(--red);}
+  .action-btn.clock-out-btn:hover{background:#4a1a1a;}
+  .action-btn.break-start-btn{background:var(--orange-dim);border-color:#4a3010;color:var(--orange);}
+  .action-btn.break-start-btn:hover{background:#4a3010;}
+  .action-btn.break-end-btn{background:var(--blue-dim);border-color:#103050;color:var(--blue);}
+  .action-btn.break-end-btn:hover{background:#102040;}
+  .action-btn:disabled{opacity:.3;cursor:not-allowed;}
+  .entries-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);}
+  td{padding:11px 12px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'DM Mono',monospace;font-size:12px;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--surface2);}
+  .status-pill{display:inline-block;font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;font-family:'Syne',sans-serif;letter-spacing:.05em;}
+  .pill-in{background:var(--green-dim);color:var(--green);}
+  .pill-out{background:var(--surface3);color:var(--text3);}
+  .pill-break{background:var(--orange-dim);color:var(--orange);}
+  .empty-state{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px;}
+  .empty-icon{font-size:32px;margin-bottom:10px;}
+  .name-col{color:var(--text)!important;font-family:'Syne',sans-serif!important;font-weight:500!important;font-size:13px!important;}
+  .filter-row{display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;align-items:flex-end;}
+  .filter-row select{flex:1;min-width:160px;}
+  .date-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .date-filter input[type="date"]{width:auto;flex:1;min-width:140px;}
+  .hours-summary-controls{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.25rem;}
+  .hours-summary-controls .dg{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px;}
+  .hours-summary-controls label{margin-bottom:0;}
+  .preset-btns{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;}
+  .summary-total-row td{color:var(--text)!important;font-weight:600;border-top:1px solid var(--border2)!important;}
+  .hours-bar{display:inline-block;height:6px;background:var(--accent);border-radius:3px;vertical-align:middle;margin-left:8px;opacity:.5;}
+  .tabs{display:flex;gap:4px;margin-bottom:1.25rem;background:var(--surface2);border-radius:var(--radius-sm);padding:4px;}
+  .tab-btn{flex:1;padding:8px 16px;border:none;border-radius:6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--text3);background:transparent;}
+  .tab-btn.active{background:var(--surface);color:var(--text);}
+  .tab-pane{display:none;}.tab-pane.active{display:block;}
+  .loading-overlay{position:fixed;inset:0;background:rgba(15,15,15,.85);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  .loading-overlay.hidden{display:none;}
+  .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-size:13px;color:var(--text2);font-family:'DM Mono',monospace;}
+  #toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 20px;font-size:13px;color:var(--text);z-index:999;transition:transform .3s ease;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+  #toast.show{transform:translateX(-50%) translateY(0);}
+  #toast.success{border-color:#205a30;color:var(--green);}
+  #toast.error{border-color:#5a2020;color:var(--red);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;}
+  .modal-overlay.hidden{display:none;}
+  .modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:1.75rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+  .modal-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .modal-sub{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:1.5rem;}
+  .modal-section{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:1.25rem 0 .75rem;display:flex;justify-content:space-between;align-items:center;}
+  .modal-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px;}
+  .modal-actions-right{display:flex;gap:8px;}
+  .btn-delete{background:var(--red-dim);color:var(--red);border:1px solid #5a2020;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;}
+  .btn-delete:hover{background:#4a1a1a;}
+  .edit-action-btn{font-size:11px;padding:5px 10px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'Syne',sans-serif;font-weight:600;transition:all .15s;}
+  .edit-action-btn:hover{background:var(--surface3);color:var(--text);}
+  .break-row{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem 1rem;margin-bottom:.5rem;}
+  .break-row-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;}
+  input[type="datetime-local"]{color-scheme:dark;}
+  .admin-edit-btn{background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text3);font-size:11px;padding:4px 9px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:600;transition:all .15s;white-space:nowrap;}
+  .admin-edit-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div id="loading-overlay" class="loading-overlay hidden">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Loading...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen active">
+  <div class="login-wrap">
+    <div class="login-header">
+      <div class="login-title">PALM <span>TIME</span></div>
+      <div class="login-sub">Select your name and enter your PIN</div>
+    </div>
+    <div class="card">
+      <div class="select-wrap">
+        <label>Who are you?</label>
+        <select id="login-name-select" onchange="onNameSelect()">
+          <option value="">— Select your name —</option>
+          <optgroup label="PALM PARTNERS">
+            <option>Charissa Mercado</option><option>Camille Uy</option>
+            <option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option>
+          </optgroup>
+          <optgroup label="PALM BUILD">
+            <option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option>
+            <option>Janna Alonto</option><option>John Lester Solano</option>
+            <option>Kristina Marie (Kim) Mercado</option>
+            <option>Bridgette Anne Benolirao</option>
+            <option>Griz Fuentes</option><option>May Castillo</option>
+            <option>Ciara Andrade</option><option>Miko Dioquino</option>
+            <option>Yvonne Duna</option>
+          </optgroup>
+          <optgroup label="PALM BUILD - US">
+            <option>Talita David Brandao</option>
+            <option>Ian Jaja Kariuki</option>
+            <option>Luis Ramirez</option>
+            <option>Ernesto S</option>
+            <option>Alejandra</option>
+            <option>Zelfar</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <div class="numpad">
+        <button class="numpad-btn" onclick="pinKey('1')">1</button><button class="numpad-btn" onclick="pinKey('2')">2</button><button class="numpad-btn" onclick="pinKey('3')">3</button>
+        <button class="numpad-btn" onclick="pinKey('4')">4</button><button class="numpad-btn" onclick="pinKey('5')">5</button><button class="numpad-btn" onclick="pinKey('6')">6</button>
+        <button class="numpad-btn" onclick="pinKey('7')">7</button><button class="numpad-btn" onclick="pinKey('8')">8</button><button class="numpad-btn" onclick="pinKey('9')">9</button>
+        <button class="numpad-btn" onclick="pinKey('0')">0</button><button class="numpad-btn del" onclick="pinDel()">⌫</button><button class="numpad-btn" style="visibility:hidden"></button>
+        <button class="numpad-btn wide" onclick="doLogin()">ENTER</button>
+      </div>
+    </div>
+    <div class="admin-link">Admin? <a onclick="switchToAdmin()">Click here to log in as admin</a></div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="screen-admin-login" class="screen">
+  <div class="login-wrap">
+    <div class="login-header">
+      <div class="login-title">ADMIN <span>ACCESS</span></div>
+      <div class="login-sub">Enter your admin PIN</div>
+    </div>
+    <div class="card">
+      <div class="pin-dots" id="admin-pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div class="login-error" id="admin-login-error"></div>
+      <div class="numpad">
+        <button class="numpad-btn" onclick="adminPinKey('1')">1</button><button class="numpad-btn" onclick="adminPinKey('2')">2</button><button class="numpad-btn" onclick="adminPinKey('3')">3</button>
+        <button class="numpad-btn" onclick="adminPinKey('4')">4</button><button class="numpad-btn" onclick="adminPinKey('5')">5</button><button class="numpad-btn" onclick="adminPinKey('6')">6</button>
+        <button class="numpad-btn" onclick="adminPinKey('7')">7</button><button class="numpad-btn" onclick="adminPinKey('8')">8</button><button class="numpad-btn" onclick="adminPinKey('9')">9</button>
+        <button class="numpad-btn" onclick="adminPinKey('0')">0</button><button class="numpad-btn del" onclick="adminPinDel()">⌫</button><button class="numpad-btn" style="visibility:hidden"></button>
+        <button class="numpad-btn wide" onclick="doAdminLogin()">ENTER</button>
+      </div>
+    </div>
+    <div class="admin-link"><a onclick="switchToUser()">← Back to user login</a></div>
+  </div>
+</div>
+
+<!-- USER DASHBOARD -->
+<div id="screen-user" class="screen">
+  <div class="page">
+    <div class="header">
+      <div class="logo"><div class="logo-name">PALM <span>TIME</span></div><div class="logo-sub" id="user-date-display"></div></div>
+      <div class="header-right"><div class="clock-display" id="live-clock"></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
+    </div>
+    <div class="user-bar"><div><div class="user-name" id="display-name"></div><div class="user-group" id="display-group"></div></div></div>
+    <div id="user-period-banner" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:10px 16px;margin:0 1rem 1rem;display:none;">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:2px;">Current Pay Period</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);" id="user-period-label">—</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:1px;" id="user-period-dates"></div>
+    </div>
+    <div class="status-bar">
+      <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
+      <div class="stat-card"><div class="stat-label">Hours Today</div><div class="stat-val green" id="stat-today">0.0h</div></div>
+      <div class="stat-card"><div class="stat-label" id="stat-total-label">This Period</div><div class="stat-val" id="stat-total-hours">0.0h</div></div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn clock-in-btn" id="btn-clock-in" onclick="clockIn()"><div class="btn-icon">▶</div><div class="btn-label">Clock In</div><div class="btn-sub">Start shift</div></button>
+      <button class="action-btn break-start-btn" id="btn-break-start" onclick="breakStart()"><div class="btn-icon">⏸</div><div class="btn-label">Break Start</div><div class="btn-sub">Pause timer</div></button>
+      <button class="action-btn break-end-btn" id="btn-break-end" onclick="breakEnd()"><div class="btn-icon">▷</div><div class="btn-label">Break End</div><div class="btn-sub">Resume timer</div></button>
+      <button class="action-btn clock-out-btn" id="btn-clock-out" onclick="clockOut()"><div class="btn-icon">■</div><div class="btn-label">Clock Out</div><div class="btn-sub">End shift</div></button>
+    </div>
+    <div class="card"><div class="card-title">My Time Entries</div><div class="entries-wrap" id="user-entries-table"></div></div>
+
+    <!-- EXTRAS / INCENTIVES -->
+    <div class="card" id="user-extras-card" style="display:none;">
+      <div class="card-title">Extras / Incentives</div>
+      <div id="user-extras-list"></div>
+    </div>
+
+    <!-- LEAVE REQUEST -->
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title" style="margin-bottom:0">Leave Requests</div>
+        <button class="btn btn-primary btn-sm" onclick="openLeaveModal()">+ New Request</button>
+      </div>
+      <div id="user-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🏖</div>No leave requests yet.</div></div>
+    </div>
+
+    <!-- TIME EDIT REQUEST -->
+    <div class="card">
+      <div class="card-title-row">
+        <div class="card-title" style="margin-bottom:0">Time Edit Requests</div>
+        <button class="btn btn-ghost btn-sm" onclick="openTimeEditModal()">+ Request Edit</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">If you clocked in before 9:00 AM and need your actual time counted, submit a request here.</div>
+      <div id="user-time-edit-list"><div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div></div>
+    </div>
+
+
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="screen-admin" class="screen" style="padding:0;background:#0d0d0d;">
+  <!-- Top Bar -->
+  <div style="background:#0a0a0a;border-bottom:1px solid #1c1c1c;padding:0 28px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+    <div style="font-size:16px;font-weight:500;color:#fff;letter-spacing:.05em;">PALM <span style="color:#c4f060;">TIME</span></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-family:'DM Mono',monospace;font-size:12px;color:#aaa;background:#161616;border:1px solid #252525;padding:5px 12px;border-radius:6px;" id="admin-live-clock">—</div>
+      <div style="font-size:12px;color:#666;background:#161616;border:1px solid #252525;padding:5px 12px;border-radius:6px;" id="admin-date-display">—</div>
+      <button style="font-size:12px;color:#666;border:1px solid #252525;padding:5px 14px;border-radius:6px;background:transparent;cursor:pointer;" onclick="logout()">Log out</button>
+    </div>
+  </div>
+  <!-- Sidebar + Content Layout -->
+  <div style="display:flex;height:calc(100vh - 52px);overflow:hidden;">
+    <!-- Sidebar -->
+    <div style="width:220px;flex-shrink:0;background:#0a0a0a;border-right:1px solid #1c1c1c;display:flex;flex-direction:column;">
+      <!-- Brand -->
+      <div style="padding:18px 16px 14px;border-bottom:1px solid #1c1c1c;flex-shrink:0;">
+        <div style="font-size:15px;font-weight:500;color:#fff;letter-spacing:.05em;">PALM <span style="color:#c4f060;">TIME</span></div>
+        <div style="font-size:10px;color:#333;margin-top:3px;letter-spacing:.06em;text-transform:uppercase;">Admin Dashboard</div>
+      </div>
+      <!-- Nav items -->
+      <div style="flex:1;padding:8px;overflow-y:auto;">
+        <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Main</div>
+        <div class="adm-nav active" id="tab-btn-home" onclick="switchTab('home')"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Home</div>
+        <div class="adm-nav" id="tab-btn-entries" onclick="switchTab('entries')"><i class="ti ti-clock" aria-hidden="true"></i>All Entries</div>
+        <div class="adm-nav" id="tab-btn-summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar" aria-hidden="true"></i>Hours Summary</div>
+        <div class="adm-nav" id="tab-btn-payroll" onclick="switchTab('payroll')"><i class="ti ti-receipt" aria-hidden="true"></i>Payroll Export</div>
+        <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Requests</div>
+        <div class="adm-nav" id="tab-btn-leave" onclick="switchTab('leave')"><i class="ti ti-beach" aria-hidden="true"></i>Leave Requests<span class="sb-badge" id="leave-badge" style="display:none;"></span></div>
+        <div class="adm-nav" id="tab-btn-timeedit" onclick="switchTab('timeedit')"><i class="ti ti-clock-edit" aria-hidden="true"></i>Time Edit<span class="sb-badge" id="timeedit-badge" style="display:none;"></span></div>
+        <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Settings</div>
+        <div class="adm-nav" id="tab-btn-holidays" onclick="switchTab('holidays')"><i class="ti ti-calendar" aria-hidden="true"></i>Holidays</div>
+        <div class="adm-nav" id="tab-btn-payperiods" onclick="switchTab('payperiods')"><i class="ti ti-calendar-stats" aria-hidden="true"></i>Pay Periods</div>
+        <div class="adm-nav" id="tab-btn-logins" onclick="switchTab('logins')"><i class="ti ti-activity" aria-hidden="true"></i>Login Activity</div>
+      </div>
+      <!-- User footer -->
+      <div style="padding:12px;border-top:1px solid #1c1c1c;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#141414;">
+          <div style="width:30px;height:30px;border-radius:50%;background:#1e2f0a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#c4f060;flex-shrink:0;">CM</div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:#ccc;">Charissa</div>
+            <div style="font-size:10px;color:#444;margin-top:1px;">Administrator</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Main Content -->
+    <div style="flex:1;overflow-y:auto;padding:24px 28px;background:#0f0f0f;" id="admin-main-content">
+    <!-- HOME TAB -->
+    <div id="tab-home" class="tab-pane active">
+      <div style="margin-bottom:20px;">
+        <div style="font-size:20px;font-weight:500;color:#e0e0e0;margin-bottom:4px;">Home</div>
+        <div style="font-size:12px;color:#555;" id="home-sub">Overview for the current pay period</div>
+      </div>
+      <!-- Active Pay Period Banner -->
+      <div id="active-period-banner" style="background:#111f07;border:1px solid rgba(196,240,96,.15);border-left:3px solid #c4f060;border-radius:10px;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#c4f060;margin-bottom:3px;">Active Pay Period</div>
+          <div style="font-size:14px;font-weight:500;color:#ddd;" id="active-period-label">Loading...</div>
+          <div style="font-size:11px;color:#555;margin-top:2px;font-family:'DM Mono',monospace;" id="active-period-dates"></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px;font-weight:500;color:#c4f060;font-family:'DM Mono',monospace;" id="active-period-days-remaining">—</div>
+          <div style="font-size:10px;color:#555;margin-top:2px;">days remaining</div>
+          <div style="font-size:11px;color:#666;margin-top:4px;" id="active-period-check">—</div>
+        </div>
+      </div>
+      <!-- Stats -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+        <div style="background:#141414;border:1px solid #1e1e1e;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">Total Staff</div>
+          <div style="font-size:28px;font-weight:500;color:#eee;font-family:'DM Mono',monospace;" id="admin-stat-total">—</div>
+          <div style="font-size:11px;color:#444;margin-top:4px;">active members</div>
+        </div>
+        <div style="background:#141414;border:1px solid #1e1e1e;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">Clocked In</div>
+          <div style="font-size:28px;font-weight:500;color:#c4f060;font-family:'DM Mono',monospace;" id="admin-stat-in">0</div>
+          <div style="font-size:11px;color:#444;margin-top:4px;">right now</div>
+        </div>
+        <div style="background:#141414;border:1px solid #1e1e1e;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">On Break</div>
+          <div style="font-size:28px;font-weight:500;color:#f0a050;font-family:'DM Mono',monospace;" id="admin-stat-break">0</div>
+          <div style="font-size:11px;color:#444;margin-top:4px;">right now</div>
+        </div>
+        <div style="background:#141414;border:1px solid #1e1e1e;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">Period Hours</div>
+          <div style="font-size:28px;font-weight:500;color:#eee;font-family:'DM Mono',monospace;" id="home-period-hours">—</div>
+          <div style="font-size:11px;color:#444;margin-top:4px;">hrs logged total</div>
+        </div>
+      </div>
+      <!-- Two column -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <!-- Staff Status -->
+        <div style="background:#141414;border:1px solid #1e1e1e;border-radius:10px;padding:16px;">
+          <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+            Staff Status
+            <button onclick="loadAdminDashboard()" style="font-size:11px;color:#555;border:1px solid #252525;padding:3px 10px;border-radius:5px;background:transparent;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;">↻ Refresh</button>
+          </div>
+          <div id="staff-overview-grid"></div>
+        </div>
+        <!-- Recent Activity -->
+        <div style="background:#141414;border:1px solid #1e1e1e;border-radius:10px;padding:16px;">
+          <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;">Recent Activity</div>
+          <div id="home-recent-activity"><div style="font-size:12px;color:#555;padding:.5rem 0;">Loading...</div></div>
+        </div>
+      </div>
+      <!-- Period Summary -->
+      <div style="background:#141414;border:1px solid #1e1e1e;border-radius:10px;padding:16px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;">Period Summary</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;" id="home-period-summary">
+          <div style="padding-right:20px;border-right:1px solid #1e1e1e;">
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#777;">Palm Partners hrs</span><span style="font-size:13px;font-weight:500;color:#ccc;font-family:'DM Mono',monospace;" id="home-pp-hours">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#777;">Palm Build hrs</span><span style="font-size:13px;font-weight:500;color:#ccc;font-family:'DM Mono',monospace;" id="home-pb-hours">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#777;">Total hrs</span><span style="font-size:13px;font-weight:500;color:#c4f060;font-family:'DM Mono',monospace;" id="home-total-hours">—</span></div>
+          </div>
+          <div style="padding:0 20px;border-right:1px solid #1e1e1e;">
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#777;">Pending leave</span><span style="font-size:13px;font-weight:500;font-family:'DM Mono',monospace;" id="home-pending-leave" style="color:#f0a050;">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#777;">Pending time edits</span><span style="font-size:13px;font-weight:500;font-family:'DM Mono',monospace;" id="home-pending-edits" style="color:#f0a050;">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#777;">Approved PTO</span><span style="font-size:13px;font-weight:500;color:#ccc;font-family:'DM Mono',monospace;" id="home-pto">—</span></div>
+          </div>
+          <div style="padding-left:20px;">
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#777;">Est. PP pay</span><span style="font-size:13px;font-weight:500;color:#ccc;font-family:'DM Mono',monospace;" id="home-pp-pay">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#777;">Est. PB pay</span><span style="font-size:13px;font-weight:500;color:#ccc;font-family:'DM Mono',monospace;" id="home-pb-pay">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#777;">Est. total payroll</span><span style="font-size:13px;font-weight:500;color:#c4f060;font-family:'DM Mono',monospace;" id="home-total-pay">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-entries" class="tab-pane">
+      <!-- Active Pay Period Banner -->
+      <div id="active-period-banner" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:3px;">Active Pay Period</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);" id="active-period-label">Loading...</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="active-period-dates"></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--text3);">Check Date</div>
+          <div style="font-size:13px;font-weight:500;color:var(--text2);" id="active-period-check">—</div>
+        </div>
+      </div>
+      <!-- Staff Overview Grid -->
+      <div class="card" style="margin-bottom:1.25rem;">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0;">Staff Overview</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadAdminDashboard()">↻ Refresh</button>
+        </div>
+        <div id="staff-overview-grid"></div>
+      </div>
+      <!-- All Entries -->
+      <div class="card">
+        <div class="card-title">All Time Entries</div>
+        <div class="filter-row">
+          <select id="admin-filter-name" onchange="loadAdminEntries()">
+            <option value="">All Staff</option>
+            <optgroup label="PALM PARTNERS"><option>Charissa Mercado</option><option>Camille Uy</option><option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option></optgroup>
+            <optgroup label="PALM BUILD"><option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option><option>Janna Alonto</option><option>John Lester Solano</option><option>Kristina Marie (Kim) Mercado</option><option>Bridgette Anne Benolirao</option><option>Griz Fuentes</option><option>May Castillo</option><option>Ciara Andrade</option><option>Miko Dioquino</option><option>Yvonne Duna</option></optgroup><optgroup label="PALM BUILD - US"><option>Talita David Brandao</option><option>Ian Jaja Kariuki</option><option>Luis Ramirez</option><option>Ernesto S</option><option>Alejandra</option><option>Zelfar</option></optgroup>
+          </select>
+          <div class="date-filter">
+            <input type="date" id="admin-filter-date-from" onchange="loadAdminEntries()" />
+            <span style="color:var(--text3);font-size:12px;">to</span>
+            <input type="date" id="admin-filter-date-to" onchange="loadAdminEntries()" />
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+        </div>
+        <div class="entries-wrap" id="admin-entries-table"></div>
+      </div>
+    </div>
+    <div id="tab-summary" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Total Hours by Person</div>
+        <div class="hours-summary-controls">
+          <div class="dg"><label>From</label><input type="date" id="summary-date-from" onchange="loadHoursSummary()" /></div>
+          <div class="dg"><label>To</label><input type="date" id="summary-date-to" onchange="loadHoursSummary()" /></div>
+          <div class="preset-btns">
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('today')">Today</button>
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('week')">This Week</button>
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('month')">This Month</button>
+            <button class="btn btn-ghost btn-sm" onclick="setSummaryPreset('all')">All Time</button>
+          </div>
+        </div>
+        <div id="hours-summary-table"></div>
+      </div>
+    </div>
+
+    <!-- PAYROLL TAB -->
+    <div id="tab-payroll" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Payroll Export</div>
+        <div class="hours-summary-controls" style="margin-bottom:1rem;">
+          <div class="dg"><label>Pay Period From</label><input type="date" id="payroll-date-from" onchange="loadPayrollPreview()" /></div>
+          <div class="dg"><label>Pay Period To</label><input type="date" id="payroll-date-to" onchange="loadPayrollPreview()" /></div>
+          <div class="dg"><label>Check Date</label><input type="date" id="payroll-check-date" onchange="loadPayrollPreview()" /></div>
+          <div class="preset-btns" style="align-items:flex-end;">
+            <button class="btn btn-ghost btn-sm" onclick="setPayrollPreset('biweek')">Last 2 Weeks</button>
+            <button class="btn btn-ghost btn-sm" onclick="setPayrollPreset('month')">This Month</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="exportPayrollExcel()">⬇ Export Excel</button>
+          <button class="btn btn-ghost" onclick="exportPayrollPDF()">⬇ Export PDF</button>
+        </div>
+        <div id="payroll-preview"></div>
+      </div>
+    </div>
+
+    <!-- LEAVE REQUESTS TAB -->
+    <div id="tab-leave" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Leave Requests</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="admin-leave-filter" onchange="loadAdminLeave()" style="padding:6px 10px;font-size:12px;width:auto;">
+              <option value="">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Denied">Denied</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadAdminLeave()">↻ Refresh</button>
+          </div>
+        </div>
+        <div id="admin-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📋</div>No leave requests found.</div></div>
+      </div>
+    </div>
+
+    <!-- TIME EDIT REQUESTS TAB -->
+    <div id="tab-timeedit" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Time Edit Requests</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadAdminTimeEditRequests()">↻ Refresh</button>
+        </div>
+        <div id="admin-time-edit-list"><div style="font-size:12px;color:var(--text3);padding:.5rem 0">No time edit requests.</div></div>
+      </div>
+    </div>
+
+    <!-- HOLIDAYS TAB -->
+    <div id="tab-holidays" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Company Holidays</div>
+          <button class="btn btn-primary btn-sm" onclick="openHolidayModal()">+ Add Holiday</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Holidays automatically add 8hrs × hourly rate to each staff member's Extras in payroll.</p>
+        <div id="admin-holidays-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🗓</div>No holidays added yet.</div></div>
+      </div>
+    </div>
+
+    <!-- PAY PERIODS TAB -->
+    <div id="tab-payperiods" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Pay Periods</div>
+          <button class="btn btn-primary btn-sm" onclick="openPayPeriodModal()">+ Add Pay Period</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Finalized pay periods — click Send Payslips to DM each staff member their payslip via Slack.</p>
+        <div id="admin-payperiods-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div></div>
+      </div>
+    </div>
+
+    <!-- LOGIN ACTIVITY TAB -->
+    <div id="tab-logins" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Login Activity</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadLoginActivity()">↻ Refresh</button>
+        </div>
+        <div class="filter-row">
+          <select id="login-filter-name" onchange="loadLoginActivity()" style="flex:1;min-width:160px;">
+            <option value="">All Staff</option>
+            <optgroup label="PALM PARTNERS">
+              <option>Charissa Mercado</option><option>Camille Uy</option>
+              <option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option>
+            </optgroup>
+            <optgroup label="PALM BUILD">
+              <option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option>
+              <option>Janna Alonto</option><option>John Lester Solano</option>
+              <option>Kristina Marie (Kim) Mercado</option>
+              <option>Bridgette Anne Benolirao</option>
+              <option>Griz Fuentes</option><option>May Castillo</option>
+              <option>Ciara Andrade</option><option>Miko Dioquino</option>
+            </optgroup>
+          </select>
+          <div class="date-filter">
+            <input type="date" id="login-filter-date-from" onchange="loadLoginActivity()" />
+            <span style="color:var(--text3);font-size:12px;">to</span>
+            <input type="date" id="login-filter-date-to" onchange="loadLoginActivity()" />
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="clearLoginFilters()">Clear</button>
+        </div>
+        <div id="admin-login-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">👤</div>No login activity yet.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAY PERIOD MODAL -->
+<div id="payperiod-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Add Pay Period</div>
+    <div class="modal-sub">Once finalized, staff can download their payslip for this period.</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Label (e.g. Mar 15 – Mar 28, 2026)</label>
+      <input type="text" id="payperiod-label" placeholder="e.g. Mar 15 – Mar 28, 2026" />
+    </div>
+    <div class="modal-row">
+      <div class="field"><label>From</label><input type="date" id="payperiod-from" /></div>
+      <div class="field"><label>To</label><input type="date" id="payperiod-to" /></div>
+    </div>
+    <div class="field">
+      <label>Check Date</label>
+      <input type="date" id="payperiod-check-date" />
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <select id="payperiod-status">
+        <option value="Draft">Draft (hidden from staff)</option>
+        <option value="Finalized">Finalized (visible to staff)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closePayPeriodModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="savePayPeriod()">Save Pay Period</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOLIDAY MODAL -->
+<div id="holiday-modal-overlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Add Holiday</div>
+    <div class="modal-sub">This will apply to all staff in payroll calculations.</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Holiday Name</label>
+      <input type="text" id="holiday-name" placeholder="e.g. Independence Day" />
+    </div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="holiday-date" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeHolidayModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="saveHoliday()">Add Holiday</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- TIME EDIT REQUEST MODAL -->
+    </div><!-- end admin-main-content -->
+  </div><!-- end sidebar+content layout -->
+</div><!-- end screen-admin -->
+
 <div id="time-edit-modal-overlay" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-title">Request Time Edit</div>
@@ -678,9 +1326,9 @@
   </div>
 </div>
 
-    </div><!-- end admin-main-content -->
-  </div><!-- end sidebar+content layout -->
-</div><!-- end screen-admin -->
+
+
+
 
 <!-- STAFF PROFILE MODAL -->
 <div id="profile-modal-overlay" class="modal-overlay hidden">
