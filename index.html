@@ -2112,7 +2112,7 @@ const DAILY_MAX = {
   'May Castillo':               8,
   'Miko Dioquino':              8,
   'Yvonne Duna':              8,
-  'Talita David Brandao':     7,
+  'Talita David Brandao':     'flag',
   'Ian Jaja Kariuki':         8,
   'Luis Ramirez':             8,
   'Ernesto S':                8,
@@ -2138,7 +2138,8 @@ function applyHourRules(name, rawHours, clockInISO=null) {
   let net = Math.max(0, rawHours - breakDeduction);
   // Apply cap
   const cap = DAILY_MAX[name];
-  const flagged = cap === 'flag' && rawHours > 8;
+  const flaggedThreshold = name === 'Talita David Brandao' ? 7 : 8;
+  const flagged = cap === 'flag' && rawHours > flaggedThreshold;
   if (typeof cap === 'number') net = Math.min(net, cap);
   return { net, breakDeduction, flagged };
 }
@@ -2152,7 +2153,8 @@ function calcBillableHours(entry) {
   if(entry.waive_break) {
     const cap = DAILY_MAX[entry.name];
     let net = rawHours;
-    const flagged = cap === 'flag' && rawHours > 8;
+    const flaggedThreshold = name === 'Talita David Brandao' ? 7 : 8;
+  const flagged = cap === 'flag' && rawHours > flaggedThreshold;
     if(typeof cap === 'number') net = Math.min(net, cap);
     return { total: net, flagged };
   }
@@ -2590,20 +2592,14 @@ async function uploadLeaveFile(file, leaveId) {
 // ── Slack DM via Edge Function (token stays server-side) ──
 async function sendSlackDM(userId, message) {
   try {
-    const SLACK_TOKEN = 'xoxb-6291040642487-10820776886695-qx7pInSiAMnbVyOZyiwtwEtL';
-    const chanRes = await fetch('https://slack.com/api/conversations.open',{
-      method:'POST',
-      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
-      body:JSON.stringify({users:userId})
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':`Bearer ${SUPABASE_KEY}`},
+      body: JSON.stringify({userId, message})
     });
-    const chan = await chanRes.json();
-    if(!chan.ok) throw new Error(chan.error);
-    await fetch('https://slack.com/api/chat.postMessage',{
-      method:'POST',
-      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
-      body:JSON.stringify({channel:chan.channel.id,text:message})
-    });
-  } catch(e){ console.error('Slack DM failed:',e); }
+    const data = await res.json();
+    if(!data.ok) console.error('Slack error:', data.error);
+  } catch(e){ console.error('Slack DM failed:', e); }
 }
 
 // ── Leave type style ──
