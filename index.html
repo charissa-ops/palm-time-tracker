@@ -3545,8 +3545,8 @@ async function confirmSendPayslips() {
   if(!_payslipParams) return;
   const selected = [...document.querySelectorAll('#send-payslip-recipients input[type="checkbox"]:checked')].map(cb=>cb.value);
   if(!selected.length){showToast('Please select at least one staff member','error');return;}
+  const {label, from, to, checkDate} = _payslipParams; // read BEFORE closing modal
   closeSendPayslipModal();
-  const {label, from, to, checkDate} = _payslipParams;
   showLoading('Sending payslips...');
   const results = [];
   try {
