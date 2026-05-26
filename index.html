@@ -1580,11 +1580,9 @@ const USERS = {
   'Mary Lynn Trias Mercado':        {h:'de5516e47a7727412d2fa1010cf59bfaef711df019008456ae1cccb728b0267a',group:'PALM BUILD'},
   'Janna Alonto':                   {h:'2f9adfd357017bc1384ff780ec8b742f4a56d59126d4d70a75ca5d636351ba63',group:'PALM BUILD'},
   'John Lester Solano':             {h:'7c1f9eaf9d87af4725b78d67caa54fb510dc6447a128a7b18f950d10347688b3',group:'PALM BUILD'},
-  'Kristina Marie (Kim) Mercado':   {h:'e8729ad0cc2820a56593012d538c39d36c4f6e0bb5c1748c70fbe23137514d90',group:'PALM BUILD'},
   'Bridgette Anne Benolirao':       {h:'0dc4b599ca3a9039e7f98155b38d5c983ef4fb417011d06425e163050f21ac38',group:'PALM BUILD'},
   'Griz Fuentes':                   {h:'26e0f5de8edcb104beb11064698b6c5daf25b60070bab35a844cc7fab088727d',group:'PALM BUILD'},
   'May Castillo':                   {h:'29938117374f7b9b033b09adecf079c898da1f73ca6457edc8b7e0eb73382bdc',group:'PALM BUILD'},
-  'Ciara Andrade':                  {h:'09a050e836d917076fb70552ee096c8bd19fa09bdf7bad0f58d8fd81284293b4',group:'PALM BUILD'},
   'Miko Dioquino':                  {h:'e20f1af5f6204c5d38e6d3b075b9848d335f00ccd5d5d01b9f13965a71e1b98d',group:'PALM BUILD'},
   'Yvonne Duna':                    {h:'b6755e8fdd445b11c3854113d667536caad8372dcc3576d724694b361e0b2467',group:'PALM BUILD'},
   'Talita David Brandao':           {h:'b27aa2e5e66fcdee4678346ea8cc0c6b894976b3aa4d64730f5ffbe8a11bce81',group:'PALM BUILD - US'},
@@ -2109,11 +2107,9 @@ const DAILY_MAX = {
   'Mary Lynn Trias Mercado':    8,
   'Janna Alonto':               11,
   'John Lester Solano':         8,
-  'Kristina Marie (Kim) Mercado': 8,
   'Bridgette Anne Benolirao':   8,
   'Griz Fuentes':               8,
   'May Castillo':               8,
-  'Ciara Andrade':              8,
   'Miko Dioquino':              8,
   'Yvonne Duna':              8,
   'Talita David Brandao':     7,
@@ -2493,7 +2489,7 @@ function openEditModal(id){
   document.getElementById('edit-clock-out').value=isoToInputEST(e.clock_out);
   document.getElementById('edit-waive-break').checked=!!e.waive_break;
   // Hide waive break option for staff who already have no break deduction
-  const noBreakStaff = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Yvonne Duna'];
+  const noBreakStaff = ['Charissa Mercado','Camille Uy','Yvonne Duna'];
   document.getElementById('edit-waive-break').closest('div[style]').style.display = noBreakStaff.includes(e.name)?'none':'flex';
   renderBreakRows();
   document.getElementById('edit-modal-overlay').classList.remove('hidden');
@@ -2594,12 +2590,20 @@ async function uploadLeaveFile(file, leaveId) {
 // ── Slack DM via Edge Function (token stays server-side) ──
 async function sendSlackDM(userId, message) {
   try {
-    await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
+    const SLACK_TOKEN = 'xoxb-6291040642487-10820776886695-qx7pInSiAMnbVyOZyiwtwEtL';
+    const chanRes = await fetch('https://slack.com/api/conversations.open',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
-      body:JSON.stringify({userId,message})
+      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
+      body:JSON.stringify({users:userId})
     });
-  } catch(e) { console.error('Slack DM failed',e); }
+    const chan = await chanRes.json();
+    if(!chan.ok) throw new Error(chan.error);
+    await fetch('https://slack.com/api/chat.postMessage',{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${SLACK_TOKEN}`,'Content-Type':'application/json'},
+      body:JSON.stringify({channel:chan.channel.id,text:message})
+    });
+  } catch(e){ console.error('Slack DM failed:',e); }
 }
 
 // ── Leave type style ──
@@ -3616,11 +3620,7 @@ async function confirmSendPayslips() {
         `_This is your official payslip for the above pay period. For questions, contact Charissa._`;
 
       try {
-        await fetch(`${SUPABASE_URL}/functions/v1/slack-notify`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
-          body:JSON.stringify({userId:slackId, message})
-        });
+        await sendSlackDM(slackId, message);
         results.push(`✅ ${name}`);
       } catch(e) {
         results.push(`❌ ${name}: failed`);
@@ -3974,7 +3974,7 @@ async function downloadStaffEntriesExcel() {
         clockIn: fmtTime(e.clock_in),
         clockOut: e.clock_out ? fmtTime(e.clock_out) : '—',
         rawHrs: rawHrs!==null ? parseFloat(rawHrs.toFixed(2)) : '—',
-        breakDeducted: (!e.waive_break && !['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Yvonne Duna'].includes(profileName)) ? 1 : 0,
+        breakDeducted: (!e.waive_break && !['Charissa Mercado','Camille Uy','Yvonne Duna'].includes(profileName)) ? 1 : 0,
         billableHrs: b.total!==null ? parseFloat(b.total.toFixed(2)) : '—',
         pay: b.total!==null ? parseFloat((b.total*rate).toFixed(2)) : '—',
         status: e.clock_out ? 'Complete' : 'Active',
@@ -4067,8 +4067,8 @@ const STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
   'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
   'Mary Lynn Trias Mercado':'8519','Janna Alonto':'1637','John Lester Solano':'9204',
-  'Kristina Marie (Kim) Mercado':'5478','Bridgette Anne Benolirao':'7195',
-  'Griz Fuentes':'6341','May Castillo':'8752','Ciara Andrade':'3097',
+  'Bridgette Anne Benolirao':'7195',
+  'Griz Fuentes':'6341','May Castillo':'8752',
   'Miko Dioquino':'5684',
   'Talita David Brandao':'7220',
   'Ian Jaja Kariuki':'3939',
@@ -4133,7 +4133,7 @@ function openAddEntryModal() {
   document.getElementById('add-entry-clock-out').value = '17:00';
   document.getElementById('add-entry-waive-break').checked = false;
   // Hide waive break for staff with no break deduction
-  const noBreak = ['Charissa Mercado','Camille Uy','Kristina Marie (Kim) Mercado','Yvonne Duna'];
+  const noBreak = ['Charissa Mercado','Camille Uy','Yvonne Duna'];
   document.getElementById('add-entry-waive-break').closest('.field').style.display = noBreak.includes(profileName)?'none':'';
   document.getElementById('add-entry-modal-overlay').classList.remove('hidden');
 }
