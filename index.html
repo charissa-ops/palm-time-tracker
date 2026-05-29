@@ -1398,9 +1398,8 @@ const PAYMENT_METHODS = {
 // ── Hour rules ──
 // Break deduction: 1hr/day for everyone except these:
 const NO_BREAK_DEDUCTION = new Set([
-  'Charissa Mercado','Camille Uy'
+  'Charissa Mercado','Camille Uy','Janna Alonto'
   // Yvonne handled separately: no break weekdays, 1hr break weekends
-  // Janna has 1hr break deduction (9AM-7PM = 10hrs raw - 1hr = 9hrs billable)
 ]);
 // Custom break durations (in hours) — default is 1hr for everyone else
 const BREAK_DURATION = {
@@ -1494,8 +1493,8 @@ function calcBillableHours(entry) {
   if(entry.waive_break) {
     const cap = DAILY_MAX[entry.name];
     let net = rawHours;
-    const flaggedThreshold = name === 'Talita David Brandao' ? 7 : 8;
-  const flagged = cap === 'flag' && rawHours > flaggedThreshold;
+    const flaggedThreshold = entry.name === 'Talita David Brandao' ? 7 : 8;
+    const flagged = cap === 'flag' && rawHours > flaggedThreshold;
     if(typeof cap === 'number') net = Math.min(net, cap);
     return { total: net, flagged };
   }
