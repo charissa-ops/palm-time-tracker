@@ -271,7 +271,7 @@
     <div class="card">
       <div class="card-title-row">
         <div class="card-title" style="margin-bottom:0">Leave Requests</div>
-        <button class="btn btn-primary btn-sm" onclick="openLeaveModal()">+ New Request</button>
+        <button class="btn btn-primary btn-sm" onclick="console.log('leave btn clicked');openLeaveModal()">+ New Request</button>
       </div>
       <div id="user-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🏖</div>No leave requests yet.</div></div>
     </div>
@@ -280,7 +280,7 @@
     <div class="card">
       <div class="card-title-row">
         <div class="card-title" style="margin-bottom:0">Time Edit Requests</div>
-        <button class="btn btn-ghost btn-sm" onclick="openTimeEditModal()">+ Request Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="console.log('te btn clicked');openTimeEditModal()">+ Request Edit</button>
       </div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">Submit a request if you need to correct your clock-in, clock-out, break, or any other time entry issue.</div>
       <div id="user-time-edit-list"><div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div></div>
@@ -1970,6 +1970,9 @@ function onLeaveFileChange() {
 // ── User: open/close leave modal ──
 function openLeaveModal() {
   try {
+    console.log('openLeaveModal called, currentUser:', currentUser);
+    const overlay = document.getElementById('leave-modal-overlay');
+    console.log('overlay element:', overlay);
     document.getElementById('leave-modal-sub').textContent = currentUser;
     document.getElementById('leave-type').value = 'PTO';
     document.getElementById('leave-date-from').value = '';
