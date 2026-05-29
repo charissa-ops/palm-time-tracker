@@ -122,7 +122,7 @@
   .tab-btn{flex:1;padding:8px 16px;border:none;border-radius:6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--text3);background:transparent;}
   .tab-btn.active{background:var(--surface);color:var(--text);}
   .tab-pane{display:none;}.tab-pane.active{display:block;}
-  .loading-overlay{position:fixed;inset:0;background:rgba(15,15,15,.85);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  .loading-overlay{position:fixed;inset:0;background:rgba(15,15,15,.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
   .loading-overlay.hidden{display:none;}
   .spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -131,7 +131,7 @@
   #toast.show{transform:translateX(-50%) translateY(0);}
   #toast.success{border-color:#205a30;color:var(--green);}
   #toast.error{border-color:#5a2020;color:var(--red);}
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;}
   .modal-overlay.hidden{display:none;}
   .modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:1.75rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
   .modal-title{font-size:15px;font-weight:700;margin-bottom:4px;}
@@ -302,7 +302,7 @@
     </div>
   </div>
   <!-- Sidebar + Content Layout -->
-  <div style="display:flex;height:calc(100vh - 52px);overflow:hidden;">
+  <div style="display:flex;height:calc(100vh - 52px);overflow:visible;">
     <!-- Sidebar -->
     <div style="width:220px;flex-shrink:0;background:#0a0a0a;border-right:1px solid #1c1c1c;display:flex;flex-direction:column;">
       <!-- Brand -->
@@ -1970,14 +1970,18 @@ function onLeaveFileChange() {
 
 // ── User: open/close leave modal ──
 function openLeaveModal() {
-  document.getElementById('leave-modal-sub').textContent = currentUser;
-  document.getElementById('leave-type').value = 'PTO';
-  document.getElementById('leave-date-from').value = '';
-  document.getElementById('leave-date-to').value = '';
-  document.getElementById('leave-reason').value = '';
-  document.getElementById('leave-file').value = '';
-  document.getElementById('leave-file-name').textContent = '';
-  document.getElementById('leave-modal-overlay').classList.remove('hidden');
+  try {
+    document.getElementById('leave-modal-sub').textContent = currentUser;
+    document.getElementById('leave-type').value = 'PTO';
+    document.getElementById('leave-date-from').value = '';
+    document.getElementById('leave-date-to').value = '';
+    document.getElementById('leave-reason').value = '';
+    const lf = document.getElementById('leave-file');
+    if(lf) lf.value = '';
+    const lfn = document.getElementById('leave-file-name');
+    if(lfn) lfn.textContent = '';
+    document.getElementById('leave-modal-overlay').classList.remove('hidden');
+  } catch(e) { console.error('openLeaveModal error:', e); showToast('Error: '+e.message,'error'); }
 }
 function closeLeaveModal() { document.getElementById('leave-modal-overlay').classList.add('hidden'); }
 
@@ -2301,13 +2305,15 @@ async function updateTimeEditRequest(id,patch) { return await sbFetch(`${TIME_ED
 
 // ── Open/close modal ──
 function openTimeEditModal() {
-  document.getElementById('time-edit-modal-sub').textContent = currentUser;
-  document.getElementById('time-edit-type').value = 'clock_in';
-  document.getElementById('time-edit-date').value = todayESTStr();
-  document.getElementById('time-edit-actual').value = '';
-  document.getElementById('time-edit-reason').value = '';
-  onTimeEditTypeChange();
-  document.getElementById('time-edit-modal-overlay').classList.remove('hidden');
+  try {
+    document.getElementById('time-edit-modal-sub').textContent = currentUser;
+    document.getElementById('time-edit-type').value = 'clock_in';
+    document.getElementById('time-edit-date').value = todayESTStr();
+    document.getElementById('time-edit-actual').value = '';
+    document.getElementById('time-edit-reason').value = '';
+    onTimeEditTypeChange();
+    document.getElementById('time-edit-modal-overlay').classList.remove('hidden');
+  } catch(e) { console.error('openTimeEditModal error:', e); showToast('Error: '+e.message,'error'); }
 }
 
 function onTimeEditTypeChange() {
