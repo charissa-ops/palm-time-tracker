@@ -1040,7 +1040,7 @@ function initLoginDropdown() {
   }
 }
 // Call on load
-document.addEventListener('DOMContentLoaded', initLoginDropdown);
+
 function updateDots(id,total,filled){document.getElementById(id).querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled',i<filled));}
 
 function startClock(clockId,dateId){
@@ -1866,7 +1866,7 @@ async function deleteEntry(){
   catch(err){showToast('Error deleting','error');console.error(err);}finally{hideLoading();}
 }
 
-document.getElementById('edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeEditModal();});
+
 // ══════════ LEAVE REQUESTS ══════════
 const LEAVE_TABLE = 'leave_requests';
 // Slack IDs (not sensitive - just user identifiers, no tokens)
@@ -2169,8 +2169,8 @@ ${note?`*Note from admin:* ${note}`:''}`;
 }
 
 // Close modals on overlay click
-document.getElementById('leave-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeLeaveModal();});
-document.getElementById('admin-leave-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeAdminLeaveModal();});
+
+
 
 
 // ══════════ HOLIDAYS ══════════
@@ -2195,7 +2195,7 @@ function openHolidayModal() {
   document.getElementById('holiday-modal-overlay').classList.remove('hidden');
 }
 function closeHolidayModal() { document.getElementById('holiday-modal-overlay').classList.add('hidden'); }
-document.getElementById('holiday-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeHolidayModal();});
+
 
 async function saveHoliday() {
   const name = document.getElementById('holiday-name').value.trim();
@@ -2320,7 +2320,7 @@ function onTimeEditTypeChange() {
   else { actualField.style.display='none'; }
 }
 function closeTimeEditModal() { document.getElementById('time-edit-modal-overlay').classList.add('hidden'); }
-document.getElementById('time-edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeTimeEditModal();});
+
 
 // ── Submit time edit request ──
 async function submitTimeEditRequest() {
@@ -2528,7 +2528,7 @@ function openPayPeriodModal() {
   document.getElementById('payperiod-modal-overlay').classList.remove('hidden');
 }
 function closePayPeriodModal() { document.getElementById('payperiod-modal-overlay').classList.add('hidden'); }
-document.getElementById('payperiod-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closePayPeriodModal();});
+
 
 async function savePayPeriod() {
   const label = document.getElementById('payperiod-label').value.trim();
@@ -2876,7 +2876,7 @@ function closeSendPayslipModal() {
   document.getElementById('send-payslip-modal-overlay').classList.add('hidden');
   _payslipParams = null;
 }
-document.getElementById('send-payslip-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeSendPayslipModal();});
+
 
 async function confirmSendPayslips() {
   if(!_payslipParams) return;
@@ -3172,7 +3172,7 @@ function closeProfileModal() {
   document.getElementById('profile-modal-overlay').classList.add('hidden');
   profileName = null; profileExtras = [];
 }
-document.getElementById('profile-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeProfileModal();});
+
 
 async function loadProfileExtras(name) {
   try {
@@ -4034,6 +4034,23 @@ async function deleteTimeEditRequest(id) {
   finally{ hideLoading(); }
 }
 
+
+// ── Safe modal close on overlay click ──
+function setupModalOverlayClose(id, closeFn) {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('click', function(ev){ if(ev.target===this) closeFn(); });
+}
+document.addEventListener('DOMContentLoaded', function() {
+  setupModalOverlayClose('edit-modal-overlay', closeEditModal);
+  setupModalOverlayClose('leave-modal-overlay', closeLeaveModal);
+  setupModalOverlayClose('admin-leave-modal-overlay', closeAdminLeaveModal);
+  setupModalOverlayClose('holiday-modal-overlay', closeHolidayModal);
+  setupModalOverlayClose('time-edit-modal-overlay', closeTimeEditModal);
+  setupModalOverlayClose('payperiod-modal-overlay', closePayPeriodModal);
+  setupModalOverlayClose('send-payslip-modal-overlay', closeSendPayslipModal);
+  setupModalOverlayClose('profile-modal-overlay', closeProfileModal);
+  setupModalOverlayClose('add-entry-modal-overlay', closeAddEntryModal);
+  initLoginDropdown();
+});
+
 </script>
-</body>
-</html>
