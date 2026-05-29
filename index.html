@@ -420,25 +420,13 @@
     </div>
 
     <div id="tab-entries" class="tab-pane">
-      <!-- Active Pay Period Banner -->
-      <div id="active-period-banner" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:3px;">Active Pay Period</div>
-          <div style="font-size:14px;font-weight:600;color:var(--text);" id="active-period-label">Loading...</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="active-period-dates"></div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:10px;color:var(--text3);">Check Date</div>
-          <div style="font-size:13px;font-weight:500;color:var(--text2);" id="active-period-check">—</div>
-        </div>
-      </div>
       <!-- Staff Overview Grid -->
       <div class="card" style="margin-bottom:1.25rem;">
         <div class="card-title-row">
           <div class="card-title" style="margin-bottom:0;">Staff Overview</div>
           <button class="btn btn-ghost btn-sm" onclick="loadAdminDashboard()">↻ Refresh</button>
         </div>
-        <div id="staff-overview-grid"></div>
+        <div id="entries-staff-grid"></div>
       </div>
       <!-- All Entries -->
       <div class="card">
@@ -584,7 +572,7 @@
       </div>
     </div>
   </div>
-</div>
+</div><!-- end screen-admin -->
 
 <!-- PAY PERIOD MODAL -->
 <div id="payperiod-modal-overlay" class="modal-overlay hidden">
@@ -1410,9 +1398,9 @@ const PAYMENT_METHODS = {
 // ── Hour rules ──
 // Break deduction: 1hr/day for everyone except these:
 const NO_BREAK_DEDUCTION = new Set([
-  'Charissa Mercado','Camille Uy',
-  'Janna Alonto'
+  'Charissa Mercado','Camille Uy'
   // Yvonne handled separately: no break weekdays, 1hr break weekends
+  // Janna has 1hr break deduction (9AM-7PM = 10hrs raw - 1hr = 9hrs billable)
 ]);
 // Custom break durations (in hours) — default is 1hr for everyone else
 const BREAK_DURATION = {
@@ -1458,7 +1446,7 @@ const DAILY_MAX = {
   'Richmond Yambot Nicolas':    null,
   'John Vens Clair Magbnua Solano': 'flag',
   'Mary Lynn Trias Mercado':    8,
-  'Janna Alonto':               11,
+  'Janna Alonto':               10,
   'John Lester Solano':         8,
   'Bridgette Anne Benolirao':   8,
   'Griz Fuentes':               8,
@@ -3029,8 +3017,10 @@ async function loadAdminDashboard() {
 }
 
 function renderStaffOverview(activeMap) {
+  // Update both home tab grid and entries tab grid
   const el = document.getElementById('staff-overview-grid');
-  if(!el) return;
+  const el2 = document.getElementById('entries-staff-grid');
+  if(!el && !el2) return;
   const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[]};
   for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   let html = '<div style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;">';
