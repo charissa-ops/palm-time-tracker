@@ -2058,7 +2058,7 @@ const RATES = {
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,
   'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
-  'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Ian Jaja Kariuki':8.00,'Luis Ramirez':19.50,'Ernesto S':19.50,'Alejandra':19.50,'Zelfar':19.50,'Samhir Rivera':8.00,'Nellie Diemo':2.00,'Maria Jose Aguilar':7.00,'Fernando Nieto':11.00,'Jorge Flores':1600.00,'Hermann Tinoco':5.00,'Vincent Chavarria':6.00
+  'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Ian Jaja Kariuki':8.00,'Luis Ramirez':19.50,'Ernesto S':19.50,'Alejandra':19.50,'Zelfar':19.50,'Samhir Rivera':8.00,'Nellie Diemo':2.00,'Maria Jose Aguilar':7.00,'Fernando Nieto':11.00,'Jorge Flores':0,'Hermann Tinoco':5.00,'Vincent Chavarria':6.00
 };
 const PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
@@ -2076,6 +2076,11 @@ const NO_BREAK_DEDUCTION = new Set([
   'Janna Alonto'
   // Yvonne handled separately: no break weekdays, 1hr break weekends
 ]);
+// Flat rate staff - fixed pay per period regardless of hours
+const FLAT_RATE = {
+  'Jorge Flores': 1600.00,
+};
+
 // Custom break durations (in hours) — default is 1hr for everyone else
 const BREAK_DURATION = {
   'Ian Jaja Kariuki':  0.5,
