@@ -1418,6 +1418,7 @@
       <div style="display:flex;gap:8px;">
         <button class="btn btn-ghost btn-sm" onclick="closeProfileModal()">Close</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteStaff()">🗑 Delete Staff</button>
+        <button class="btn btn-ghost btn-sm" id="admin-clock-out-btn" style="color:var(--orange);display:none;" onclick="openAdminClockOutModal()">🕔 Clock Out</button>
       </div>
       <div class="modal-actions-right" style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="sendOnboardingToStaff()" style="color:var(--accent);">📱 Send Instructions</button>
@@ -1458,6 +1459,28 @@
       <button class="btn btn-ghost btn-sm" onclick="closeAddEntryModal()">Cancel</button>
       <div class="modal-actions-right">
         <button class="btn btn-primary btn-sm" onclick="saveAddEntry()">Save Entry</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN CLOCK OUT MODAL -->
+<div id="admin-clock-out-overlay" class="modal-overlay hidden">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-title">Clock Out Staff</div>
+    <div class="modal-sub" id="admin-clock-out-sub">—</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Clock Out Time (ET)</label>
+      <input type="time" id="admin-clock-out-time" />
+    </div>
+    <div class="field">
+      <label>Date</label>
+      <input type="date" id="admin-clock-out-date" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeAdminClockOutModal()">Cancel</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-primary btn-sm" onclick="confirmAdminClockOut()">Clock Out</button>
       </div>
     </div>
   </div>
@@ -4775,6 +4798,48 @@ async function deleteTimeEditRequest(id) {
     if(badge){const cnt=rows?.length||0;badge.textContent=cnt;badge.style.display=cnt?'':'none';}
   } catch(e){ showToast('Error deleting','error'); console.error(e); }
   finally{ hideLoading(); }
+}
+
+
+// ══════════ ADMIN CLOCK OUT ══════════
+let _adminClockOutEntryId = null;
+
+function openAdminClockOutModal() {
+  if(!profileName) return;
+  // Find the active entry
+  document.getElementById('admin-clock-out-sub').textContent = profileName;
+  // Default to current ET time
+  const now = new Date();
+  const et = toET(now.toISOString());
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('admin-clock-out-date').value = `${et.getFullYear()}-${p(et.getMonth()+1)}-${p(et.getDate())}`;
+  document.getElementById('admin-clock-out-time').value = `${p(et.getHours())}:${p(et.getMinutes())}`;
+  document.getElementById('admin-clock-out-overlay').classList.remove('hidden');
+}
+
+function closeAdminClockOutModal() {
+  document.getElementById('admin-clock-out-overlay').classList.add('hidden');
+}
+
+async function confirmAdminClockOut() {
+  const date = document.getElementById('admin-clock-out-date').value;
+  const time = document.getElementById('admin-clock-out-time').value;
+  if(!date || !time) { showToast('Please set date and time','error'); return; }
+  showLoading('Clocking out...');
+  try {
+    // Find the open entry for this staff
+    const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(profileName)}&clock_out=is.null&order=clock_in.desc&limit=1`);
+    if(!entries || !entries.length) { showToast('No active clock-in found','error'); hideLoading(); return; }
+    const entry = entries[0];
+    const clockOutISO = inputESTToISO(`${date}T${time}`);
+    await updateEntry(entry.id, { clock_out: clockOutISO });
+    showToast(`${profileName.split(' ')[0]} clocked out ✓`, 'success');
+    closeAdminClockOutModal();
+    // Refresh profile
+    await openStaffProfile(profileName);
+    await loadAdminDashboard();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); console.error(e); }
+  finally { hideLoading(); }
 }
 
 </script>
