@@ -3819,6 +3819,9 @@ async function openStaffProfile(name) {
   const status = activeEntry ? (onBreak?'On Break':'Clocked In') : 'Out';
   const statusColor = activeEntry ? (onBreak?'var(--orange)':'var(--green)') : 'var(--text3)';
   document.getElementById('profile-status-badge').innerHTML = `<span class="status-pill" style="background:${activeEntry?(onBreak?'var(--orange-dim)':'var(--green-dim)'):'var(--surface3)'};color:${statusColor};">${status}</span>`;
+  // Show/hide Clock Out button
+  const clockOutBtn = document.getElementById('admin-clock-out-btn');
+  if(clockOutBtn) clockOutBtn.style.display = activeEntry ? '' : 'none';
 
   // Hours stats
   const today = todayESTStr();
