@@ -14,6 +14,8 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-192.png" />
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#222;--surface3:#2a2a2a;
@@ -1539,6 +1541,7 @@
   </div>
 </div>
 
+<div id="payslip-render-offscreen" style="position:fixed;left:-9999px;top:0;width:780px;background:#fff;z-index:-1;pointer-events:none;"></div>
 <div id="toast"></div>
 
 <!-- LEAVE REQUEST MODAL -->
@@ -3706,28 +3709,50 @@ async function confirmSendPayslips() {
         `_This is your official payslip for the above pay period. For questions, contact Charissa._`;
 
       try {
-        // Build payslip data for the Edge Function
-        const payslipData = {
-          company: group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC',
-          name, paymentMethod: PAYMENT_METHODS[name]||'—',
-          rate, rateLabel: FLAT_RATE[name]!==undefined?'Flat Rate':`$${rate.toFixed(2)}/hr`,
-          label,
-          dateFrom: new Date(from+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-          dateTo: new Date(to+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
-          checkDate: checkFmt,
-          regularHours: totalHours, regularPay: basePay,
-          ptoDays, ptoPay, holidayDays: holidayCount, holidayPay,
-          extras: extrasRows.map(e=>({label:e.label,amount:e.amount})), totalPay
-        };
-        await fetch(`${SUPABASE_URL}/functions/v1/send-payslip`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
-          body:JSON.stringify({userId:slackId, payslipData, filename:`Payslip_${name.replace(/\s+/g,'_')}_${from}.html`})
+        // Render payslip HTML to hidden div, capture as JPEG + PDF
+        const renderDiv = document.getElementById('payslip-render-offscreen');
+        renderDiv.innerHTML = html;
+
+        // Wait for render
+        await new Promise(r => setTimeout(r, 150));
+
+        // Capture JPEG via html2canvas
+        const canvas = await html2canvas(renderDiv, {
+          scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
         });
+        const jpegBase64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
+
+        // Capture PDF via jsPDF
+        const { jsPDF } = window.jspdf;
+        const imgData = canvas.toDataURL('image/png');
+        const pdfWidth = 595;
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [pdfWidth, pdfHeight] });
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+        // Clear render div
+        renderDiv.innerHTML = '';
+
+        const safeName = name.replace(/\s+/g, '_');
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-payslip`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+          body: JSON.stringify({
+            userId: slackId,
+            label,
+            employeeName: name,
+            pdfBase64,
+            jpegBase64,
+            filename: `Payslip_${safeName}_${from}`
+          })
+        });
+        const resData = await res.json();
+        if (!resData.ok) throw new Error(resData.error || 'Edge function error');
         results.push(`✅ ${name}`);
       } catch(e) {
-        results.push(`❌ ${name}: failed`);
-        console.error(e);
+        results.push(`❌ ${name}: ${e.message}`);
+        console.error(name, e);
       }
     }
     showToast(`Payslips sent to ${results.filter(r=>r.startsWith('✅')).length} of ${selected.length} staff ✓`,'success');
