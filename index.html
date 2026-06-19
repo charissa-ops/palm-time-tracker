@@ -3706,7 +3706,24 @@ async function confirmSendPayslips() {
         `_This is your official payslip for the above pay period. For questions, contact Charissa._`;
 
       try {
-        await sendSlackDM(slackId, message);
+        // Build payslip data for the Edge Function
+        const payslipData = {
+          company: group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC',
+          name, paymentMethod: PAYMENT_METHODS[name]||'—',
+          rate, rateLabel: FLAT_RATE[name]!==undefined?'Flat Rate':`$${rate.toFixed(2)}/hr`,
+          label,
+          dateFrom: new Date(from+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+          dateTo: new Date(to+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+          checkDate: checkFmt,
+          regularHours: totalHours, regularPay: basePay,
+          ptoDays, ptoPay, holidayDays: holidayCount, holidayPay,
+          extras: extrasRows.map(e=>({label:e.label,amount:e.amount})), totalPay
+        };
+        await fetch(`${SUPABASE_URL}/functions/v1/send-payslip`,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},
+          body:JSON.stringify({userId:slackId, payslipData, filename:`Payslip_${name.replace(/\s+/g,'_')}_${from}.html`})
+        });
         results.push(`✅ ${name}`);
       } catch(e) {
         results.push(`❌ ${name}: failed`);
