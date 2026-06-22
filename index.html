@@ -15,7 +15,6 @@
 <link rel="apple-touch-icon" href="icon-192.png" />
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#222;--surface3:#2a2a2a;
@@ -3761,15 +3760,6 @@ async function confirmSendPayslips() {
         });
         const jpegBase64 = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
 
-        // Capture PDF via jsPDF
-        const { jsPDF } = window.jspdf;
-        const imgData = canvas.toDataURL('image/png');
-        const pdfWidth = 595;
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [pdfWidth, pdfHeight] });
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
         // Clear render div
         renderDiv.innerHTML = '';
 
@@ -3781,7 +3771,6 @@ async function confirmSendPayslips() {
             userId: slackId,
             label,
             employeeName: name,
-            pdfBase64,
             jpegBase64,
             filename: `Payslip_${safeName}_${from}`
           })
