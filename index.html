@@ -2092,7 +2092,7 @@ const PAYMENT_METHODS = {
   'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
   
   'Bridgette Anne Benolirao':'Payoneer','Griz Fuentes':'Payoneer',
-  'May Castillo':'Wise- US bank','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank','Ian Jaja Kariuki':'US Bank','Luis Ramirez':'Agency','Ernesto S':'Agency','Alejandra':'Agency','Zelfar':'Agency','Samhir Rivera':'Agency','Carlos Martinez':'US Bank','David Ndunda':'US Bank','Maria Aguiriano':'US Bank','Fernando Nieto':'US Bank','Jorge Flores':'US Bank','Hermann Tinoco':'US Bank','Vincent Chavarria':'Payoneer'
+  'May Castillo':'Wise- US bank','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank','Ian Jaja Kariuki':'US Bank','Luis Ramirez':'Agency','Ernesto S':'Agency','Alejandra':'Agency','Zelfar':'Agency','Samhir Rivera':'Agency','Ralf Bruehl':'US Bank','Carlos Martinez':'US Bank','David Ndunda':'US Bank','Maria Aguiriano':'US Bank','Fernando Nieto':'US Bank','Jorge Flores':'US Bank','Hermann Tinoco':'US Bank','Vincent Chavarria':'Payoneer'
 };
 
 // ── Hour rules ──
@@ -2343,10 +2343,10 @@ function renderPayrollPreview(from,to){
         } else {
           // Prorated: flatAmt / 30 * number of days in pay period
           const ppDays = (from && to) ? Math.round((new Date(to+'T12:00:00') - new Date(from+'T12:00:00')) / 86400000) + 1 : 14;
-          basePay = Math.round((flatAmt / 30) * ppDays * 100) / 100;
+          basePay = Math.round((flatAmt / 2) * 100) / 100;
         }
         rateDisplay = MONTHLY_FLAT_PAYERS.has(name) ? `$${flatAmt.toFixed(2)}/mo` : `$${flatAmt.toFixed(2)}/mo ÷ period`;
-        hoursDisplay = '—';
+        hoursDisplay = fmtHHMM(h);
       } else {
         basePay = h * rate;
         rateDisplay = fmtMoney(rate);
@@ -2409,7 +2409,7 @@ function buildPayrollData(){
           basePay = flatAmt;
         } else {
           const ppDays = (from && to) ? Math.round((new Date(to+'T12:00:00') - new Date(from+'T12:00:00')) / 86400000) + 1 : 14;
-          basePay = Math.round((flatAmt / 30) * ppDays * 100) / 100;
+          basePay = Math.round((flatAmt / 2) * 100) / 100;
         }
       } else {
         basePay = Math.round(h*rate*100)/100;
@@ -3686,7 +3686,7 @@ async function confirmSendPayslips() {
       // Base pay: flat rate or hourly
       let basePay;
       if(flatAmt !== undefined) {
-        basePay = MONTHLY_FLAT_PAYERS.has(name) ? flatAmt : Math.round((flatAmt / 30) * ppDays * 100) / 100;
+        basePay = MONTHLY_FLAT_PAYERS.has(name) ? flatAmt : Math.round((flatAmt / 2) * 100) / 100;
       } else {
         basePay = Math.round(totalHours*rate*100)/100;
       }
