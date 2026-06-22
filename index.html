@@ -2341,11 +2341,13 @@ function renderPayrollPreview(from,to){
           // Monthly: always full flat amount
           basePay = flatAmt;
         } else {
-          // Prorated: flatAmt / 30 * number of days in pay period
-          const ppDays = (from && to) ? Math.round((new Date(to+'T12:00:00') - new Date(from+'T12:00:00')) / 86400000) + 1 : 14;
-          basePay = Math.round((flatAmt / 2) * 100) / 100;
+          // Based on actual days worked: flatAmt / 20 working days * days clocked in
+          const userEntries = list.filter(e => e.name === name && e.clock_out);
+          const uniqueDays = new Set(userEntries.map(e => toESTDateStr(e.clock_in))).size;
+          const dayRate = flatAmt / 20;
+          basePay = Math.round(dayRate * uniqueDays * 100) / 100;
         }
-        rateDisplay = MONTHLY_FLAT_PAYERS.has(name) ? `$${flatAmt.toFixed(2)}/mo` : `$${flatAmt.toFixed(2)}/mo ÷ period`;
+        rateDisplay = MONTHLY_FLAT_PAYERS.has(name) ? `$${flatAmt.toFixed(2)}/mo` : `$${flatAmt.toFixed(2)}/mo ÷ 20 days`;
         hoursDisplay = fmtHHMM(h);
       } else {
         basePay = h * rate;
@@ -2408,8 +2410,10 @@ function buildPayrollData(){
         if(MONTHLY_FLAT_PAYERS.has(name)) {
           basePay = flatAmt;
         } else {
-          const ppDays = (from && to) ? Math.round((new Date(to+'T12:00:00') - new Date(from+'T12:00:00')) / 86400000) + 1 : 14;
-          basePay = Math.round((flatAmt / 2) * 100) / 100;
+          const userEntries2 = rows.filter ? [] : []; // handled in render
+          const dayRate2 = flatAmt / 20;
+          const workedDays2 = payrollHoursMap[name] > 0 ? Math.round(payrollHoursMap[name] / 8) : 0;
+          basePay = Math.round(dayRate2 * workedDays2 * 100) / 100;
         }
       } else {
         basePay = Math.round(h*rate*100)/100;
@@ -3683,10 +3687,15 @@ async function confirmSendPayslips() {
       const ptoDays = await getPTODaysInRange(name, from, to);
       const ptoPay = flatAmt !== undefined ? 0 : ptoDays*8*rate;
       const holidayPay = flatAmt !== undefined ? 0 : holidayCount*8*rate;
-      // Base pay: flat rate or hourly
+      // Base pay: flat rate or days-based
       let basePay;
       if(flatAmt !== undefined) {
-        basePay = MONTHLY_FLAT_PAYERS.has(name) ? flatAmt : Math.round((flatAmt / 2) * 100) / 100;
+        if(MONTHLY_FLAT_PAYERS.has(name)) {
+          basePay = flatAmt;
+        } else {
+          const workedDays3 = totalHours > 0 ? Math.round(totalHours / 8) : 0;
+          basePay = Math.round((flatAmt / 20) * workedDays3 * 100) / 100;
+        }
       } else {
         basePay = Math.round(totalHours*rate*100)/100;
       }
