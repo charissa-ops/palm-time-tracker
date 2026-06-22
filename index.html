@@ -2341,10 +2341,9 @@ function renderPayrollPreview(from,to){
           basePay = flatAmt;
         } else {
           // Based on actual days worked: flatAmt / 20 working days * days clocked in
-          const userEntries = list.filter(e => e.name === name && e.clock_out);
-          const uniqueDays = new Set(userEntries.map(e => toESTDateStr(e.clock_in))).size;
+          const workedDays = h > 0 ? Math.round(h / 8) : 0;
           const dayRate = flatAmt / 20;
-          basePay = Math.round(dayRate * uniqueDays * 100) / 100;
+          basePay = Math.round(dayRate * workedDays * 100) / 100;
         }
         rateDisplay = MONTHLY_FLAT_PAYERS.has(name) ? `$${flatAmt.toFixed(2)}/mo` : `$${flatAmt.toFixed(2)}/mo ÷ 20 days`;
         hoursDisplay = fmtHHMM(h);
