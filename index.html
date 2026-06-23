@@ -1974,6 +1974,10 @@ async function enterAdminDashboard(){
   if(ap){
     document.getElementById('admin-filter-date-from').value = ap.date_from;
     document.getElementById('admin-filter-date-to').value = ap.date_to;
+    // Auto-populate payroll dates from active pay period
+    document.getElementById('payroll-date-from').value = ap.date_from;
+    document.getElementById('payroll-date-to').value = ap.date_to;
+    if(ap.check_date) document.getElementById('payroll-check-date').value = ap.check_date;
   }
   switchTab('home');
 }
@@ -2035,7 +2039,7 @@ function renderAdminTable(list){
 
 function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
 
-function switchTab(tab){
+async function switchTab(tab){
   ['home','entries','summary','payroll','leave','timeedit','holidays','payperiods','logins'].forEach(t=>{
     const btn = document.getElementById('tab-btn-'+t);
     const pane = document.getElementById('tab-'+t);
@@ -2045,7 +2049,16 @@ function switchTab(tab){
   if(tab==='home'){loadAdminDashboard();loadHomeSummary();}
   if(tab==='entries')loadAdminEntries();
   if(tab==='summary')loadHoursSummary();
-  if(tab==='payroll')loadPayrollPreview();
+  if(tab==='payroll'){
+    // Re-populate dates from active period if empty
+    const apPay = await getActivePeriod();
+    if(apPay && !document.getElementById('payroll-date-from').value){
+      document.getElementById('payroll-date-from').value = apPay.date_from;
+      document.getElementById('payroll-date-to').value = apPay.date_to;
+      if(apPay.check_date) document.getElementById('payroll-check-date').value = apPay.check_date;
+    }
+    loadPayrollPreview();
+  }
   if(tab==='leave')loadAdminLeave();
   if(tab==='timeedit')loadAdminTimeEditRequests();
   if(tab==='holidays')loadAdminHolidays();
