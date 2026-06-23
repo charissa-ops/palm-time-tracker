@@ -1456,6 +1456,12 @@
         <span>Waive break deduction for this entry</span>
       </label>
     </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="add-entry-override-cap" style="width:16px;height:16px;accent-color:var(--orange);" />
+        <span style="color:var(--orange);">Override daily cap for this entry</span>
+      </label>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost btn-sm" onclick="closeAddEntryModal()">Cancel</button>
       <div class="modal-actions-right">
@@ -1528,6 +1534,13 @@
       <div>
         <div style="font-size:13px;font-weight:500;color:var(--text);">Waive break deduction</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px;">Check this to skip the 1-hour automatic break deduction for this entry</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin:1rem 0;padding:.75rem;background:var(--orange-dim);border-radius:var(--radius-sm);border:1px solid #4a3010;">
+      <input type="checkbox" id="edit-override-cap" style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);" />
+      <div>
+        <div style="font-size:13px;font-weight:500;color:var(--orange);">Override daily cap</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;">Check this to count all hours worked beyond the daily cap for this entry</div>
       </div>
     </div>
     <div class="modal-actions">
@@ -2175,7 +2188,7 @@ const DAILY_MAX = {
   'Griz Fuentes':               8,
   'May Castillo':               8,
   'Miko Dioquino':              9,
-  'Yvonne Duna':              8,
+  'Yvonne Duna':              10.5,
   'Talita David Brandao':     'flag',
   'Ian Jaja Kariuki':         8,
   'Luis Ramirez':             8,
@@ -2225,10 +2238,17 @@ function calcBillableHours(entry) {
   if(entry.waive_break) {
     const cap = DAILY_MAX[entry.name];
     let net = rawHours;
-    const flaggedThreshold = name === 'Talita David Brandao' ? 7 : 8;
-  const flagged = cap === 'flag' && rawHours > flaggedThreshold;
-    if(typeof cap === 'number') net = Math.min(net, cap);
+    const flaggedThreshold = entry.name === 'Talita David Brandao' ? 7 : 8;
+    const flagged = cap === 'flag' && rawHours > flaggedThreshold;
+    // If override_cap is also set, skip the cap too
+    if(typeof cap === 'number' && !entry.override_cap) net = Math.min(net, cap);
     return { total: net, flagged };
+  }
+  // If override_cap is set, apply break deduction but skip the cap
+  if(entry.override_cap) {
+    const { net, breakDeduction } = applyHourRules(entry.name, rawHours, entry.clock_in);
+    const uncapped = Math.max(0, rawHours - breakDeduction);
+    return { total: uncapped, flagged: true };
   }
   const { net, flagged } = applyHourRules(entry.name, rawHours, entry.clock_in);
   return { total: net, flagged };
@@ -2594,6 +2614,7 @@ function openEditModal(id){
   document.getElementById('edit-clock-in').value=isoToInputEST(e.clock_in);
   document.getElementById('edit-clock-out').value=isoToInputEST(e.clock_out);
   document.getElementById('edit-waive-break').checked=!!e.waive_break;
+  document.getElementById('edit-override-cap').checked=!!e.override_cap;
   // Hide waive break option for staff who already have no break deduction
   const noBreakStaff = ['Charissa Mercado','Camille Uy'];
   document.getElementById('edit-waive-break').closest('div[style]').style.display = noBreakStaff.includes(e.name)?'none':'flex';
@@ -2618,7 +2639,8 @@ async function saveEdit(){
   if(!ci){showToast('Clock in time is required.','error');return;}
   showLoading('Saving...');
   const waiveBreak = document.getElementById('edit-waive-break').checked;
-  try{await updateEntry(editingEntry.id,{clock_in:inputESTToISO(ci),clock_out:co?inputESTToISO(co):null,breaks:editBreaks,waive_break:waiveBreak});showToast('Entry updated ✓','success');closeEditModal();await loadAdminEntries();}
+  const overrideCap = document.getElementById('edit-override-cap').checked;
+  try{await updateEntry(editingEntry.id,{clock_in:inputESTToISO(ci),clock_out:co?inputESTToISO(co):null,breaks:editBreaks,waive_break:waiveBreak,override_cap:overrideCap});showToast('Entry updated ✓','success');closeEditModal();await loadAdminEntries();}
   catch(err){showToast('Error saving','error');console.error(err);}finally{hideLoading();}
 }
 
@@ -4309,6 +4331,7 @@ function openAddEntryModal() {
   document.getElementById('add-entry-clock-in').value = '09:00';
   document.getElementById('add-entry-clock-out').value = '17:00';
   document.getElementById('add-entry-waive-break').checked = false;
+  document.getElementById('add-entry-override-cap').checked = false;
   // Hide waive break for staff with no break deduction
   const noBreak = ['Charissa Mercado','Camille Uy'];
   document.getElementById('add-entry-waive-break').closest('.field').style.display = noBreak.includes(profileName)?'none':'';
@@ -4340,7 +4363,8 @@ async function saveAddEntry() {
       clock_in: clockIn,
       clock_out: clockOut,
       breaks: [],
-      waive_break: waive
+      waive_break: waive,
+      override_cap: document.getElementById('add-entry-override-cap').checked
     });
     showToast('Entry added ✓','success');
     closeAddEntryModal();
