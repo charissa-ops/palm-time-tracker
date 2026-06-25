@@ -197,6 +197,7 @@
             <option>Maria Aguiriano</option>
             <option>Ralf Bruehl</option>
             <option>David Ndunda</option><option>Carlos Martinez</option>
+            <option>Babylyn Asmolo</option>
           </optgroup>
         </select>
       </div>
@@ -846,6 +847,7 @@
             <option>Maria Aguiriano</option>
             <option>Ralf Bruehl</option>
             <option>David Ndunda</option><option>Carlos Martinez</option>
+            <option>Babylyn Asmolo</option>
           </optgroup>
         </select>
       </div>
@@ -1647,6 +1649,7 @@ const USERS = {
   'Maria Aguiriano':                  {h:'d40498731ef1b48be51872a6d1a5c69ff03aeb697c333ee4f868f58728b1e5ff',group:'PALM BUILD - US'},
   'David Ndunda':                  {h:'47756ae5190be99f05653cfa309319467ec0b6d61b5cd4bab8867e07e6d40c1b',group:'PALM BUILD - US'},
   'Ralf Bruehl':                  {h:'ec320d8c02de5b3c8f6e17693ef53ac47eef18d85808e6ece390f45ca1062fc3',group:'PALM BUILD - US'},
+  'Babylyn Asmolo':                 {h:'63845911e6ab21194bea600d8f51113e0b56d114cabca3ecbe1682e9e21fbe28',group:'PALM BUILD - US'},
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Samhir Rivera':                  {h:'bf436f16987e0fb9cea69c173f34294506e06528e7c1eabe4068acc4bb197180',group:'PALM BUILD - US'},
   'Vincent Chavarria':              {h:'21a224dab2f87f934b2a6854291ad5effcaa8a6dcebbf92565d47dbc0dbe1356',group:'PALM BUILD'},
@@ -1924,6 +1927,11 @@ async function clockIn(){
   // Get scheduled start hour for this user
   let scheduledHour = SCHEDULED_START[currentUser] ?? 9;
   // Yvonne now always starts at 9 AM
+  // Special case: Babylyn Mon-Fri starts 17:00, Sat starts 8:00
+  if(currentUser === 'Babylyn Asmolo') {
+    const dow = etNow.getDay();
+    scheduledHour = dow === 6 ? 8 : 17;
+  }
 
   if(etHour < scheduledHour || (etHour === scheduledHour && etMin === 0)) {
     // Only auto-correct if before scheduled start
@@ -2109,7 +2117,7 @@ const RATES = {
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,
   'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
-  'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Ian Jaja Kariuki':8.00,'Luis Ramirez':14.50,'Ernesto S':15.50,'Alejandra':14.50,'Zelfar':19.50,'Samhir Rivera':8.00,'Carlos Martinez':0,'David Ndunda':7.00,'Maria Aguiriano':7.00,'Fernando Nieto':12.00,'Jorge Flores':0,'Hermann Tinoco':7.00,'Vincent Chavarria':6.00
+  'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Ian Jaja Kariuki':8.00,'Luis Ramirez':14.50,'Ernesto S':15.50,'Alejandra':14.50,'Zelfar':19.50,'Samhir Rivera':8.00,'Carlos Martinez':0,'David Ndunda':7.00,'Maria Aguiriano':7.00,'Fernando Nieto':12.00,'Jorge Flores':0,'Hermann Tinoco':7.00,'Vincent Chavarria':6.00,'Babylyn Asmolo':5.00
 };
 const PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
@@ -2117,7 +2125,7 @@ const PAYMENT_METHODS = {
   'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
   
   'Bridgette Anne Benolirao':'Payoneer','Griz Fuentes':'Payoneer',
-  'May Castillo':'Wise- US bank','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank','Ian Jaja Kariuki':'US Bank','Luis Ramirez':'US Bank','Ernesto S':'US Bank','Alejandra':'US Bank','Zelfar':'Agency','Samhir Rivera':'Agency','Ralf Bruehl':'US Bank','Carlos Martinez':'US Bank','David Ndunda':'US Bank','Maria Aguiriano':'US Bank','Fernando Nieto':'US Bank','Jorge Flores':'US Bank','Hermann Tinoco':'US Bank','Vincent Chavarria':'Payoneer'
+  'May Castillo':'Wise- US bank','Miko Dioquino':'Wise- US bank','Yvonne Duna':'Payoneer','Talita David Brandao':'Wise- US bank','Ian Jaja Kariuki':'US Bank','Luis Ramirez':'US Bank','Ernesto S':'US Bank','Alejandra':'US Bank','Zelfar':'Agency','Samhir Rivera':'Agency','Ralf Bruehl':'US Bank','Babylyn Asmolo':'US Bank','Carlos Martinez':'US Bank','David Ndunda':'US Bank','Maria Aguiriano':'US Bank','Fernando Nieto':'US Bank','Jorge Flores':'US Bank','Hermann Tinoco':'US Bank','Vincent Chavarria':'Payoneer'
 };
 
 // ── Hour rules ──
@@ -2184,6 +2192,7 @@ const SCHEDULED_START = {
   'David Ndunda':                   8,
   'Carlos Martinez':                8,
   'Ralf Bruehl':                    8,
+  'Babylyn Asmolo':                 null, // Mon-Fri 17:00, Sat 8:00
   'Yvonne Duna':                    8, // 8:30 AM start
 };
 
@@ -2217,6 +2226,7 @@ const DAILY_MAX = {
   'David Ndunda':                  {h:'47756ae5190be99f05653cfa309319467ec0b6d61b5cd4bab8867e07e6d40c1b',group:'PALM BUILD - US'},
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Carlos Martinez':           8,
+  'Babylyn Asmolo':             null, // handled per-day in applyHourRules
   'David Ndunda':           8,
   'Maria Aguiriano':           8,
   'Fernando Nieto':           8,
@@ -2227,8 +2237,17 @@ const DAILY_MAX = {
 
 // Apply hour rules to a person's raw hours for a single day
 function applyHourRules(name, rawHours, clockInISO=null) {
+  // Special case: Babylyn — Mon-Fri 3hr cap (5pm-8pm), Sat 9hr cap (8am-6pm minus 1hr break)
   let breakDeduction;
-  if(BREAK_DURATION[name] !== undefined) {
+  if(name === 'Babylyn Asmolo' && clockInISO) {
+    const et = toET(clockInISO);
+    const isSat = et.getDay() === 6;
+    breakDeduction = isSat ? 1 : 0;
+    // Apply per-day cap here and return early
+    const dayCap = isSat ? 9 : 3;
+    const net = Math.min(Math.max(0, rawHours - breakDeduction), dayCap);
+    return { net, breakDeduction, flagged: false };
+  } else if(BREAK_DURATION[name] !== undefined) {
     breakDeduction = BREAK_DURATION[name];
   } else {
     breakDeduction = NO_BREAK_DEDUCTION.has(name) ? 0 : 1;
@@ -2698,6 +2717,7 @@ const STAFF_EMAILS = {
   'David Ndunda':                  {h:'47756ae5190be99f05653cfa309319467ec0b6d61b5cd4bab8867e07e6d40c1b',group:'PALM BUILD - US'},
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Carlos Martinez':                  'cmartinez@palmbld.com',
+  'Babylyn Asmolo':                   'blyn@palmbld.com',
   'David Ndunda':                  'davidn@palmbld.com',
   'Maria Aguiriano':                  'maria@palmbld.com',
   'Fernando Nieto':                  'fernando@palmbld.com',
@@ -4281,6 +4301,7 @@ const STAFF_PINS = {
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Samhir Rivera':'8790',
   'Ralf Bruehl':'6040',
+  'Babylyn Asmolo':'8166',
   'David Ndunda':                  {h:'47756ae5190be99f05653cfa309319467ec0b6d61b5cd4bab8867e07e6d40c1b',group:'PALM BUILD - US'},
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Carlos Martinez':'3562',
