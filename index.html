@@ -181,7 +181,7 @@
             <option>Bridgette Anne Benolirao</option>
             <option>Griz Fuentes</option><option>May Castillo</option>
             <option>Miko Dioquino</option>
-            <option>Yvonne Duna</option>
+            <option>Yvonne Duna</option><option>Babylyn Asmolo</option>
           </optgroup>
           <optgroup label="PALM BUILD - US">
             <option>Talita David Brandao</option>
@@ -197,7 +197,6 @@
             <option>Maria Aguiriano</option>
             <option>Ralf Bruehl</option>
             <option>David Ndunda</option><option>Carlos Martinez</option>
-            <option>Babylyn Asmolo</option>
           </optgroup>
         </select>
       </div>
@@ -831,7 +830,7 @@
             <option>Bridgette Anne Benolirao</option>
             <option>Griz Fuentes</option><option>May Castillo</option>
             <option>Miko Dioquino</option>
-            <option>Yvonne Duna</option>
+            <option>Yvonne Duna</option><option>Babylyn Asmolo</option>
           </optgroup>
           <optgroup label="PALM BUILD - US">
             <option>Talita David Brandao</option>
@@ -847,7 +846,6 @@
             <option>Maria Aguiriano</option>
             <option>Ralf Bruehl</option>
             <option>David Ndunda</option><option>Carlos Martinez</option>
-            <option>Babylyn Asmolo</option>
           </optgroup>
         </select>
       </div>
@@ -1649,7 +1647,7 @@ const USERS = {
   'Maria Aguiriano':                  {h:'d40498731ef1b48be51872a6d1a5c69ff03aeb697c333ee4f868f58728b1e5ff',group:'PALM BUILD - US'},
   'David Ndunda':                  {h:'47756ae5190be99f05653cfa309319467ec0b6d61b5cd4bab8867e07e6d40c1b',group:'PALM BUILD - US'},
   'Ralf Bruehl':                  {h:'ec320d8c02de5b3c8f6e17693ef53ac47eef18d85808e6ece390f45ca1062fc3',group:'PALM BUILD - US'},
-  'Babylyn Asmolo':                 {h:'63845911e6ab21194bea600d8f51113e0b56d114cabca3ecbe1682e9e21fbe28',group:'PALM BUILD - US'},
+  'Babylyn Asmolo':                 {h:'63845911e6ab21194bea600d8f51113e0b56d114cabca3ecbe1682e9e21fbe28',group:'PALM BUILD'},
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Samhir Rivera':                  {h:'bf436f16987e0fb9cea69c173f34294506e06528e7c1eabe4068acc4bb197180',group:'PALM BUILD - US'},
   'Vincent Chavarria':              {h:'21a224dab2f87f934b2a6854291ad5effcaa8a6dcebbf92565d47dbc0dbe1356',group:'PALM BUILD'},
@@ -1930,7 +1928,7 @@ async function clockIn(){
   // Special case: Babylyn Mon-Fri starts 17:00, Sat starts 8:00
   if(currentUser === 'Babylyn Asmolo') {
     const dow = etNow.getDay();
-    scheduledHour = dow === 6 ? 8 : 17;
+    scheduledHour = (dow === 0 || dow === 6) ? 8 : 17;
   }
 
   if(etHour < scheduledHour || (etHour === scheduledHour && etMin === 0)) {
@@ -2192,7 +2190,7 @@ const SCHEDULED_START = {
   'David Ndunda':                   8,
   'Carlos Martinez':                8,
   'Ralf Bruehl':                    8,
-  'Babylyn Asmolo':                 null, // Mon-Fri 17:00, Sat 8:00
+  'Babylyn Asmolo':                 null, // Mon-Fri 17:00, Sat-Sun 8:00
   'Yvonne Duna':                    8, // 8:30 AM start
 };
 
@@ -2226,7 +2224,7 @@ const DAILY_MAX = {
   'David Ndunda':                  {h:'47756ae5190be99f05653cfa309319467ec0b6d61b5cd4bab8867e07e6d40c1b',group:'PALM BUILD - US'},
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Carlos Martinez':           8,
-  'Babylyn Asmolo':             null, // handled per-day in applyHourRules
+  'Babylyn Asmolo':             null, // Mon-Fri 3.5hr, Sat-Sun 8.5hr — handled in applyHourRules
   'David Ndunda':           8,
   'Maria Aguiriano':           8,
   'Fernando Nieto':           8,
@@ -2241,10 +2239,10 @@ function applyHourRules(name, rawHours, clockInISO=null) {
   let breakDeduction;
   if(name === 'Babylyn Asmolo' && clockInISO) {
     const et = toET(clockInISO);
-    const isSat = et.getDay() === 6;
-    breakDeduction = isSat ? 1 : 0;
+    const isWeekend = et.getDay() === 0 || et.getDay() === 6;
+    breakDeduction = isWeekend ? 1 : 0;
     // Apply per-day cap here and return early
-    const dayCap = isSat ? 9 : 3;
+    const dayCap = isWeekend ? 8.5 : 3.5;
     const net = Math.min(Math.max(0, rawHours - breakDeduction), dayCap);
     return { net, breakDeduction, flagged: false };
   } else if(BREAK_DURATION[name] !== undefined) {
@@ -2733,7 +2731,7 @@ const SLACK_IDS = {
   
   'Bridgette Anne Benolirao':'U09K7JJNAQ6',
   'Griz Fuentes':'U0A0CS9CGV8','May Castillo':'U0ACEEGNV4H',
-  'Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN','Talita David Brandao':'U0AJDHX28AG','Ian Jaja Kariuki':'U0B3G4X9XLK','Luis Ramirez':'U0B47SQMLSV','Ernesto S':'U0B42L3A1RB','Alejandra':'U0B47TZNF5F','Zelfar':'U0B0BU2Q9UY','Samhir Rivera':'U0B5NTXFJUS','Ralf Bruehl':'U0B9R49SZED','Carlos Martinez':'U0B9BDGA6TU','David Ndunda':'U0B9849FL5B','Maria Aguiriano':'U0B75K61KK3','Fernando Nieto':'U0B7Y3AM6JU','Jorge Flores':'U0B6XD5P7SP','Hermann Tinoco':'U0B75K74G7K','Vincent Chavarria':'U0B3BV52JKY'
+  'Miko Dioquino':'U0AF1PHK9R7','Yvonne Duna':'U0B1SBWK7LN','Talita David Brandao':'U0AJDHX28AG','Ian Jaja Kariuki':'U0B3G4X9XLK','Luis Ramirez':'U0B47SQMLSV','Ernesto S':'U0B42L3A1RB','Alejandra':'U0B47TZNF5F','Zelfar':'U0B0BU2Q9UY','Samhir Rivera':'U0B5NTXFJUS','Ralf Bruehl':'U0B9R49SZED','Babylyn Asmolo':'U0BCVLGUSE9','Carlos Martinez':'U0B9BDGA6TU','David Ndunda':'U0B9849FL5B','Maria Aguiriano':'U0B75K61KK3','Fernando Nieto':'U0B7Y3AM6JU','Jorge Flores':'U0B6XD5P7SP','Hermann Tinoco':'U0B75K74G7K','Vincent Chavarria':'U0B3BV52JKY'
 };
 
 let reviewingLeaveId = null;
