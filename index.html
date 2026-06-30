@@ -1925,11 +1925,7 @@ async function clockIn(){
   // Get scheduled start hour for this user
   let scheduledHour = SCHEDULED_START[currentUser] ?? 9;
   // Yvonne now always starts at 9 AM
-  // Special case: Babylyn Mon-Fri starts 17:00, Sat starts 8:00
-  if(currentUser === 'Babylyn Asmolo') {
-    const dow = etNow.getDay();
-    scheduledHour = (dow === 0 || dow === 6) ? 8 : 17;
-  }
+  // Babylyn temporarily on standard 8 AM schedule
 
   if(etHour < scheduledHour || (etHour === scheduledHour && etMin === 0)) {
     // Only auto-correct if before scheduled start
@@ -2190,7 +2186,7 @@ const SCHEDULED_START = {
   'David Ndunda':                   8,
   'Carlos Martinez':                8,
   'Ralf Bruehl':                    8,
-  'Babylyn Asmolo':                 null, // Mon-Fri 17:00, Sat-Sun 8:00
+  'Babylyn Asmolo':                 8, // 8 AM start (temporary)
   'Yvonne Duna':                    8, // 8:30 AM start
 };
 
@@ -2224,7 +2220,7 @@ const DAILY_MAX = {
   'David Ndunda':                  {h:'47756ae5190be99f05653cfa309319467ec0b6d61b5cd4bab8867e07e6d40c1b',group:'PALM BUILD - US'},
   'Carlos Martinez':                  {h:'3ec4f729cc85bbfde76e2a141d92f875c142aa6853a4a9c7fafabb47a67b5154',group:'PALM BUILD - US'},
   'Carlos Martinez':           8,
-  'Babylyn Asmolo':             null, // Mon-Fri 3.5hr, Sat-Sun 8.5hr — handled in applyHourRules
+  'Babylyn Asmolo':             8, // 8am-5pm (temporary)
   'David Ndunda':           8,
   'Maria Aguiriano':           8,
   'Fernando Nieto':           8,
@@ -2237,15 +2233,7 @@ const DAILY_MAX = {
 function applyHourRules(name, rawHours, clockInISO=null) {
   // Special case: Babylyn — Mon-Fri 3hr cap (5pm-8pm), Sat 9hr cap (8am-6pm minus 1hr break)
   let breakDeduction;
-  if(name === 'Babylyn Asmolo' && clockInISO) {
-    const et = toET(clockInISO);
-    const isWeekend = et.getDay() === 0 || et.getDay() === 6;
-    breakDeduction = isWeekend ? 1 : 0;
-    // Apply per-day cap here and return early
-    const dayCap = isWeekend ? 8.5 : 3.5;
-    const net = Math.min(Math.max(0, rawHours - breakDeduction), dayCap);
-    return { net, breakDeduction, flagged: false };
-  } else if(BREAK_DURATION[name] !== undefined) {
+  if(BREAK_DURATION[name] !== undefined) {
     breakDeduction = BREAK_DURATION[name];
   } else {
     breakDeduction = NO_BREAK_DEDUCTION.has(name) ? 0 : 1;
