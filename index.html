@@ -331,6 +331,7 @@
         <div class="adm-nav" id="tab-btn-holidays" onclick="switchTab('holidays')"><i class="ti ti-calendar" aria-hidden="true"></i>Holidays</div>
         <div class="adm-nav" id="tab-btn-payperiods" onclick="switchTab('payperiods')"><i class="ti ti-calendar-stats" aria-hidden="true"></i>Pay Periods</div>
         <div class="adm-nav" id="tab-btn-logins" onclick="switchTab('logins')"><i class="ti ti-activity" aria-hidden="true"></i>Login Activity</div>
+        <div class="adm-nav" id="tab-btn-staff" onclick="switchTab('staff')"><i class="ti ti-users" aria-hidden="true"></i>Manage Staff</div>
       </div>
       <!-- User footer -->
       <div style="padding:12px;border-top:1px solid #1c1c1c;flex-shrink:0;">
@@ -588,6 +589,76 @@
           <button class="btn btn-ghost btn-sm" onclick="clearLoginFilters()">Clear</button>
         </div>
         <div id="admin-login-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">👤</div>No login activity yet.</div></div>
+      </div>
+    </div>
+    <!-- MANAGE STAFF TAB -->
+    <div id="tab-staff" class="tab-pane">
+      <div class="card">
+        <div class="card-title-row">
+          <div class="card-title" style="margin-bottom:0">Manage Staff</div>
+          <button class="btn btn-primary btn-sm" onclick="openStaffEditModal(null)">+ Add Staff</button>
+        </div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Edit rates, payment methods, schedules, and more — no code changes needed. Changes apply instantly.</p>
+        <div id="admin-staff-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">👥</div>Loading staff...</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- STAFF EDIT MODAL -->
+<div id="staff-edit-modal-overlay" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title" id="staff-edit-title">Add Staff</div>
+    <div class="modal-sub" id="staff-edit-sub">Fill in the details below</div>
+    <div class="modal-row" style="margin-top:1rem;">
+      <div class="field"><label>Full Name</label><input type="text" id="staff-edit-name" placeholder="e.g. Jane Doe" /></div>
+      <div class="field"><label>Group</label>
+        <select id="staff-edit-group">
+          <option value="PALM PARTNERS">PALM PARTNERS</option>
+          <option value="PALM BUILD">PALM BUILD</option>
+          <option value="PALM BUILD - US">PALM BUILD - US</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-row">
+      <div class="field"><label>Email</label><input type="text" id="staff-edit-email" placeholder="name@palmbld.com" /></div>
+      <div class="field"><label>Slack ID</label><input type="text" id="staff-edit-slack" placeholder="U0XXXXXXX" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="field"><label>PIN (4 digits)</label><input type="text" id="staff-edit-pin" placeholder="e.g. 4821" maxlength="4" /></div>
+      <div class="field"><label>Payment Method</label><input type="text" id="staff-edit-payment" placeholder="e.g. US Bank" /></div>
+    </div>
+    <div class="modal-section">Pay</div>
+    <div class="modal-row">
+      <div class="field"><label>Hourly Rate ($)</label><input type="number" step="0.01" id="staff-edit-rate" placeholder="0.00" /></div>
+      <div class="field"><label>Flat Rate ($/mo, optional)</label><input type="number" step="0.01" id="staff-edit-flatrate" placeholder="blank = hourly" /></div>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="staff-edit-monthly" style="width:16px;height:16px;accent-color:var(--accent);" />
+        <span>Monthly payment (full flat rate, not prorated)</span>
+      </label>
+    </div>
+    <div class="modal-section">Schedule &amp; Hours</div>
+    <div class="modal-row">
+      <div class="field"><label>Scheduled Start (hour, 24h)</label><input type="number" min="0" max="23" id="staff-edit-start" placeholder="e.g. 9 (blank = none)" /></div>
+      <div class="field"><label>Daily Cap (hrs)</label><input type="number" step="0.5" id="staff-edit-dailymax" placeholder="blank = no cap" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="field"><label>Break Duration (hrs, optional)</label><input type="number" step="0.5" id="staff-edit-break" placeholder="blank = default 1hr" /></div>
+      <div class="field" style="display:flex;align-items:flex-end;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;">
+          <input type="checkbox" id="staff-edit-nobreak" style="width:16px;height:16px;accent-color:var(--accent);" />
+          <span>No break deduction</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-delete" id="staff-edit-delete" onclick="deleteStaffMember()" style="display:none;">Delete</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-ghost btn-sm" onclick="closeStaffEditModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveStaffMember()">Save</button>
       </div>
     </div>
   </div>
@@ -980,6 +1051,7 @@
         <div class="adm-nav" id="tab-btn-holidays" onclick="switchTab('holidays')"><i class="ti ti-calendar" aria-hidden="true"></i>Holidays</div>
         <div class="adm-nav" id="tab-btn-payperiods" onclick="switchTab('payperiods')"><i class="ti ti-calendar-stats" aria-hidden="true"></i>Pay Periods</div>
         <div class="adm-nav" id="tab-btn-logins" onclick="switchTab('logins')"><i class="ti ti-activity" aria-hidden="true"></i>Login Activity</div>
+        <div class="adm-nav" id="tab-btn-staff" onclick="switchTab('staff')"><i class="ti ti-users" aria-hidden="true"></i>Manage Staff</div>
       </div>
       <!-- User footer -->
       <div style="padding:12px;border-top:1px solid #1c1c1c;flex-shrink:0;">
@@ -1621,7 +1693,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const TABLE = 'time_entries';
 const SALT = 'palm_build_2026';
 const ADMIN_HASH = '23fba1b5f5a88b4c35de5ec43bb4c0da67725f21594968dd5eefe0b4585dc303';
-const USERS = {
+let USERS = {
   'Charissa Mercado':               {h:'64fa9b9e123cbc00278dbcef23bac2e5830b8b0473955e9e289d56420a77782b',group:'PALM PARTNERS'},
   'Camille Uy':                     {h:'15f08e1e9ab32529f15186eb248e62e3360a6520d4ba2252631adb17f1e63390',group:'PALM PARTNERS'},
   'Edeleign Jean Manicad':          {h:'b41fa0b4797634dcb76246bcf74972501efd5be85ad9454c15a35abf3f0c44d0',group:'PALM PARTNERS'},
@@ -1667,6 +1739,57 @@ async function sbFetch(path, method='GET', body=null) {
   if (!res.ok) throw new Error(await res.text());
   const text = await res.text();
   return text ? JSON.parse(text) : null;
+}
+
+// ── Load all staff config from Supabase `staff` table ──
+// Repopulates the in-memory objects. Falls back to hardcoded values if the table is empty/unreachable.
+let STAFF_DB_LOADED = false;
+async function loadStaffFromDB() {
+  try {
+    const rows = await sbFetch('staff?active=eq.true&order=sort_order.asc');
+    if (!rows || !rows.length) { console.warn('staff table empty — using hardcoded fallback'); return false; }
+
+    // Reset all objects
+    const _users={}, _rates={}, _pm={}, _flat={}, _sched={}, _dmax={}, _bdur={}, _emails={}, _slack={}, _pins={};
+    const _nobreak=new Set(), _monthly=new Set();
+
+    for (const s of rows) {
+      _users[s.name] = { h: s.pin_hash, group: s.staff_group };
+      _rates[s.name] = s.rate != null ? Number(s.rate) : 0;
+      if (s.payment_method) _pm[s.name] = s.payment_method;
+      if (s.flat_rate != null) _flat[s.name] = Number(s.flat_rate);
+      if (s.monthly_flat) _monthly.add(s.name);
+      _sched[s.name] = s.scheduled_start != null ? Number(s.scheduled_start) : null;
+      if (s.daily_max_flag) _dmax[s.name] = 'flag';
+      else if (s.daily_max != null) _dmax[s.name] = Number(s.daily_max);
+      else _dmax[s.name] = null;
+      if (s.break_duration != null) _bdur[s.name] = Number(s.break_duration);
+      if (s.no_break) _nobreak.add(s.name);
+      if (s.email) _emails[s.name] = s.email;
+      if (s.slack_id) _slack[s.name] = s.slack_id;
+      if (s.pin) _pins[s.name] = s.pin;
+    }
+
+    USERS = _users;
+    RATES = _rates;
+    PAYMENT_METHODS = _pm;
+    FLAT_RATE = _flat;
+    MONTHLY_FLAT_PAYERS = _monthly;
+    SCHEDULED_START = _sched;
+    DAILY_MAX = _dmax;
+    BREAK_DURATION = _bdur;
+    STAFF_EMAILS = _emails;
+    SLACK_IDS = _slack;
+    STAFF_PINS = _pins;
+    NO_BREAK_DEDUCTION = _nobreak;
+
+    STAFF_DB_LOADED = true;
+    console.log(`✅ Loaded ${rows.length} staff from DB`);
+    return true;
+  } catch(e) {
+    console.warn('Failed to load staff from DB — using hardcoded fallback', e);
+    return false;
+  }
 }
 
 async function logLogin(name) {
@@ -1756,8 +1879,11 @@ function initLoginDropdown() {
     sel.appendChild(og);
   }
 }
-// Call on load
-document.addEventListener('DOMContentLoaded', initLoginDropdown);
+// Call on load — load staff from DB first, then build dropdown
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadStaffFromDB();
+  initLoginDropdown();
+});
 function updateDots(id,total,filled){document.getElementById(id).querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('filled',i<filled));}
 
 function startClock(clockId,dateId){
@@ -2042,7 +2168,7 @@ function renderAdminTable(list){
 function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
 
 async function switchTab(tab){
-  ['home','entries','summary','payroll','leave','timeedit','holidays','payperiods','logins'].forEach(t=>{
+  ['home','entries','summary','payroll','leave','timeedit','holidays','payperiods','logins','staff'].forEach(t=>{
     const btn = document.getElementById('tab-btn-'+t);
     const pane = document.getElementById('tab-'+t);
     if(btn) btn.classList.toggle('active', tab===t);
@@ -2066,6 +2192,7 @@ async function switchTab(tab){
   if(tab==='holidays')loadAdminHolidays();
   if(tab==='payperiods')loadAdminPayPeriods();
   if(tab==='logins')loadLoginActivity();
+  if(tab==='staff')loadAdminStaff();
 }
 
 // ── Hours Summary ──
@@ -2106,14 +2233,14 @@ async function loadHoursSummary(){
 
 
 // ══════════ PAYROLL ══════════
-const RATES = {
+let RATES = {
   'Charissa Mercado':9.50,'Camille Uy':8.00,'Edeleign Jean Manicad':8.00,'Richmond Yambot Nicolas':7.00,
   'John Vens Clair Magbnua Solano':7.50,'Mary Lynn Trias Mercado':5.50,'Janna Alonto':10.25,
   'John Lester Solano':6.00,
   'Bridgette Anne Benolirao':5.50,'Griz Fuentes':6.80,'May Castillo':5.00,
   'Miko Dioquino':5.50,'Yvonne Duna':6.50,'Talita David Brandao':11.50,'Ian Jaja Kariuki':8.00,'Luis Ramirez':14.50,'Ernesto S':15.50,'Alejandra':14.50,'Zelfar':19.50,'Samhir Rivera':8.00,'Carlos Martinez':0,'David Ndunda':7.00,'Maria Aguiriano':7.00,'Fernando Nieto':12.00,'Jorge Flores':0,'Hermann Tinoco':7.00,'Vincent Chavarria':6.00,'Babylyn Asmolo':5.00
 };
-const PAYMENT_METHODS = {
+let PAYMENT_METHODS = {
   'Charissa Mercado':'Wise- US bank/ Payoneer','Camille Uy':'Payoneer','Edeleign Jean Manicad':'Payoneer',
   'Richmond Yambot Nicolas':'Wise- US bank','John Vens Clair Magbnua Solano':'Wise- US bank',
   'Mary Lynn Trias Mercado':'Wise- US bank','Janna Alonto':'Payoneer','John Lester Solano':'Payoneer',
@@ -2124,22 +2251,22 @@ const PAYMENT_METHODS = {
 
 // ── Hour rules ──
 // Break deduction: 1hr/day for everyone except these:
-const NO_BREAK_DEDUCTION = new Set([
+let NO_BREAK_DEDUCTION = new Set([
   'Charissa Mercado','Camille Uy',
   'Janna Alonto'
 ]);
 // Flat rate staff - fixed pay per period regardless of hours
-const FLAT_RATE = {
+let FLAT_RATE = {
   'Jorge Flores': 1600.00,
   'Ralf Bruehl': 1300.00,
   'Carlos Martinez': 1300.00,
 };
 // Staff who receive a flat monthly fee (paid in full regardless of pay period length)
 // Everyone else on flat rate gets pay prorated by pay period days / 30
-const MONTHLY_FLAT_PAYERS = new Set(['Jorge Flores']); // Jorge gets full monthly; Ralf & Carlos get prorated
+let MONTHLY_FLAT_PAYERS = new Set(['Jorge Flores']); // Jorge gets full monthly; Ralf & Carlos get prorated
 
 // Custom break durations (in hours) — default is 1hr for everyone else
-const BREAK_DURATION = {
+let BREAK_DURATION = {
   'Ian Jaja Kariuki':  0.5,
   'Luis Ramirez':      0.5,
   'Ernesto S':         0.5,
@@ -2158,7 +2285,7 @@ const BREAK_DURATION = {
 
 // Scheduled start times for auto-correction (24hr format, ET)
 // If staff clocks in before this time, it gets auto-corrected to this time
-const SCHEDULED_START = {
+let SCHEDULED_START = {
   'Charissa Mercado':               9,
   'Camille Uy':                     9,
   'Edeleign Jean Manicad':          9,
@@ -2191,7 +2318,7 @@ const SCHEDULED_START = {
 };
 
 // Daily hour caps (after break deduction). null = no cap, 'flag' = no cap but flag if >8
-const DAILY_MAX = {
+let DAILY_MAX = {
   'Charissa Mercado':           null,
   'Camille Uy':                 null,
   'Edeleign Jean Manicad':      null,
@@ -2674,7 +2801,7 @@ document.getElementById('edit-modal-overlay').addEventListener('click',function(
 const LEAVE_TABLE = 'leave_requests';
 // Slack IDs (not sensitive - just user identifiers, no tokens)
 const ADMIN_SLACK_ID = 'U06AX80SAUF';
-const STAFF_EMAILS = {
+let STAFF_EMAILS = {
   'Charissa Mercado':               'charissa@palmpts.com',
   'Camille Uy':                     'camille@palmpts.com',
   'Edeleign Jean Manicad':          'jean@palmpts.com',
@@ -2711,7 +2838,7 @@ const STAFF_EMAILS = {
   'Hermann Tinoco':                  'hermann@palmbld.com',
   'Vincent Chavarria':              'vincent@palmbld.com',
 };
-const SLACK_IDS = {
+let SLACK_IDS = {
   'Charissa Mercado':'U06AX80SAUF','Camille Uy':'U06BBLWCH6F',
   'Edeleign Jean Manicad':'U06HQ9BAP0W','Richmond Yambot Nicolas':'U07CJ1HB7R6',
   'John Vens Clair Magbnua Solano':'U07ME7TP8PN','Mary Lynn Trias Mercado':'U07QR0DHYG2',
@@ -4267,7 +4394,7 @@ async function loadUserPeriodBanner() {
 
 
 // ── Send onboarding instructions to a specific staff member ──
-const STAFF_PINS = {
+let STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
   'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
   'Mary Lynn Trias Mercado':'8519','Janna Alonto':'1637','John Lester Solano':'9204',
@@ -4956,6 +5083,158 @@ async function confirmAdminClockOut() {
     await loadAdminDashboard();
   } catch(e) { showToast('Error: ' + e.message, 'error'); console.error(e); }
   finally { hideLoading(); }
+}
+
+
+// ══════════ MANAGE STAFF (DB-driven) ══════════
+const STAFF_TABLE = 'staff';
+let _staffEditId = null; // null = adding new
+
+async function loadAdminStaff() {
+  const el = document.getElementById('admin-staff-list');
+  el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">⏳</div>Loading...</div>';
+  try {
+    const rows = await sbFetch(`${STAFF_TABLE}?order=sort_order.asc`);
+    if(!rows || !rows.length){ el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">👥</div>No staff yet. Click + Add Staff.</div>'; return; }
+    const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[]};
+    for(const s of rows){ if(groups[s.staff_group]) groups[s.staff_group].push(s); else (groups[s.staff_group]=[s]); }
+    let html = '';
+    for(const [group, list] of Object.entries(groups)){
+      if(!list || !list.length) continue;
+      html += `<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding:14px 0 8px;">${group}</div>`;
+      html += '<table style="width:100%;"><thead><tr><th>Name</th><th>Rate</th><th>Payment</th><th>Cap</th><th>Status</th><th></th></tr></thead><tbody>';
+      for(const s of list){
+        const rateLabel = s.flat_rate != null ? `$${Number(s.flat_rate).toFixed(2)}/mo${s.monthly_flat?'':' ÷'}` : `$${Number(s.rate||0).toFixed(2)}/hr`;
+        const capLabel = s.daily_max_flag ? 'flag' : (s.daily_max != null ? Number(s.daily_max)+'h' : '—');
+        html += `<tr>
+          <td class="name-col" style="cursor:pointer;" onclick="openStaffEditModal(${s.id})">${s.name}</td>
+          <td>${rateLabel}</td>
+          <td style="color:var(--text3);font-size:11px;">${s.payment_method||'—'}</td>
+          <td>${capLabel}</td>
+          <td><span style="font-size:11px;font-weight:600;color:${s.active?'var(--green)':'var(--text3)'};">${s.active?'Active':'Inactive'}</span></td>
+          <td><button class="admin-edit-btn" onclick="openStaffEditModal(${s.id})">Edit</button></td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+    }
+    el.innerHTML = html;
+  } catch(e){ el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">⚠️</div>Error loading staff. Make sure the staff table exists.</div>'; console.error(e); }
+}
+
+let _allStaffRows = [];
+async function openStaffEditModal(id) {
+  _staffEditId = id;
+  const g = (x)=>document.getElementById(x);
+  // reset
+  g('staff-edit-name').value=''; g('staff-edit-group').value='PALM BUILD';
+  g('staff-edit-email').value=''; g('staff-edit-slack').value='';
+  g('staff-edit-pin').value=''; g('staff-edit-payment').value='';
+  g('staff-edit-rate').value=''; g('staff-edit-flatrate').value='';
+  g('staff-edit-monthly').checked=false; g('staff-edit-start').value='';
+  g('staff-edit-dailymax').value=''; g('staff-edit-break').value='';
+  g('staff-edit-nobreak').checked=false;
+  g('staff-edit-pin').disabled = false;
+  g('staff-edit-delete').style.display = id ? '' : 'none';
+
+  if(id){
+    g('staff-edit-title').textContent = 'Edit Staff';
+    try {
+      const rows = await sbFetch(`${STAFF_TABLE}?id=eq.${id}`);
+      const s = rows && rows[0];
+      if(s){
+        _allStaffRows = [s];
+        g('staff-edit-sub').textContent = s.name;
+        g('staff-edit-name').value = s.name||'';
+        g('staff-edit-group').value = s.staff_group||'PALM BUILD';
+        g('staff-edit-email').value = s.email||'';
+        g('staff-edit-slack').value = s.slack_id||'';
+        g('staff-edit-pin').value = s.pin||'';
+        g('staff-edit-payment').value = s.payment_method||'';
+        g('staff-edit-rate').value = s.rate!=null?s.rate:'';
+        g('staff-edit-flatrate').value = s.flat_rate!=null?s.flat_rate:'';
+        g('staff-edit-monthly').checked = !!s.monthly_flat;
+        g('staff-edit-start').value = s.scheduled_start!=null?s.scheduled_start:'';
+        g('staff-edit-dailymax').value = s.daily_max!=null?s.daily_max:'';
+        g('staff-edit-break').value = s.break_duration!=null?s.break_duration:'';
+        g('staff-edit-nobreak').checked = !!s.no_break;
+      }
+    } catch(e){ showToast('Error loading staff','error'); console.error(e); }
+  } else {
+    g('staff-edit-title').textContent = 'Add Staff';
+    g('staff-edit-sub').textContent = 'Fill in the details below';
+  }
+  g('staff-edit-modal-overlay').classList.remove('hidden');
+}
+
+function closeStaffEditModal(){ document.getElementById('staff-edit-modal-overlay').classList.add('hidden'); _staffEditId=null; }
+document.getElementById('staff-edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeStaffEditModal();});
+
+async function saveStaffMember() {
+  const g = (x)=>document.getElementById(x);
+  const name = g('staff-edit-name').value.trim();
+  const pin = g('staff-edit-pin').value.trim();
+  if(!name){ showToast('Name is required','error'); return; }
+  if(!_staffEditId && (!pin || pin.length!==4)){ showToast('A 4-digit PIN is required for new staff','error'); return; }
+
+  showLoading('Saving staff...');
+  try {
+    const pinHash = pin ? await hashPin(pin) : null;
+    const numOrNull = (v)=>{ const n=parseFloat(v); return v===''||isNaN(n)?null:n; };
+    const intOrNull = (v)=>{ const n=parseInt(v); return v===''||isNaN(n)?null:n; };
+
+    const row = {
+      name,
+      staff_group: g('staff-edit-group').value,
+      email: g('staff-edit-email').value.trim()||null,
+      slack_id: g('staff-edit-slack').value.trim()||null,
+      pin: pin||null,
+      payment_method: g('staff-edit-payment').value.trim()||null,
+      rate: numOrNull(g('staff-edit-rate').value) ?? 0,
+      flat_rate: numOrNull(g('staff-edit-flatrate').value),
+      monthly_flat: g('staff-edit-monthly').checked,
+      scheduled_start: intOrNull(g('staff-edit-start').value),
+      daily_max: numOrNull(g('staff-edit-dailymax').value),
+      daily_max_flag: false,
+      break_duration: numOrNull(g('staff-edit-break').value),
+      no_break: g('staff-edit-nobreak').checked,
+      active: true,
+    };
+    if(pinHash) row.pin_hash = pinHash;
+
+    if(_staffEditId){
+      await sbFetch(`${STAFF_TABLE}?id=eq.${_staffEditId}`, 'PATCH', row);
+    } else {
+      row.id = Date.now();
+      row.sort_order = row.id;
+      if(!row.pin_hash){ showToast('PIN hash error','error'); hideLoading(); return; }
+      await sbFetch(STAFF_TABLE, 'POST', row);
+    }
+
+    // Reload in-memory config so changes apply immediately
+    await loadStaffFromDB();
+    updateStaffDropdowns();
+    showToast('Staff saved ✓','success');
+    closeStaffEditModal();
+    await loadAdminStaff();
+  } catch(e){ showToast('Error saving: '+e.message,'error'); console.error(e); }
+  finally{ hideLoading(); }
+}
+
+async function deleteStaffMember() {
+  if(!_staffEditId) return;
+  const name = document.getElementById('staff-edit-name').value;
+  if(!confirm(`Remove ${name}? They'll be marked inactive (time entries are kept).`)) return;
+  showLoading('Removing...');
+  try {
+    // Soft delete — set inactive so historical data/payslips still work
+    await sbFetch(`${STAFF_TABLE}?id=eq.${_staffEditId}`, 'PATCH', {active:false});
+    await loadStaffFromDB();
+    updateStaffDropdowns();
+    showToast(`${name} removed`,'success');
+    closeStaffEditModal();
+    await loadAdminStaff();
+  } catch(e){ showToast('Error removing','error'); console.error(e); }
+  finally{ hideLoading(); }
 }
 
 </script>
