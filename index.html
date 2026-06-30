@@ -4735,10 +4735,10 @@ async function approveTimeEdit(id, status) {
     await sbFetch(`${TIME_EDIT_TABLE}?id=eq.${id}`, 'PATCH', {status});
 
     // If approved, auto-apply the change to the time entry
-    if(status === 'Approved' && r.actual_time) {
+    if(status === 'Approved') {
       const requestType = r.request_type || 'clock_in';
 
-      if(requestType === 'clock_in' || requestType === 'clock_out' || requestType === 'break_end') {
+      if(r.actual_time && (requestType === 'clock_in' || requestType === 'clock_out' || requestType === 'break_end')) {
         // Find the entry for this date and person
         const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
         const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
