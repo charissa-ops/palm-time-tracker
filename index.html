@@ -171,33 +171,6 @@
         <label>Who are you?</label>
         <select id="login-name-select" onchange="onNameSelect()">
           <option value="">— Select your name —</option>
-          <optgroup label="PALM PARTNERS">
-            <option>Charissa Mercado</option><option>Camille Uy</option>
-            <option>Edeleign Jean Manicad</option><option>Richmond Yambot Nicolas</option>
-          </optgroup>
-          <optgroup label="PALM BUILD">
-            <option>John Vens Clair Magbnua Solano</option><option>Mary Lynn Trias Mercado</option>
-            <option>Janna Alonto</option><option>John Lester Solano</option>
-            <option>Bridgette Anne Benolirao</option>
-            <option>Griz Fuentes</option><option>May Castillo</option>
-            <option>Miko Dioquino</option>
-            <option>Yvonne Duna</option><option>Babylyn Asmolo</option>
-          </optgroup>
-          <optgroup label="PALM BUILD - US">
-            <option>Talita David Brandao</option>
-            <option>Ian Jaja Kariuki</option>
-            <option>Luis Ramirez</option>
-            <option>Ernesto S</option>
-            <option>Alejandra</option>
-            <option>Zelfar</option>
-            <option>Samhir Rivera</option>
-            <option>Hermann Tinoco</option>
-            <option>Jorge Flores</option>
-            <option>Fernando Nieto</option>
-            <option>Maria Aguiriano</option>
-            <option>Ralf Bruehl</option>
-            <option>David Ndunda</option><option>Carlos Martinez</option>
-          </optgroup>
         </select>
       </div>
       <div class="pin-dots" id="pin-dots">
@@ -1869,10 +1842,11 @@ function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classL
 function initLoginDropdown() {
   const sel = document.getElementById('login-name-select');
   const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[]};
-  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
-  // Clear existing optgroups
-  while(sel.options.length > 1) sel.remove(1);
+  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); else (groups[USERS[name].group]=[name]); }
+  // Fully rebuild: clear everything except the placeholder option
+  sel.innerHTML = '<option value="">— Select your name —</option>';
   for(const [group, names] of Object.entries(groups)) {
+    if(!names || !names.length) continue;
     const og = document.createElement('optgroup');
     og.label = group;
     for(const n of names) {
