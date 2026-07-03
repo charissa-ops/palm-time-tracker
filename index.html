@@ -1358,6 +1358,7 @@
         <option value="clock_out">End Shift Correction</option>
         <option value="break_waiver">Break Waiver (worked through break)</option>
         <option value="break_end">Forgot to End Break</option>
+        <option value="overtime">Overtime (worked past shift/cap)</option>
         <option value="other">Other</option>
       </select>
     </div>
@@ -3334,6 +3335,7 @@ function onTimeEditTypeChange() {
   if(type === 'clock_in') { actualField.style.display=''; actualLabel.textContent='Actual clock-in time (ET)'; }
   else if(type === 'clock_out') { actualField.style.display=''; actualLabel.textContent='Actual clock-out time (ET)'; }
   else if(type === 'break_end') { actualField.style.display=''; actualLabel.textContent='Actual break end time (ET)'; }
+  else if(type === 'overtime') { actualField.style.display=''; actualLabel.textContent='Corrected clock-out time (ET) — optional'; }
   else { actualField.style.display='none'; }
 }
 function closeTimeEditModal() { document.getElementById('time-edit-modal-overlay').classList.add('hidden'); }
@@ -3362,6 +3364,7 @@ async function submitTimeEditRequest() {
     clock_out:'End Shift Correction',
     break_waiver:'Break Waiver',
     break_end:'Forgot to End Break',
+    overtime:'Overtime',
     other:'Other'
   };
   showLoading('Submitting request...');
@@ -3397,7 +3400,7 @@ function renderUserTimeEditRequests(list) {
   const el = document.getElementById('user-time-edit-list');
   if(!list||!list.length) { el.innerHTML='<div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div>'; return; }
   const SC = {Approved:{border:'#1D9E75',bg:'#E1F5EE',color:'#0F6E56'},Denied:{border:'#A32D2D',bg:'#FCEBEB',color:'#A32D2D'},Pending:{border:'#BA7517',bg:'#FAEEDA',color:'#854F0B'}};
-  const TM = {clock_in:{abbr:'CI',bg:'#E6F1FB',color:'#185FA5',label:'Clock-in correction'},clock_out:{abbr:'CO',bg:'#EEEDFE',color:'#534AB7',label:'End shift correction'},break_waiver:{abbr:'BW',bg:'#E1F5EE',color:'#0F6E56',label:'Break waiver'},break_end:{abbr:'BE',bg:'#FAEEDA',color:'#854F0B',label:'Forgot to end break'},other:{abbr:'?',bg:'#F1EFE8',color:'#5F5E5A',label:'Other'}};
+  const TM = {clock_in:{abbr:'CI',bg:'#E6F1FB',color:'#185FA5',label:'Clock-in correction'},clock_out:{abbr:'CO',bg:'#EEEDFE',color:'#534AB7',label:'End shift correction'},break_waiver:{abbr:'BW',bg:'#E1F5EE',color:'#0F6E56',label:'Break waiver'},break_end:{abbr:'BE',bg:'#FAEEDA',color:'#854F0B',label:'Forgot to end break'},overtime:{abbr:'OT',bg:'#FDECEC',color:'#B4472E',label:'Overtime'},other:{abbr:'?',bg:'#F1EFE8',color:'#5F5E5A',label:'Other'}};
   let html = '';
   for(const r of list) {
     const st = r.status||'Pending'; const c = SC[st]||SC.Pending;
@@ -3431,7 +3434,7 @@ function renderAdminTimeEditRequests(list) {
   if(!el) return;
   if(!list||!list.length) { el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:.5rem 0">No time edit requests.</div>'; return; }
   const SC = {Approved:{border:'#1D9E75',bg:'#E1F5EE',color:'#0F6E56'},Denied:{border:'#A32D2D',bg:'#FCEBEB',color:'#A32D2D'},Pending:{border:'#BA7517',bg:'#FAEEDA',color:'#854F0B'}};
-  const TM = {clock_in:{abbr:'CI',bg:'#E6F1FB',color:'#185FA5',label:'Clock-in correction'},clock_out:{abbr:'CO',bg:'#EEEDFE',color:'#534AB7',label:'End shift correction'},break_waiver:{abbr:'BW',bg:'#E1F5EE',color:'#0F6E56',label:'Break waiver'},break_end:{abbr:'BE',bg:'#FAEEDA',color:'#854F0B',label:'Forgot to end break'},other:{abbr:'?',bg:'#F1EFE8',color:'#5F5E5A',label:'Other'}};
+  const TM = {clock_in:{abbr:'CI',bg:'#E6F1FB',color:'#185FA5',label:'Clock-in correction'},clock_out:{abbr:'CO',bg:'#EEEDFE',color:'#534AB7',label:'End shift correction'},break_waiver:{abbr:'BW',bg:'#E1F5EE',color:'#0F6E56',label:'Break waiver'},break_end:{abbr:'BE',bg:'#FAEEDA',color:'#854F0B',label:'Forgot to end break'},overtime:{abbr:'OT',bg:'#FDECEC',color:'#B4472E',label:'Overtime'},other:{abbr:'?',bg:'#F1EFE8',color:'#5F5E5A',label:'Other'}};
   let html = '';
   for(const r of list) {
     const st = r.status||'Pending'; const c = SC[st]||SC.Pending;
@@ -4959,15 +4962,17 @@ async function approveTimeEdit(id, status) {
             await updateEntry(targetEntry.id, {clock_out: newTimeISO});
             showToast(`✓ Approved & clock-out updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
           } else if(requestType === 'break_end') {
-            // Close the last open break
+            // Correct the last break's end time (whether it's open OR already has a wrong end)
             const breaks = JSON.parse(JSON.stringify(targetEntry.breaks || []));
-            const openBreak = breaks.findLast ? breaks.findLast(b => !b.end) : [...breaks].reverse().find(b => !b.end);
-            if(openBreak) {
-              openBreak.end = newTimeISO;
+            if(breaks.length) {
+              // Prefer an open break; otherwise correct the most recent break
+              let target = breaks.findLast ? breaks.findLast(b => !b.end) : [...breaks].reverse().find(b => !b.end);
+              if(!target) target = breaks[breaks.length - 1];
+              target.end = newTimeISO;
               await updateEntry(targetEntry.id, {breaks});
-              showToast(`✓ Approved & break end updated`, 'success');
+              showToast(`✓ Approved & break end updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
             } else {
-              showToast(`✓ Approved (no open break found to update)`, 'success');
+              showToast(`✓ Approved (no break found on this entry to update)`, 'success');
             }
           }
         } else {
@@ -4983,6 +4988,19 @@ async function approveTimeEdit(id, status) {
         } else {
           showToast(`✓ Approved`, 'success');
         }
+      } else if(requestType === 'overtime') {
+        // Find entry and set override_cap = true so hours beyond the daily cap count
+        const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+        const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
+        if(targetEntry) {
+          const patch = {override_cap: true};
+          // If they also provided a corrected clock-out time, apply it
+          if(r.actual_time) patch.clock_out = inputESTToISO(`${r.date}T${r.actual_time}`);
+          await updateEntry(targetEntry.id, patch);
+          showToast(`✓ Approved & overtime applied — full hours now count`, 'success');
+        } else {
+          showToast(`✓ Approved (no matching entry found for ${r.date})`, 'success');
+        }
       } else {
         showToast(`✓ Approved`, 'success');
       }
@@ -4996,7 +5014,7 @@ async function approveTimeEdit(id, status) {
     const slackId = SLACK_IDS[r.name];
     if(slackId) {
       const firstName = r.name.split(' ')[0];
-      const typeLabels = {clock_in:'Clock-in correction',clock_out:'End shift correction',break_waiver:'Break waiver',break_end:'Forgot to end break',other:'Time edit'};
+      const typeLabels = {clock_in:'Clock-in correction',clock_out:'End shift correction',break_waiver:'Break waiver',break_end:'Forgot to end break',overtime:'Overtime',other:'Time edit'};
       const msg = status === 'Approved'
         ? `✅ *Your ${typeLabels[r.request_type||'clock_in']} request for ${fmtLeaveDate(r.date)} has been approved.*${r.actual_time?' Your time has been updated automatically.':''}`
         : `❌ *Your ${typeLabels[r.request_type||'clock_in']} request for ${fmtLeaveDate(r.date)} has been denied.* If you have questions, contact Charissa.`;
