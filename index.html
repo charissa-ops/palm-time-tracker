@@ -627,6 +627,8 @@
         </label>
       </div>
     </div>
+    <div class="modal-section">Admin Note</div>
+    <div class="field"><label>Note (shows at top of their profile)</label><textarea id="staff-edit-notes" rows="3" placeholder="e.g. On probation until Aug 1 · Prefers afternoon shifts" style="width:100%;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;resize:vertical;box-sizing:border-box;"></textarea></div>
     <div class="modal-actions">
       <button class="btn-delete" id="staff-edit-delete" onclick="deleteStaffMember()" style="display:none;">Delete</button>
       <div class="modal-actions-right">
@@ -1400,6 +1402,10 @@
         <div id="profile-status-badge"></div>
       </div>
     </div>
+    <div id="profile-note-banner" style="display:none;background:#2a2410;border:1px solid #4a3f18;border-radius:8px;padding:10px 14px;margin-bottom:1rem;">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#c9a94a;margin-bottom:3px;">📌 Admin Note</div>
+      <div id="profile-note-text" style="font-size:13px;color:var(--text);white-space:pre-wrap;"></div>
+    </div>
     <div class="profile-stats">
       <div class="profile-stat"><div class="profile-stat-label">Today</div><div class="profile-stat-val" id="profile-today">—</div></div>
       <div class="profile-stat"><div class="profile-stat-label">This Week</div><div class="profile-stat-val" id="profile-week">—</div></div>
@@ -1736,7 +1742,7 @@ async function loadStaffFromDB() {
 
     // Reset all objects
     const _users={}, _rates={}, _pm={}, _flat={}, _sched={}, _dmax={}, _bdur={}, _emails={}, _slack={}, _pins={};
-    const _nobreak=new Set(), _monthly=new Set();
+    const _nobreak=new Set(), _monthly=new Set(), _notes={};
 
     for (const s of rows) {
       _users[s.name] = { h: s.pin_hash, group: s.staff_group };
@@ -1753,6 +1759,7 @@ async function loadStaffFromDB() {
       if (s.email) _emails[s.name] = s.email;
       if (s.slack_id) _slack[s.name] = s.slack_id;
       if (s.pin) _pins[s.name] = s.pin;
+      if (s.notes) _notes[s.name] = s.notes;
     }
 
     USERS = _users;
@@ -1767,6 +1774,7 @@ async function loadStaffFromDB() {
     SLACK_IDS = _slack;
     STAFF_PINS = _pins;
     NO_BREAK_DEDUCTION = _nobreak;
+    STAFF_NOTES = _notes;
 
     STAFF_DB_LOADED = true;
     console.log(`✅ Loaded ${rows.length} staff from DB`);
@@ -2095,6 +2103,13 @@ async function renderUserTable(list){
 async function clockIn(){
   showLoading('Clocking in...');
   try{const a=await getActiveEntry(currentUser);if(a){showToast('Already clocked in!','error');return;}
+  // Hard floor: no clock-ins before 7:00 AM ET (prevents gaming the early auto-correction)
+  const _nowET = toET(new Date().toISOString());
+  if(_nowET.getHours() < 7) {
+    hideLoading();
+    showToast('Clock in unavailable. Please try again later.','error');
+    return;
+  }
   // Auto-correct clock-in to scheduled start time if clocking in early
   const now = new Date();
   const etNow = toET(now.toISOString());
@@ -4128,6 +4143,17 @@ async function openStaffProfile(name) {
     ? (MONTHLY_FLAT_PAYERS.has(name) ? `$${FLAT_RATE[name].toFixed(2)}/mo (flat)` : `$${FLAT_RATE[name].toFixed(2)}/mo flat ÷ period`)
     : `$${(RATES[name]||0).toFixed(2)}/hr`;
   document.getElementById('profile-meta').textContent = `${USERS[name]?.group||'—'} · ${rateDisplay3} · ${PAYMENT_METHODS[name]||'—'}`;
+  // Admin note banner
+  const noteBanner = document.getElementById('profile-note-banner');
+  if(noteBanner){
+    const note = STAFF_NOTES[name];
+    if(note && note.trim()){
+      noteBanner.style.display = 'block';
+      noteBanner.querySelector('#profile-note-text').textContent = note;
+    } else {
+      noteBanner.style.display = 'none';
+    }
+  }
 
   // Status badge
   const active = await sbFetch(`${TABLE}?select=*&name=eq.${encodeURIComponent(name)}&clock_out=is.null&limit=1`);
@@ -4475,6 +4501,7 @@ async function loadUserPeriodBanner() {
 
 
 // ── Send onboarding instructions to a specific staff member ──
+let STAFF_NOTES = {};
 let STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
   'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
@@ -4631,10 +4658,10 @@ function updateStaffDropdowns() {
   const dropdownIds = ['admin-filter-name','login-filter-name'];
   for(const id of dropdownIds) {
     const sel = document.getElementById(id);
-    if(!sel) continue;
+    if(!sel || typeof sel.options === 'undefined') continue;
     const firstOpt = sel.options[0];
     sel.innerHTML = '';
-    sel.appendChild(firstOpt);
+    if(firstOpt) sel.appendChild(firstOpt);
     for(const [group, names] of Object.entries(groups)) {
       const og = document.createElement('optgroup');
       og.label = group;
@@ -4646,22 +4673,13 @@ function updateStaffDropdowns() {
       sel.appendChild(og);
     }
   }
-  // Also update login name select
-  const loginSel = document.getElementById('login-name-select');
-  if(loginSel) {
-    const firstOpt = loginSel.options[0];
-    loginSel.innerHTML = '';
-    loginSel.appendChild(firstOpt);
-    for(const [group, names] of Object.entries(groups)) {
-      const og = document.createElement('optgroup');
-      og.label = group;
-      for(const n of names) {
-        const opt = document.createElement('option');
-        opt.textContent = n;
-        og.appendChild(opt);
-      }
-      loginSel.appendChild(og);
-    }
+  // The login name picker is now a searchable autocomplete — refresh it if present
+  if(typeof filterLoginNames === 'function' && document.getElementById('login-search')) {
+    // Only rebuild the dropdown list; don't force it open
+    const dd = document.getElementById('login-name-dropdown');
+    const wasOpen = dd && dd.style.display === 'block';
+    filterLoginNames();
+    if(dd && !wasOpen) dd.style.display = 'none';
   }
 }
 
@@ -5237,6 +5255,7 @@ async function openStaffEditModal(id) {
   g('staff-edit-monthly').checked=false; g('staff-edit-start').value='';
   g('staff-edit-dailymax').value=''; g('staff-edit-break').value='';
   g('staff-edit-nobreak').checked=false;
+  g('staff-edit-notes').value='';
   g('staff-edit-pin').disabled = false;
   g('staff-edit-delete').style.display = id ? '' : 'none';
 
@@ -5261,6 +5280,7 @@ async function openStaffEditModal(id) {
         g('staff-edit-dailymax').value = s.daily_max!=null?s.daily_max:'';
         g('staff-edit-break').value = s.break_duration!=null?s.break_duration:'';
         g('staff-edit-nobreak').checked = !!s.no_break;
+        g('staff-edit-notes').value = s.notes || '';
       }
     } catch(e){ showToast('Error loading staff','error'); console.error(e); }
   } else {
@@ -5301,6 +5321,7 @@ async function saveStaffMember() {
       daily_max_flag: false,
       break_duration: numOrNull(g('staff-edit-break').value),
       no_break: g('staff-edit-nobreak').checked,
+      notes: g('staff-edit-notes').value.trim()||null,
       active: true,
     };
     if(pinHash) row.pin_hash = pinHash;
