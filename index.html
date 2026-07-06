@@ -2120,7 +2120,11 @@ async function clockIn(){
   // Get scheduled start hour for this user
   let scheduledHour = SCHEDULED_START[currentUser] ?? 9;
   // Yvonne now always starts at 9 AM
-  // Babylyn temporarily on standard 8 AM schedule
+  // Babylyn: weekdays start 5 PM (17), weekends start 8 AM (for 8:30)
+  if(currentUser === 'Babylyn Asmolo') {
+    const dow = etNow.getDay();
+    scheduledHour = (dow === 0 || dow === 6) ? 8 : 17;
+  }
 
   if(etHour < scheduledHour || (etHour === scheduledHour && etMin === 0)) {
     // Only auto-correct if before scheduled start
@@ -2429,7 +2433,15 @@ let DAILY_MAX = {
 
 // Apply hour rules to a person's raw hours for a single day
 function applyHourRules(name, rawHours, clockInISO=null) {
-  // Special case: Babylyn — Mon-Fri 3hr cap (5pm-8pm), Sat 9hr cap (8am-6pm minus 1hr break)
+  // Special case: Babylyn — Weekdays 5pm-8:30pm (3.5hr cap, no break), Weekends 8:30am-6pm (8.5hr cap, 1hr break)
+  if(name === 'Babylyn Asmolo' && clockInISO) {
+    const et = toET(clockInISO);
+    const isWeekend = et.getDay() === 0 || et.getDay() === 6;
+    const bd = isWeekend ? 1 : 0;
+    const dayCap = isWeekend ? 8.5 : 3.5;
+    const netB = Math.min(Math.max(0, rawHours - bd), dayCap);
+    return { net: netB, breakDeduction: bd, flagged: false };
+  }
   let breakDeduction;
   if(BREAK_DURATION[name] !== undefined) {
     breakDeduction = BREAK_DURATION[name];
