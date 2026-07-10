@@ -437,6 +437,10 @@
           </div>
           <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
         </div>
+        <div id="stale-filter-banner" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#3a1a1a;border:1px solid #5a2020;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+          <span style="font-size:12px;color:var(--red);font-weight:600;">⚠ Showing staff who may have forgotten to clock out (16+ hrs open)</span>
+          <button class="btn btn-ghost btn-sm" onclick="clearFilters()" style="color:var(--text2);">✕ Show all</button>
+        </div>
         <div class="entries-wrap" id="admin-entries-table"></div>
       </div>
     </div>
@@ -2201,9 +2205,11 @@ async function loadAdminEntries(){
 }
 
 let _adminEntryMap={};
+let _showStaleOnly=false;
 function renderAdminTable(list){
   const el=document.getElementById('admin-entries-table');
-  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>No entries found.</div>';return;}
+  if(_showStaleOnly){ list = list.filter(e => isStaleOpen(e)); }
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div>'+(_showStaleOnly?'No staff currently flagged for forgotten clock-out. 🎉':'No entries found.')+'</div>';return;}
   _adminEntryMap={};
   for(const e of list) _adminEntryMap[e.id]=e;
   const groups={};
@@ -2240,7 +2246,23 @@ function renderAdminTable(list){
   el.innerHTML=html;
 }
 
-function clearFilters(){document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
+function clearFilters(){_showStaleOnly=false;updateStaleBanner();document.getElementById('admin-filter-name').value='';document.getElementById('admin-filter-date-from').value='';document.getElementById('admin-filter-date-to').value='';loadAdminEntries();}
+
+async function showStaleEntries(){
+  // Jump to All Entries, clear date filters (stale entries can be from any day), show stale only
+  await switchTab('entries');
+  _showStaleOnly=true;
+  document.getElementById('admin-filter-name').value='';
+  document.getElementById('admin-filter-date-from').value='';
+  document.getElementById('admin-filter-date-to').value='';
+  updateStaleBanner();
+  await loadAdminEntries();
+}
+
+function updateStaleBanner(){
+  const wrap=document.getElementById('stale-filter-banner');
+  if(wrap) wrap.style.display=_showStaleOnly?'flex':'none';
+}
 
 async function switchTab(tab){
   ['home','entries','summary','payroll','leave','timeedit','holidays','payperiods','logins','staff'].forEach(t=>{
@@ -2250,7 +2272,7 @@ async function switchTab(tab){
     if(pane) pane.classList.toggle('active', tab===t);
   });
   if(tab==='home'){loadAdminDashboard();loadHomeSummary();}
-  if(tab==='entries')loadAdminEntries();
+  if(tab==='entries'){ _showStaleOnly=false; if(typeof updateStaleBanner==='function')updateStaleBanner(); loadAdminEntries(); }
   if(tab==='summary')loadHoursSummary();
   if(tab==='payroll'){
     // Re-populate dates from active period if empty
@@ -5131,12 +5153,12 @@ async function loadHomeSummary() {
     // Recent activity
     const recent = entries.slice(0,6);
     let actHtml = '';
-    // Forgot-to-clock-out warning banner
+    // Forgot-to-clock-out warning banner (clickable → jumps to filtered All Entries)
     const staleOpen = entries.filter(e => isStaleOpen(e));
     if(staleOpen.length){
-      actHtml += `<div style="background:#3a1a1a;border:1px solid #5a2020;border-radius:8px;padding:8px 10px;margin-bottom:8px;">
-        <div style="font-size:11px;color:var(--red);font-weight:600;">⚠ ${staleOpen.length} staff still clocked in 16+ hrs</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px;">${staleOpen.map(e=>e.name.split(' ')[0]).join(', ')} — likely forgot to clock out. Check All Entries.</div>
+      actHtml += `<div onclick="showStaleEntries()" style="background:#3a1a1a;border:1px solid #5a2020;border-radius:8px;padding:8px 10px;margin-bottom:8px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#4a2222'" onmouseout="this.style.background='#3a1a1a'">
+        <div style="font-size:11px;color:var(--red);font-weight:600;">⚠ ${staleOpen.length} staff still clocked in 16+ hrs →</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;">${staleOpen.map(e=>e.name.split(' ')[0]).join(', ')} — likely forgot to clock out. Click to view.</div>
       </div>`;
     }
     for(const e of recent) {
