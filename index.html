@@ -3391,7 +3391,9 @@ function closeTimeEditModal() { document.getElementById('time-edit-modal-overlay
 document.getElementById('time-edit-modal-overlay').addEventListener('click',function(ev){if(ev.target===this)closeTimeEditModal();});
 
 // ── Submit time edit request ──
+let _submittingTimeEdit = false;
 async function submitTimeEditRequest() {
+  if(_submittingTimeEdit) return; // guard against double-submit
   const type = document.getElementById('time-edit-type').value;
   const date = document.getElementById('time-edit-date').value;
   const actual = document.getElementById('time-edit-actual').value;
@@ -3416,8 +3418,27 @@ async function submitTimeEditRequest() {
     overtime:'Overtime',
     other:'Other'
   };
+  _submittingTimeEdit = true;
+  const submitBtn = document.querySelector('#time-edit-modal-overlay .btn-primary');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
   showLoading('Submitting request...');
   try {
+    // Guard against duplicate: check for an identical pending request in the last 60s
+    const existing = await getTimeEditRequests({name: currentUser});
+    const dup = (existing||[]).find(r =>
+      r.request_type === type &&
+      r.date === date &&
+      (r.actual_time||'') === (actual||'') &&
+      r.status === 'Pending'
+    );
+    if(dup){
+      showToast('You already submitted this request','error');
+      _submittingTimeEdit = false;
+      if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Submit Request'; }
+      hideLoading();
+      closeTimeEditModal();
+      return;
+    }
     const id = Date.now();
     const row = { id, name: currentUser, date, actual_time: actual||null, reason, request_type: type, status: 'Pending', created_at: nowISO() };
     await insertTimeEditRequest(row);
@@ -3434,7 +3455,12 @@ Log in as admin to review: https://charissa-ops.github.io/palm-time-tracker`
     closeTimeEditModal();
     await loadUserTimeEditRequests();
   } catch(e) { showToast('Error submitting request','error'); console.error(e); }
-  finally { hideLoading(); }
+  finally {
+    _submittingTimeEdit = false;
+    const b = document.querySelector('#time-edit-modal-overlay .btn-primary');
+    if(b){ b.disabled = false; b.textContent = 'Submit Request'; }
+    hideLoading();
+  }
 }
 
 // ── User: load time edit requests ──
