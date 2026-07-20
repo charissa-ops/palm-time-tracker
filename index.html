@@ -5034,8 +5034,8 @@ async function approveTimeEdit(id, status) {
           const newTimeISO = inputESTToISO(`${r.date}T${r.actual_time}`);
 
           if(requestType === 'clock_in') {
-            await updateEntry(targetEntry.id, {clock_in: newTimeISO});
-            showToast(`✓ Approved & clock-in updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
+            await updateEntry(targetEntry.id, {clock_in: newTimeISO, override_cap: true});
+            showToast(`✓ Approved & clock-in updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET (cap overridden)`, 'success');
           } else if(requestType === 'clock_out') {
             await updateEntry(targetEntry.id, {clock_out: newTimeISO});
             showToast(`✓ Approved & clock-out updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
