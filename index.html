@@ -150,6 +150,8 @@
   input[type="datetime-local"]{color-scheme:light;}
   .admin-edit-btn{background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text3);font-size:11px;padding:4px 9px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;transition:all .15s;white-space:nowrap;}
   .admin-edit-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--accent);}
+  .user-menu-item{padding:10px 12px;border-radius:6px;font-size:14px;color:var(--text2);cursor:pointer;font-weight:450;}
+  .user-menu-item:hover{background:var(--surface2);color:var(--text);}
 </style>
 </head>
 <body>
@@ -220,7 +222,7 @@
   <div class="page">
     <div class="header">
       <div class="logo"><div class="logo-name">PALM <span>TIME</span></div><div class="logo-sub" id="user-date-display"></div></div>
-      <div class="header-right"><div class="clock-display" id="live-clock"></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
+      <div class="header-right"><div class="clock-display" id="live-clock"></div><div style="position:relative;"><button class="btn btn-ghost btn-sm" onclick="toggleUserMenu(event)" id="user-menu-btn" style="font-size:18px;padding:6px 12px;">☰</button><div id="user-menu-dropdown" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(20,32,46,.15);z-index:70;width:180px;"><div class="user-menu-item" onclick="showUserSection('home')">🏠 Home</div><div class="user-menu-item" onclick="showUserSection('leave')">🏖 Leave Requests</div><div class="user-menu-item" onclick="showUserSection('timeedit')">⏱ Time Edits</div></div></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
     </div>
     <div class="user-bar"><div><div class="user-name" id="display-name"></div><div class="user-group" id="display-group"></div></div><div id="user-bg-picker" style="display:none;"></div></div>
     <div id="user-period-banner" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:10px 16px;margin:0 1rem 1rem;display:none;">
@@ -228,6 +230,7 @@
       <div style="font-size:13px;font-weight:600;color:var(--text);" id="user-period-label">—</div>
       <div style="font-size:11px;color:var(--text3);margin-top:1px;" id="user-period-dates"></div>
     </div>
+    <div id="user-section-home" class="user-section">
     <div class="status-bar">
       <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
       <div class="stat-card"><div class="stat-label">Hours Today</div><div class="stat-val green" id="stat-today">0.0h</div></div>
@@ -246,8 +249,10 @@
       <div class="card-title">Extras / Incentives</div>
       <div id="user-extras-list"></div>
     </div>
+    </div><!-- end user-section-home -->
 
     <!-- LEAVE REQUEST -->
+    <div id="user-section-leave" class="user-section" style="display:none;">
     <div class="card">
       <div class="card-title-row">
         <div class="card-title" style="margin-bottom:0">Leave Requests</div>
@@ -255,8 +260,10 @@
       </div>
       <div id="user-leave-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">🏖</div>No leave requests yet.</div></div>
     </div>
+    </div><!-- end user-section-leave -->
 
     <!-- TIME EDIT REQUEST -->
+    <div id="user-section-timeedit" class="user-section" style="display:none;">
     <div class="card">
       <div class="card-title-row">
         <div class="card-title" style="margin-bottom:0">Time Edit Requests</div>
@@ -265,6 +272,7 @@
       <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">Submit a request if you need to correct your clock-in, clock-out, break, or any other time entry issue.</div>
       <div id="user-time-edit-list"><div class="empty-state" style="padding:1rem"><div class="empty-icon">⏱</div>No time edit requests yet.</div></div>
     </div>
+    </div><!-- end user-section-timeedit -->
 
 
   </div>
@@ -1931,12 +1939,33 @@ async function setUserBgColor(val){
   } catch(e){ console.error('save bg color failed', e); }
 }
 
+function toggleUserMenu(ev){
+  if(ev) ev.stopPropagation();
+  const dd = document.getElementById('user-menu-dropdown');
+  if(dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click',(ev)=>{
+  const btn = document.getElementById('user-menu-btn');
+  const dd = document.getElementById('user-menu-dropdown');
+  if(dd && btn && ev.target!==btn && !dd.contains(ev.target)) dd.style.display='none';
+});
+function showUserSection(section){
+  ['home','leave','timeedit'].forEach(s=>{
+    const el = document.getElementById('user-section-'+s);
+    if(el) el.style.display = (s===section)?'block':'none';
+  });
+  const dd = document.getElementById('user-menu-dropdown');
+  if(dd) dd.style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
 async function enterUserDashboard(){
   showScreen('user');
   document.getElementById('display-name').textContent=currentUser;
   document.getElementById('display-group').textContent=USERS[currentUser].group;
   applyUserBgColor(currentUser);
   renderBgColorPicker();
+  showUserSection('home');
   startClock('live-clock','user-date-display');
   await loadUserDashboard();
   loadUserLeave();
