@@ -223,6 +223,7 @@
       <div class="header-right"><div class="clock-display" id="live-clock"></div><button class="btn btn-ghost btn-sm" onclick="logout()">Log out</button></div>
     </div>
     <div class="user-bar"><div><div class="user-name" id="display-name"></div><div class="user-group" id="display-group"></div></div></div>
+    <div id="user-bg-picker" class="card" style="display:none;"></div>
     <div id="user-period-banner" style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:10px 16px;margin:0 1rem 1rem;display:none;">
       <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:2px;">Current Pay Period</div>
       <div style="font-size:13px;font-weight:600;color:var(--text);" id="user-period-label">—</div>
@@ -1610,7 +1611,7 @@ async function loadStaffFromDB() {
 
     // Reset all objects
     const _users={}, _rates={}, _pm={}, _flat={}, _sched={}, _dmax={}, _bdur={}, _emails={}, _slack={}, _pins={};
-    const _nobreak=new Set(), _monthly=new Set(), _notes={};
+    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={};
 
     for (const s of rows) {
       _users[s.name] = { h: s.pin_hash, group: s.staff_group };
@@ -1628,6 +1629,7 @@ async function loadStaffFromDB() {
       if (s.slack_id) _slack[s.name] = s.slack_id;
       if (s.pin) _pins[s.name] = s.pin;
       if (s.notes) _notes[s.name] = s.notes;
+      if (s.bg_color) _bgcolors[s.name] = s.bg_color;
     }
 
     USERS = _users;
@@ -1643,6 +1645,7 @@ async function loadStaffFromDB() {
     STAFF_PINS = _pins;
     NO_BREAK_DEDUCTION = _nobreak;
     STAFF_NOTES = _notes;
+    STAFF_BG_COLORS = _bgcolors;
 
     STAFF_DB_LOADED = true;
     console.log(`✅ Loaded ${rows.length} staff from DB`);
@@ -1844,7 +1847,7 @@ async function doAdminLogin(){
   document.getElementById('admin-login-error').textContent='';
   adminPinBuffer='';enterAdminDashboard();
 }
-function logout(){currentUser=null;clearInterval(clockInterval);document.getElementById('login-name-select').value='';const ls=document.getElementById('login-search');if(ls)ls.value='';const dd=document.getElementById('login-name-dropdown');if(dd)dd.style.display='none';pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';showScreen('login');}
+function logout(){document.body.style.background='';document.body.style.backgroundImage='';currentUser=null;clearInterval(clockInterval);document.getElementById('login-name-select').value='';const ls=document.getElementById('login-search');if(ls)ls.value='';const dd=document.getElementById('login-name-dropdown');if(dd)dd.style.display='none';pinBuffer='';updateDots('pin-dots',4,0);document.getElementById('login-error').textContent='';showScreen('login');}
 
 // ── User Dashboard ──
 
@@ -1860,10 +1863,56 @@ async function getActivePeriod() {
   return _activePeriod;
 }
 
+// Staff who can personalize their background (name -> true)
+const BG_COLOR_ENABLED = new Set(['Camille Uy']);
+// Preset background options (label -> css background value)
+const BG_PRESETS = {
+  'Default':'', 'Soft Blue':'#eaf1f8', 'Sage':'#eaf1ec', 'Blush':'#f9edef',
+  'Warm Sand':'#f4efe4', 'Lavender':'#efecf7', 'Mint':'#e8f4ef'
+};
+
+function applyUserBgColor(name){
+  const c = STAFF_BG_COLORS[name];
+  // Apply to body when this user is logged in; clear on logout
+  if(c){ document.body.style.background = c; document.body.style.backgroundImage='none'; }
+  else { document.body.style.background=''; document.body.style.backgroundImage=''; }
+}
+
+function renderBgColorPicker(){
+  const wrap = document.getElementById('user-bg-picker');
+  if(!wrap) return;
+  if(!BG_COLOR_ENABLED.has(currentUser)){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  const current = STAFF_BG_COLORS[currentUser] || '';
+  let html = '<div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Background Color</div><div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  for(const [label,val] of Object.entries(BG_PRESETS)){
+    const sel = (val===current) || (!val && !current);
+    const swatchBg = val || '#f1eee6';
+    html += `<div onclick="setUserBgColor('${val}')" title="${label}" style="width:30px;height:30px;border-radius:50%;background:${swatchBg};cursor:pointer;border:2px solid ${sel?'var(--accent)':'var(--border2)'};box-shadow:${sel?'0 0 0 2px var(--accent-soft)':'none'};"></div>`;
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+async function setUserBgColor(val){
+  STAFF_BG_COLORS[currentUser] = val;
+  applyUserBgColor(currentUser);
+  renderBgColorPicker();
+  // Persist to DB
+  try {
+    const rows = await sbFetch(`${STAFF_TABLE}?name=eq.${encodeURIComponent(currentUser)}&select=id`);
+    if(rows && rows[0]){
+      await sbFetch(`${STAFF_TABLE}?id=eq.${rows[0].id}`, 'PATCH', {bg_color: val||null});
+    }
+  } catch(e){ console.error('save bg color failed', e); }
+}
+
 async function enterUserDashboard(){
   showScreen('user');
   document.getElementById('display-name').textContent=currentUser;
   document.getElementById('display-group').textContent=USERS[currentUser].group;
+  applyUserBgColor(currentUser);
+  renderBgColorPicker();
   startClock('live-clock','user-date-display');
   await loadUserDashboard();
   loadUserLeave();
@@ -4426,6 +4475,7 @@ async function loadUserPeriodBanner() {
 
 // ── Send onboarding instructions to a specific staff member ──
 let STAFF_NOTES = {};
+let STAFF_BG_COLORS = {};
 let STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
   'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
