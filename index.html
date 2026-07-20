@@ -342,7 +342,7 @@
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
           <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">Total Staff</div>
-          <div style="font-size:28px;font-weight:500;color:#eee;font-family:'JetBrains Mono',monospace;" id="admin-stat-total">—</div>
+          <div style="font-size:28px;font-weight:600;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="admin-stat-total">—</div>
           <div style="font-size:11px;color:#444;margin-top:4px;">active members</div>
         </div>
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
@@ -352,12 +352,12 @@
         </div>
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
           <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">On Break</div>
-          <div style="font-size:28px;font-weight:500;color:#f0a050;font-family:'JetBrains Mono',monospace;" id="admin-stat-break">0</div>
+          <div style="font-size:28px;font-weight:600;color:#b07d2b;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="admin-stat-break">0</div>
           <div style="font-size:11px;color:#444;margin-top:4px;">right now</div>
         </div>
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
           <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">Period Hours</div>
-          <div style="font-size:28px;font-weight:500;color:#eee;font-family:'JetBrains Mono',monospace;" id="home-period-hours">—</div>
+          <div style="font-size:28px;font-weight:600;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-period-hours">—</div>
           <div style="font-size:11px;color:#444;margin-top:4px;">hrs logged total</div>
         </div>
       </div>
@@ -367,7 +367,7 @@
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:16px;">
           <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
             Staff Status
-            <button onclick="loadAdminDashboard()" style="font-size:11px;color:#8a95a3;border:1px solid #252525;padding:3px 10px;border-radius:5px;background:transparent;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;">↻ Refresh</button>
+            <button onclick="loadAdminDashboard()" style="font-size:11px;color:#475467;border:1px solid var(--border2);padding:3px 10px;border-radius:5px;background:transparent;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;">↻ Refresh</button>
           </div>
           <div id="staff-overview-grid"></div>
         </div>
@@ -382,18 +382,18 @@
         <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;">Period Summary</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;" id="home-period-summary">
           <div style="padding-right:20px;border-right:1px solid #e6e2d9;">
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Palm Partners hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-hours">—</span></div>
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Palm Build hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-hours">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Palm Partners hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-hours">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Palm Build hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-hours">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Total hrs</span><span style="font-size:13px;font-weight:500;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-total-hours">—</span></div>
           </div>
           <div style="padding:0 20px;border-right:1px solid #e6e2d9;">
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Pending leave</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-leave" style="color:#f0a050;">—</span></div>
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Pending time edits</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-edits" style="color:#f0a050;">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Pending leave</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-leave" style="color:#b07d2b;">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Pending time edits</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-edits" style="color:#b07d2b;">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Approved PTO</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pto">—</span></div>
           </div>
           <div style="padding-left:20px;">
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Est. PP pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-pay">—</span></div>
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Est. PB pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-pay">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Est. PP pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-pay">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Est. PB pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-pay">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Est. total payroll</span><span style="font-size:13px;font-weight:500;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-total-pay">—</span></div>
           </div>
         </div>
@@ -932,7 +932,7 @@
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
           <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">Total Staff</div>
-          <div style="font-size:28px;font-weight:500;color:#eee;font-family:'JetBrains Mono',monospace;" id="admin-stat-total">—</div>
+          <div style="font-size:28px;font-weight:600;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="admin-stat-total">—</div>
           <div style="font-size:11px;color:#444;margin-top:4px;">active members</div>
         </div>
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
@@ -942,12 +942,12 @@
         </div>
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
           <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">On Break</div>
-          <div style="font-size:28px;font-weight:500;color:#f0a050;font-family:'JetBrains Mono',monospace;" id="admin-stat-break">0</div>
+          <div style="font-size:28px;font-weight:600;color:#b07d2b;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="admin-stat-break">0</div>
           <div style="font-size:11px;color:#444;margin-top:4px;">right now</div>
         </div>
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:14px 16px;">
           <div style="font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:6px;">Period Hours</div>
-          <div style="font-size:28px;font-weight:500;color:#eee;font-family:'JetBrains Mono',monospace;" id="home-period-hours">—</div>
+          <div style="font-size:28px;font-weight:600;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-period-hours">—</div>
           <div style="font-size:11px;color:#444;margin-top:4px;">hrs logged total</div>
         </div>
       </div>
@@ -957,7 +957,7 @@
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:16px;">
           <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
             Staff Status
-            <button onclick="loadAdminDashboard()" style="font-size:11px;color:#8a95a3;border:1px solid #252525;padding:3px 10px;border-radius:5px;background:transparent;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;">↻ Refresh</button>
+            <button onclick="loadAdminDashboard()" style="font-size:11px;color:#475467;border:1px solid var(--border2);padding:3px 10px;border-radius:5px;background:transparent;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;">↻ Refresh</button>
           </div>
           <div id="staff-overview-grid"></div>
         </div>
@@ -972,18 +972,18 @@
         <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;">Period Summary</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;" id="home-period-summary">
           <div style="padding-right:20px;border-right:1px solid #e6e2d9;">
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Palm Partners hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-hours">—</span></div>
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Palm Build hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-hours">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Palm Partners hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-hours">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Palm Build hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-hours">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Total hrs</span><span style="font-size:13px;font-weight:500;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-total-hours">—</span></div>
           </div>
           <div style="padding:0 20px;border-right:1px solid #e6e2d9;">
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Pending leave</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-leave" style="color:#f0a050;">—</span></div>
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Pending time edits</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-edits" style="color:#f0a050;">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Pending leave</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-leave" style="color:#b07d2b;">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Pending time edits</span><span style="font-size:13px;font-weight:500;font-family:'JetBrains Mono',monospace;" id="home-pending-edits" style="color:#b07d2b;">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Approved PTO</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pto">—</span></div>
           </div>
           <div style="padding-left:20px;">
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Est. PP pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-pay">—</span></div>
-            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1a1a;"><span style="font-size:12px;color:#8a95a3;">Est. PB pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-pay">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Est. PP pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-pay">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Est. PB pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-pay">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Est. total payroll</span><span style="font-size:13px;font-weight:500;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-total-pay">—</span></div>
           </div>
         </div>
@@ -5054,14 +5054,14 @@ async function loadHomeSummary() {
     for(const e of recent) {
       const isActive = !e.clock_out;
       const onBreak = isActive && e.breaks?.length && !e.breaks[e.breaks.length-1].end;
-      const badge = onBreak ? '<span style="font-size:10px;background:rgba(240,160,80,.1);color:#f0a050;padding:2px 8px;border-radius:4px;font-weight:600;">Break</span>'
-        : isActive ? '<span style="font-size:10px;background:rgba(196,240,96,.1);color:#1e3a5f;padding:2px 8px;border-radius:4px;font-weight:600;">Clocked In</span>'
-        : '<span style="font-size:10px;background:#1a1a1a;color:#8a95a3;padding:2px 8px;border-radius:4px;font-weight:600;">Out</span>';
+      const badge = onBreak ? '<span style="font-size:10px;background:var(--orange-dim);color:var(--orange);padding:2px 8px;border-radius:4px;font-weight:600;">Break</span>'
+        : isActive ? '<span style="font-size:10px;background:var(--green-dim);color:var(--green);padding:2px 8px;border-radius:4px;font-weight:600;">Clocked In</span>'
+        : '<span style="font-size:10px;background:var(--surface3);color:var(--text3);padding:2px 8px;border-radius:4px;font-weight:600;">Out</span>';
       const time = isActive ? fmtTime(e.clock_in) : fmtTime(e.clock_out||e.clock_in);
-      actHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;margin-bottom:3px;background:#191919;border:1px solid #222;">
+      actHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:var(--surface2);border:1px solid var(--border);">
         <div>
-          <div style="font-size:12px;color:#475467;font-weight:500;">${e.name}</div>
-          <div style="font-size:11px;color:#8a95a3;font-family:'JetBrains Mono',monospace;margin-top:1px;">${time}</div>
+          <div style="font-size:13px;color:var(--text);font-weight:500;">${e.name}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:1px;">${time}</div>
         </div>
         ${badge}
       </div>`;
