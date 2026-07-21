@@ -369,8 +369,8 @@
           <div style="font-size:11px;color:#444;margin-top:4px;">hrs logged total</div>
         </div>
       </div>
-      <!-- Two column -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <!-- Two column: Staff Status (wide) + Recent Activity (sidebar) -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;align-items:start;">
         <!-- Staff Status -->
         <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:16px;">
           <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
@@ -379,8 +379,8 @@
           </div>
           <div id="staff-overview-grid"></div>
         </div>
-        <!-- Recent Activity -->
-        <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:16px;">
+        <!-- Recent Activity (sidebar) -->
+        <div style="background:#ffffff;border:1px solid #e6e2d9;border-radius:10px;padding:16px;position:sticky;top:16px;">
           <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#444;margin-bottom:12px;">Recent Activity</div>
           <div id="home-recent-activity"><div style="font-size:12px;color:#8a95a3;padding:.5rem 0;">Loading...</div></div>
         </div>
@@ -4123,42 +4123,65 @@ async function loadAdminDashboard() {
   } catch(e){console.error(e);}
 }
 
+let _staffActiveMap = {};
+let _staffTeamFilter = 'ALL';
+
+function setStaffTeamFilter(team){
+  _staffTeamFilter = team;
+  renderStaffOverview(_staffActiveMap);
+}
+
 function renderStaffOverview(activeMap) {
+  _staffActiveMap = activeMap;
   const el = document.getElementById('staff-overview-grid');
   if(!el) return;
   const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[], 'FSP':[]};
   for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
-  let html = '<div style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;">';
-  for(const [group, names] of Object.entries(groups)) {
-    for(const name of names) {
+
+  // Build tabs: All + each non-empty team
+  const tabs = [['ALL','All']];
+  for(const g of Object.keys(groups)){ if(groups[g].length) tabs.push([g, g]); }
+  let tabHtml = '<div style="display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:12px;">';
+  for(const [key,label] of tabs){
+    const on = _staffTeamFilter === key;
+    // count active for the tab badge
+    let activeN=0, totalN=0;
+    if(key==='ALL'){ for(const g of Object.keys(groups)){ totalN+=groups[g].length; activeN+=groups[g].filter(n=>activeMap[n]).length; } }
+    else { totalN=groups[key].length; activeN=groups[key].filter(n=>activeMap[n]).length; }
+    tabHtml += `<div onclick="setStaffTeamFilter('${key}')" style="cursor:pointer;padding:7px 12px;font-size:12px;font-weight:${on?'600':'450'};color:${on?'var(--accent)':'var(--text2)'};border-bottom:2px solid ${on?'var(--accent)':'transparent'};margin-bottom:-1px;white-space:nowrap;">${label} <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;">${activeN}/${totalN}</span></div>`;
+  }
+  tabHtml += '</div>';
+
+  // Which teams to show based on filter
+  const showGroups = _staffTeamFilter==='ALL' ? Object.keys(groups) : [_staffTeamFilter];
+  let cardHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+  let any=false;
+  for(const group of showGroups){
+    const names = groups[group]||[];
+    for(const name of names){
+      any=true;
       const info = activeMap[name];
       const status = info ? info.status : 'out';
       const statusLabel = status==='in'?'Clocked In':status==='break'?'On Break':'Out';
       const dotClass = status==='in'?'green':status==='break'?'orange':'gray';
-      const initials = name.split(' ').map(n=>n[0]).slice(0,2).join('');
       const leftBorderColor = dotClass==='green'?'var(--green)':dotClass==='orange'?'var(--orange)':'var(--surface3)';
       const statusTextColor = dotClass==='green'?'var(--green)':dotClass==='orange'?'var(--orange)':'var(--text3)';
-      // Show "since" time for clocked-in/on-break staff
       const sinceLabel = info && info.since ? `since ${fmtTime(info.since)}` : '';
-      html += `<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${leftBorderColor};border-radius:8px;padding:.875rem 1rem;cursor:pointer;transition:all .15s;" onclick="openStaffProfile('${name.replace(/'/g,"\'")}')">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">${name}</div>
-            <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;">${group}</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;margin-left:8px;">
-            <div style="display:flex;align-items:center;gap:5px;">
-              <div style="width:7px;height:7px;border-radius:50%;background:${leftBorderColor};"></div>
-              <span style="font-size:11px;font-weight:600;color:${statusTextColor};">${statusLabel}</span>
-            </div>
-            ${sinceLabel?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;">${sinceLabel}</span>`:''}
-          </div>
+      // In "All" view, show the team name under each; in a single-team view it's redundant
+      const teamTag = _staffTeamFilter==='ALL' ? `<div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:4px;">${group}</div>` : '';
+      cardHtml += `<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${leftBorderColor};border-radius:8px;padding:.7rem .85rem;cursor:pointer;transition:all .15s;" onclick="openStaffProfile('${name.replace(/'/g,"\'")}')">
+        ${teamTag}
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.25;">${name}</div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <div style="width:7px;height:7px;border-radius:50%;background:${leftBorderColor};flex-shrink:0;"></div>
+          <span style="font-size:11px;font-weight:600;color:${statusTextColor};">${statusLabel}</span>
         </div>
+        ${sinceLabel?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;display:block;margin-top:2px;">${sinceLabel}</span>`:''}
       </div>`;
     }
   }
-  html += '</div>';
-  el.innerHTML = html;
+  cardHtml += '</div>';
+  el.innerHTML = tabHtml + (any ? cardHtml : '<div style="font-size:12px;color:var(--text3);padding:.5rem 0;">No staff.</div>');
 }
 
 // ── Staff Profile Modal ──
