@@ -392,6 +392,7 @@
           <div style="padding-right:20px;border-right:1px solid #e6e2d9;">
             <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Palm Partners hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-hours">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Palm Build hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-hours">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">FSP hrs</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-fsp-hours">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Total hrs</span><span style="font-size:13px;font-weight:500;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-total-hours">—</span></div>
           </div>
           <div style="padding:0 20px;border-right:1px solid #e6e2d9;">
@@ -402,6 +403,7 @@
           <div style="padding-left:20px;">
             <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Est. PP pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pp-pay">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Est. PB pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-pb-pay">—</span></div>
+            <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);"><span style="font-size:12px;color:#8a95a3;">Est. FSP pay</span><span style="font-size:13px;font-weight:500;color:#475467;font-family:'JetBrains Mono',monospace;" id="home-fsp-pay">—</span></div>
             <div style="display:flex;justify-content:space-between;padding:7px 0;"><span style="font-size:12px;color:#8a95a3;">Est. total payroll</span><span style="font-size:13px;font-weight:500;color:#14202e;font-family:'Fraunces',serif;font-variant-numeric:tabular-nums;" id="home-total-pay">—</span></div>
           </div>
         </div>
@@ -603,6 +605,7 @@
           <option value="PALM PARTNERS">PALM PARTNERS</option>
           <option value="PALM BUILD">PALM BUILD</option>
           <option value="PALM BUILD - US">PALM BUILD - US</option>
+          <option value="FSP">FSP</option>
         </select>
       </div>
     </div>
@@ -1786,7 +1789,7 @@ function filterLoginNames(){
   const exact = Object.keys(USERS).find(n => n.toLowerCase() === q);
   document.getElementById('login-name-select').value = exact || '';
 
-  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[]};
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
   for(const name of Object.keys(USERS)){
     if(!q || name.toLowerCase().includes(q)){
       if(groups[USERS[name].group]) groups[USERS[name].group].push(name);
@@ -2543,10 +2546,11 @@ async function loadPayrollPreview(){
 
 function getPayrollRows(){
   const allNames=Object.keys(USERS);
-  const groups={'PALM PARTNERS / PALM BUILD':[],'PALM BUILD':[],'PALM BUILD - US':[]};
+  const groups={'PALM PARTNERS / PALM BUILD':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
   for(const n of allNames){
     if(USERS[n].group==='PALM PARTNERS')groups['PALM PARTNERS / PALM BUILD'].push(n);
     else if(USERS[n].group==='PALM BUILD - US')groups['PALM BUILD - US'].push(n);
+    else if(USERS[n].group==='FSP')groups['FSP'].push(n);
     else groups['PALM BUILD'].push(n);
   }
   return groups;
@@ -3910,7 +3914,7 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
   document.getElementById('send-payslip-modal-sub').textContent = `Pay Period: ${label}`;
   const container = document.getElementById('send-payslip-recipients');
   container.innerHTML = '';
-  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[]};
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
   for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   for(const [group, names] of Object.entries(groups)) {
     const groupLabel = document.createElement('div');
@@ -4122,7 +4126,7 @@ async function loadAdminDashboard() {
 function renderStaffOverview(activeMap) {
   const el = document.getElementById('staff-overview-grid');
   if(!el) return;
-  const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[]};
+  const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[], 'FSP':[]};
   for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   let html = '<div style="display:flex;flex-direction:column;gap:0;max-height:320px;overflow-y:auto;">';
   for(const [group, names] of Object.entries(groups)) {
@@ -4578,11 +4582,16 @@ async function sendOnboardingToStaff() {
       `🔐 *Your PIN:* \`${pin}\`\n\n` +
       `*How to use it:*\n` +
       `1️⃣ Open the link above\n` +
-      `2️⃣ Select your name from the dropdown\n` +
+      `2️⃣ Start typing your name and tap it from the list\n` +
       `3️⃣ Enter your PIN\n` +
       `4️⃣ Tap *Clock In* when your shift starts\n` +
       `5️⃣ Use *Break Start / Break End* for breaks\n` +
       `6️⃣ Tap *Clock Out* when your shift ends\n\n` +
+      `*📋 Menu (☰ top-right):*\n` +
+      `Tap the *☰* icon in the top-right corner to switch between:\n` +
+      `• *Home* — clock in/out and see your time entries\n` +
+      `• *Leave Requests* — request time off\n` +
+      `• *Time Edits* — fix a wrong clock-in, clock-out, or break\n\n` +
       `*📱 Install on your phone:*\n` +
       `• *iPhone:* Open the link in Safari → tap the Share button → tap *Add to Home Screen*\n` +
       `• *Android:* Open the link in Chrome → tap the 3-dot menu → tap *Add to Home Screen*\n\n` +
@@ -4680,7 +4689,7 @@ async function deleteStaff() {
 
 function updateStaffDropdowns() {
   // Rebuild all staff dropdowns dynamically
-  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[]};
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
   for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   const dropdownIds = ['admin-filter-name','login-filter-name'];
   for(const id of dropdownIds) {
@@ -5089,23 +5098,27 @@ async function loadHomeSummary() {
     const entries = await getEntries({from: ap.date_from, to: ap.date_to});
 
     // Calculate hours per group
-    let ppHours = 0, pbHours = 0;
+    let ppHours = 0, pbHours = 0, fspHours = 0;
     for(const e of entries) {
       const b = calcBillableHours(e);
       if(b.total === null) continue;
-      if(USERS[e.name]?.group === 'PALM PARTNERS') ppHours += b.total;
+      const g = USERS[e.name]?.group;
+      if(g === 'PALM PARTNERS') ppHours += b.total;
+      else if(g === 'FSP') fspHours += b.total;
       else pbHours += b.total;
     }
-    const totalHours = ppHours + pbHours;
+    const totalHours = ppHours + pbHours + fspHours;
 
     // Calculate estimated pay per group
-    let ppPay = 0, pbPay = 0;
+    let ppPay = 0, pbPay = 0, fspPay = 0;
     for(const name of Object.keys(USERS)) {
       const rate = RATES[name]||0;
       const userEntries = entries.filter(e=>e.name===name);
       let h = 0;
       for(const e of userEntries){const b=calcBillableHours(e);if(b.total!==null)h+=b.total;}
-      if(USERS[name]?.group === 'PALM PARTNERS') ppPay += h*rate;
+      const g = USERS[name]?.group;
+      if(g === 'PALM PARTNERS') ppPay += h*rate;
+      else if(g === 'FSP') fspPay += h*rate;
       else pbPay += h*rate;
     }
 
@@ -5121,7 +5134,9 @@ async function loadHomeSummary() {
     document.getElementById('home-period-hours').textContent = Math.round(totalHours);
     document.getElementById('home-pp-pay').textContent = '$'+Math.round(ppPay).toLocaleString();
     document.getElementById('home-pb-pay').textContent = '$'+Math.round(pbPay).toLocaleString();
-    document.getElementById('home-total-pay').textContent = '$'+Math.round(ppPay+pbPay).toLocaleString();
+    const fspH=document.getElementById('home-fsp-hours'); if(fspH) fspH.textContent = fspHours.toFixed(1)+'h';
+    const fspP=document.getElementById('home-fsp-pay'); if(fspP) fspP.textContent = '$'+Math.round(fspPay).toLocaleString();
+    document.getElementById('home-total-pay').textContent = '$'+Math.round(ppPay+pbPay+fspPay).toLocaleString();
 
     const pendingLeaveEl = document.getElementById('home-pending-leave');
     const pendingEditsEl = document.getElementById('home-pending-edits');
@@ -5245,7 +5260,7 @@ async function loadAdminStaff() {
   try {
     const rows = await sbFetch(`${STAFF_TABLE}?order=sort_order.asc`);
     if(!rows || !rows.length){ el.innerHTML = '<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">👥</div>No staff yet. Click + Add Staff.</div>'; return; }
-    const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[]};
+    const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[], 'FSP':[]};
     for(const s of rows){ if(groups[s.staff_group]) groups[s.staff_group].push(s); else (groups[s.staff_group]=[s]); }
     let html = '';
     for(const [group, list] of Object.entries(groups)){
