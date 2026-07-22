@@ -593,6 +593,42 @@
   </div>
 </div>
 
+<!-- TIME EDIT REVIEW MODAL -->
+<div id="timeedit-review-overlay" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-title" id="ter-title">Time Edit Request</div>
+    <div class="modal-sub" id="ter-sub">—</div>
+    <div id="ter-body" style="margin-top:1rem;"></div>
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:10px;">Apply to entry</div>
+      <div class="field" id="ter-time-field">
+        <label id="ter-time-label">Corrected time (ET)</label>
+        <input type="time" id="ter-time-input" />
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="ter-override-cap" style="width:16px;height:16px;accent-color:var(--orange);" />
+        <span style="font-size:13px;">Override daily cap (count hours beyond cap)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="ter-waive-break" style="width:16px;height:16px;accent-color:var(--accent);" />
+        <span style="font-size:13px;">Waive break deduction</span>
+      </label>
+    </div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Admin note (optional)</label>
+      <input type="text" id="ter-note" placeholder="e.g. Confirmed with supervisor" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-delete" onclick="terDelete()" style="display:none;" id="ter-delete-btn">Delete</button>
+      <div class="modal-actions-right">
+        <button class="btn btn-ghost btn-sm" onclick="closeTimeEditReview()">Cancel</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="terDecide('Denied')" id="ter-deny-btn">✗ Deny</button>
+        <button class="btn btn-primary btn-sm" onclick="terDecide('Approved')" id="ter-approve-btn">✓ Approve & Apply</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- STAFF EDIT MODAL -->
 <div id="staff-edit-modal-overlay" class="modal-overlay hidden">
   <div class="modal" style="max-width:560px;">
@@ -1235,7 +1271,7 @@
     <div class="field" style="margin-top:1rem;">
       <label>Request Type</label>
       <select id="time-edit-type" onchange="onTimeEditTypeChange()">
-        <option value="clock_in">Early Clock-In Correction</option>
+        <option value="clock_in">Clock-In Correction</option>
         <option value="clock_out">End Shift Correction</option>
         <option value="break_waiver">Break Waiver (worked through break)</option>
         <option value="break_end">Forgot to End Break</option>
@@ -3092,7 +3128,7 @@ function renderAdminLeave(list) {
     const days = dayCount(r.date_from, r.date_to);
     const dateRange = r.date_from!==r.date_to?`${fmtLeaveDate(r.date_from)} – ${fmtLeaveDate(r.date_to)}`:fmtLeaveDate(r.date_from);
     html += `<div style="background:var(--surface1);border:1px solid var(--border);border-left:3px solid ${c.border};border-radius:10px;padding:12px 16px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="openTimeEditReview(${r.id})">
         <div style="display:flex;align-items:center;gap:12px;">
           <div style="width:36px;height:36px;border-radius:50%;background:${tm.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${tm.color};flex-shrink:0;">${tm.abbr}</div>
           <div>
@@ -3351,7 +3387,7 @@ function onTimeEditTypeChange() {
   const type = document.getElementById('time-edit-type').value;
   const actualField = document.getElementById('time-edit-actual-field');
   const actualLabel = document.getElementById('time-edit-actual-label');
-  if(type === 'clock_in') { actualField.style.display=''; actualLabel.textContent='Actual clock-in time (ET)'; }
+  if(type === 'clock_in') { actualField.style.display=''; actualLabel.textContent='Correct clock-in time (ET)'; }
   else if(type === 'clock_out') { actualField.style.display=''; actualLabel.textContent='Actual clock-out time (ET)'; }
   else if(type === 'break_end') { actualField.style.display=''; actualLabel.textContent='Actual break end time (ET)'; }
   else if(type === 'overtime') { actualField.style.display=''; actualLabel.textContent='Corrected clock-out time (ET) — optional'; }
@@ -3381,7 +3417,7 @@ async function submitTimeEditRequest() {
     // Only block if no time is provided at all
   }
   const typeLabels = {
-    clock_in:'Early Clock-In Correction',
+    clock_in:'Clock-In Correction',
     clock_out:'End Shift Correction',
     break_waiver:'Break Waiver',
     break_end:'Forgot to End Break',
@@ -5008,6 +5044,141 @@ function updateProjectedPay(name, rate, extrasTotal) {
 
 
 // ══════════ APPROVE / DENY TIME EDIT REQUESTS ══════════
+let _terRequest = null;
+
+async function openTimeEditReview(id){
+  showLoading('Loading...');
+  try {
+    const list = await getTimeEditRequests({});
+    const r = (list||[]).find(x => x.id === id);
+    hideLoading();
+    if(!r){ showToast('Request not found','error'); return; }
+    _terRequest = r;
+
+    const type = r.request_type || 'clock_in';
+    const typeLabels = {clock_in:'Clock-In Correction',clock_out:'End Shift Correction',break_waiver:'Break Waiver',break_end:'Forgot to End Break',overtime:'Overtime',other:'Other'};
+    const fmtT = r.actual_time ? (([h,m])=>`${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`)(r.actual_time.split(':').map(Number)) : null;
+
+    document.getElementById('ter-title').textContent = `${typeLabels[type]} — ${r.name}`;
+    document.getElementById('ter-sub').textContent = `${fmtLeaveDate(r.date)}${fmtT?` · requested ${fmtT}`:''}`;
+
+    // Body: what they're requesting
+    let body = '<div style="padding:12px 14px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text2);">';
+    body += `<div><strong style="color:var(--text);">Type:</strong> ${typeLabels[type]}</div>`;
+    body += `<div style="margin-top:5px;"><strong style="color:var(--text);">Date:</strong> ${fmtLeaveDate(r.date)}</div>`;
+    if(fmtT) body += `<div style="margin-top:5px;"><strong style="color:var(--text);">Requested time:</strong> ${fmtT}</div>`;
+    if(r.reason) body += `<div style="margin-top:5px;font-style:italic;">"${r.reason}"</div>`;
+    body += `<div style="margin-top:8px;">Status: ${statusPill(r.status)}</div>`;
+    body += '</div>';
+    document.getElementById('ter-body').innerHTML = body;
+
+    // Time field: only relevant for time-based corrections
+    const timeField = document.getElementById('ter-time-field');
+    const needsTime = ['clock_in','clock_out','break_end','overtime'].includes(type);
+    timeField.style.display = needsTime ? '' : 'none';
+    document.getElementById('ter-time-input').value = r.actual_time || '';
+    const tl = {clock_in:'Correct clock-in time (ET)',clock_out:'Correct clock-out time (ET)',break_end:'Correct break-end time (ET)',overtime:'Corrected clock-out (optional)'};
+    document.getElementById('ter-time-label').textContent = tl[type] || 'Time (ET)';
+
+    // Default toggles: overtime pre-checks override cap
+    document.getElementById('ter-override-cap').checked = (type === 'overtime');
+    document.getElementById('ter-waive-break').checked = (type === 'break_waiver');
+    document.getElementById('ter-note').value = r.admin_note || '';
+
+    // Buttons: hide approve/deny if already decided
+    const decided = r.status && r.status !== 'Pending';
+    document.getElementById('ter-approve-btn').style.display = decided ? 'none' : '';
+    document.getElementById('ter-deny-btn').style.display = decided ? 'none' : '';
+    document.getElementById('ter-delete-btn').style.display = '';
+
+    document.getElementById('timeedit-review-overlay').classList.remove('hidden');
+  } catch(e){ hideLoading(); showToast('Error loading request','error'); console.error(e); }
+}
+
+function closeTimeEditReview(){ document.getElementById('timeedit-review-overlay').classList.add('hidden'); _terRequest=null; }
+document.getElementById('timeedit-review-overlay').addEventListener('click', function(ev){ if(ev.target===this) closeTimeEditReview(); });
+
+async function terDecide(status){
+  if(!_terRequest) return;
+  const r = _terRequest;
+  showLoading(status==='Approved'?'Applying...':'Updating...');
+  try {
+    const note = document.getElementById('ter-note').value.trim() || null;
+    const timeVal = document.getElementById('ter-time-input').value;
+    const overrideCap = document.getElementById('ter-override-cap').checked;
+    const waiveBreak = document.getElementById('ter-waive-break').checked;
+
+    // Update the request status + note
+    await sbFetch(`${TIME_EDIT_TABLE}?id=eq.${r.id}`, 'PATCH', {status, admin_note: note});
+
+    if(status === 'Approved'){
+      // Find the matching entry
+      const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+      const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
+      if(targetEntry){
+        const patch = {};
+        const type = r.request_type || 'clock_in';
+        const newISO = timeVal ? inputESTToISO(`${r.date}T${timeVal}`) : null;
+        if(type === 'clock_in' && newISO) patch.clock_in = newISO;
+        else if(type === 'clock_out' && newISO) patch.clock_out = newISO;
+        else if(type === 'overtime' && newISO) patch.clock_out = newISO;
+        else if(type === 'break_end' && newISO){
+          const breaks = JSON.parse(JSON.stringify(targetEntry.breaks || []));
+          if(breaks.length){
+            let t = breaks.findLast ? breaks.findLast(b=>!b.end) : [...breaks].reverse().find(b=>!b.end);
+            if(!t) t = breaks[breaks.length-1];
+            t.end = newISO;
+            patch.breaks = breaks;
+          }
+        }
+        // Apply the toggles regardless of type
+        patch.override_cap = overrideCap;
+        patch.waive_break = waiveBreak;
+        await updateEntry(targetEntry.id, patch);
+        showToast('✓ Approved & entry updated', 'success');
+      } else {
+        showToast(`✓ Approved (no matching entry found for ${fmtLeaveDate(r.date)})`, 'success');
+      }
+    } else {
+      showToast('Request denied', 'success');
+    }
+
+    // Notify staff via Slack
+    const slackId = SLACK_IDS[r.name];
+    if(slackId){
+      const firstName = r.name.split(' ')[0];
+      const msg = status === 'Approved'
+        ? `✅ *Your time edit request for ${fmtLeaveDate(r.date)} has been approved* and your entry was updated.`
+        : `❌ *Your time edit request for ${fmtLeaveDate(r.date)} was denied.* Contact Charissa with questions.`;
+      try { await sendSlackDM(slackId, msg); } catch(e){}
+    }
+
+    closeTimeEditReview();
+    await loadAdminTimeEditRequests();
+    await loadAdminEntries();
+    // Update badge
+    const pendingRows = await sbFetch(`${TIME_EDIT_TABLE}?status=eq.Pending`);
+    const badge = document.getElementById('timeedit-badge');
+    if(badge){const cnt=pendingRows?.length||0;badge.textContent=cnt;badge.style.display=cnt?'':'none';}
+  } catch(e){ showToast('Error: '+e.message,'error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
+async function terDelete(){
+  if(!_terRequest) return;
+  if(!confirm('Delete this time edit request? This cannot be undone.')) return;
+  showLoading('Deleting...');
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/${TIME_EDIT_TABLE}?id=eq.${_terRequest.id}`, {
+      method:'DELETE', headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=minimal'}
+    });
+    showToast('Request deleted','success');
+    closeTimeEditReview();
+    await loadAdminTimeEditRequests();
+  } catch(e){ showToast('Error deleting','error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
 async function approveTimeEdit(id, status) {
   showLoading(status === 'Approved' ? 'Approving...' : 'Denying...');
   try {
@@ -5033,8 +5204,8 @@ async function approveTimeEdit(id, status) {
           const newTimeISO = inputESTToISO(`${r.date}T${r.actual_time}`);
 
           if(requestType === 'clock_in') {
-            await updateEntry(targetEntry.id, {clock_in: newTimeISO, override_cap: true});
-            showToast(`✓ Approved & clock-in updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET (cap overridden)`, 'success');
+            await updateEntry(targetEntry.id, {clock_in: newTimeISO});
+            showToast(`✓ Approved & clock-in updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
           } else if(requestType === 'clock_out') {
             await updateEntry(targetEntry.id, {clock_out: newTimeISO});
             showToast(`✓ Approved & clock-out updated to ${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`, 'success');
@@ -5120,30 +5291,20 @@ async function loadHomeSummary() {
     // Load all entries for active period
     const entries = await getEntries({from: ap.date_from, to: ap.date_to});
 
-    // Calculate hours per group
+    // Single pass: accumulate hours AND pay per group at once
     let ppHours = 0, pbHours = 0, fspHours = 0;
+    let ppPay = 0, pbPay = 0, fspPay = 0;
     for(const e of entries) {
       const b = calcBillableHours(e);
       if(b.total === null) continue;
       const g = USERS[e.name]?.group;
-      if(g === 'PALM PARTNERS') ppHours += b.total;
-      else if(g === 'FSP') fspHours += b.total;
-      else pbHours += b.total;
+      const rate = RATES[e.name] || 0;
+      const pay = b.total * rate;
+      if(g === 'PALM PARTNERS') { ppHours += b.total; ppPay += pay; }
+      else if(g === 'FSP') { fspHours += b.total; fspPay += pay; }
+      else { pbHours += b.total; pbPay += pay; }
     }
     const totalHours = ppHours + pbHours + fspHours;
-
-    // Calculate estimated pay per group
-    let ppPay = 0, pbPay = 0, fspPay = 0;
-    for(const name of Object.keys(USERS)) {
-      const rate = RATES[name]||0;
-      const userEntries = entries.filter(e=>e.name===name);
-      let h = 0;
-      for(const e of userEntries){const b=calcBillableHours(e);if(b.total!==null)h+=b.total;}
-      const g = USERS[name]?.group;
-      if(g === 'PALM PARTNERS') ppPay += h*rate;
-      else if(g === 'FSP') fspPay += h*rate;
-      else pbPay += h*rate;
-    }
 
     // Pending requests
     const leaveRows = await sbFetch(`${LEAVE_TABLE}?status=eq.Pending`);
