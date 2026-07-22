@@ -479,6 +479,13 @@
           <div class="dg"><label>Pay Period From</label><input type="date" id="payroll-date-from" onchange="loadPayrollPreview()" /></div>
           <div class="dg"><label>Pay Period To</label><input type="date" id="payroll-date-to" onchange="loadPayrollPreview()" /></div>
           <div class="dg"><label>Check Date</label><input type="date" id="payroll-check-date" onchange="loadPayrollPreview()" /></div>
+          <div class="dg"><label>Pay Type</label>
+            <select id="payroll-pay-type" onchange="loadPayrollPreview()">
+              <option value="biweekly">Bi-weekly only</option>
+              <option value="monthly">Monthly only</option>
+              <option value="all">All staff</option>
+            </select>
+          </div>
           <div class="preset-btns" style="align-items:flex-end;">
             <button class="btn btn-ghost btn-sm" onclick="setPayrollPreset('biweek')">Last 2 Weeks</button>
             <button class="btn btn-ghost btn-sm" onclick="setPayrollPreset('month')">This Month</button>
@@ -662,6 +669,12 @@
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
         <input type="checkbox" id="staff-edit-monthly" style="width:16px;height:16px;accent-color:var(--accent);" />
         <span>Monthly payment (full flat rate, not prorated)</span>
+      </label>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="staff-edit-paid-monthly" style="width:16px;height:16px;accent-color:var(--accent);" />
+        <span>Paid monthly (exclude from bi-weekly payroll export)</span>
       </label>
     </div>
     <div class="modal-section">Schedule &amp; Hours</div>
@@ -1657,7 +1670,7 @@ async function loadStaffFromDB() {
 
     // Reset all objects
     const _users={}, _rates={}, _pm={}, _flat={}, _sched={}, _dmax={}, _bdur={}, _emails={}, _slack={}, _pins={};
-    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={};
+    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={}, _paidmonthly=new Set();
 
     for (const s of rows) {
       _users[s.name] = { h: s.pin_hash, group: s.staff_group };
@@ -1676,6 +1689,7 @@ async function loadStaffFromDB() {
       if (s.pin) _pins[s.name] = s.pin;
       if (s.notes) _notes[s.name] = s.notes;
       if (s.bg_color) _bgcolors[s.name] = s.bg_color;
+      if (s.paid_monthly) _paidmonthly.add(s.name);
     }
 
     USERS = _users;
@@ -1692,6 +1706,7 @@ async function loadStaffFromDB() {
     NO_BREAK_DEDUCTION = _nobreak;
     STAFF_NOTES = _notes;
     STAFF_BG_COLORS = _bgcolors;
+    PAID_MONTHLY = _paidmonthly;
 
     STAFF_DB_LOADED = true;
     console.log(`✅ Loaded ${rows.length} staff from DB`);
@@ -2581,7 +2596,15 @@ async function loadPayrollPreview(){
 }
 
 function getPayrollRows(){
-  const allNames=Object.keys(USERS);
+  // Pay type filter: biweekly (exclude monthly), monthly only, or all
+  const payType = (document.getElementById('payroll-pay-type')||{}).value || 'biweekly';
+  const includeName = (n) => {
+    const isMonthly = PAID_MONTHLY.has(n);
+    if(payType === 'monthly') return isMonthly;
+    if(payType === 'biweekly') return !isMonthly;
+    return true; // all
+  };
+  const allNames=Object.keys(USERS).filter(includeName);
   const groups={'PALM PARTNERS / PALM BUILD':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
   for(const n of allNames){
     if(USERS[n].group==='PALM PARTNERS')groups['PALM PARTNERS / PALM BUILD'].push(n);
@@ -4592,6 +4615,7 @@ async function loadUserPeriodBanner() {
 // ── Send onboarding instructions to a specific staff member ──
 let STAFF_NOTES = {};
 let STAFF_BG_COLORS = {};
+let PAID_MONTHLY = new Set();
 let STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
   'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
@@ -5478,7 +5502,7 @@ async function openStaffEditModal(id) {
   g('staff-edit-email').value=''; g('staff-edit-slack').value='';
   g('staff-edit-pin').value=''; g('staff-edit-payment').value='';
   g('staff-edit-rate').value=''; g('staff-edit-flatrate').value='';
-  g('staff-edit-monthly').checked=false; g('staff-edit-start').value='';
+  g('staff-edit-monthly').checked=false; g('staff-edit-paid-monthly').checked=false; g('staff-edit-start').value='';
   g('staff-edit-dailymax').value=''; g('staff-edit-break').value='';
   g('staff-edit-nobreak').checked=false;
   g('staff-edit-notes').value='';
@@ -5502,6 +5526,7 @@ async function openStaffEditModal(id) {
         g('staff-edit-rate').value = s.rate!=null?s.rate:'';
         g('staff-edit-flatrate').value = s.flat_rate!=null?s.flat_rate:'';
         g('staff-edit-monthly').checked = !!s.monthly_flat;
+        g('staff-edit-paid-monthly').checked = !!s.paid_monthly;
         g('staff-edit-start').value = s.scheduled_start!=null?s.scheduled_start:'';
         g('staff-edit-dailymax').value = s.daily_max!=null?s.daily_max:'';
         g('staff-edit-break').value = s.break_duration!=null?s.break_duration:'';
@@ -5542,6 +5567,7 @@ async function saveStaffMember() {
       rate: numOrNull(g('staff-edit-rate').value) ?? 0,
       flat_rate: numOrNull(g('staff-edit-flatrate').value),
       monthly_flat: g('staff-edit-monthly').checked,
+      paid_monthly: g('staff-edit-paid-monthly').checked,
       scheduled_start: intOrNull(g('staff-edit-start').value),
       daily_max: numOrNull(g('staff-edit-dailymax').value),
       daily_max_flag: false,
