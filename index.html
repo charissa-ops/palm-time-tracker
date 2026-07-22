@@ -305,6 +305,7 @@
         <div class="adm-nav" id="tab-btn-entries" onclick="switchTab('entries')"><i class="ti ti-clock" aria-hidden="true"></i>All Entries</div>
         <div class="adm-nav" id="tab-btn-summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar" aria-hidden="true"></i>Hours Summary</div>
         <div class="adm-nav" id="tab-btn-payroll" onclick="switchTab('payroll')"><i class="ti ti-receipt" aria-hidden="true"></i>Payroll Export</div>
+        <div class="adm-nav" id="tab-btn-payslips" onclick="switchTab('payslips')"><i class="ti ti-send" aria-hidden="true"></i>Send Payslips</div>
         <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Requests</div>
         <div class="adm-nav" id="tab-btn-leave" onclick="switchTab('leave')"><i class="ti ti-beach" aria-hidden="true"></i>Leave Requests<span class="sb-badge" id="leave-badge" style="display:none;"></span></div>
         <div class="adm-nav" id="tab-btn-timeedit" onclick="switchTab('timeedit')"><i class="ti ti-clock-edit" aria-hidden="true"></i>Time Edit<span class="sb-badge" id="timeedit-badge" style="display:none;"></span></div>
@@ -500,6 +501,33 @@
     </div>
 
     <!-- LEAVE REQUESTS TAB -->
+    <!-- SEND PAYSLIPS TAB -->
+    <div id="tab-payslips" class="tab-pane">
+      <div class="card">
+        <div class="card-title">Send Payslips</div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Choose a pay period, then select who should receive their payslip via Slack DM.</p>
+        <div class="field" style="max-width:360px;">
+          <label>Pay Period</label>
+          <select id="payslip-period-select" onchange="onPayslipPeriodChange()">
+            <option value="">Select a pay period…</option>
+          </select>
+        </div>
+        <div id="payslip-picker-area" style="display:none;margin-top:1rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+            <span style="font-size:12px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;">Recipients</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" onclick="psSelectAll(true)">Select All</button>
+              <button class="btn btn-ghost btn-sm" onclick="psSelectAll(false)">Deselect All</button>
+              <button class="btn btn-ghost btn-sm" onclick="psSelectMonthly(true)">Monthly Only</button>
+              <button class="btn btn-ghost btn-sm" onclick="psSelectMonthly(false)">Bi-weekly Only</button>
+            </div>
+          </div>
+          <div id="payslip-tab-recipients" style="display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto;margin-bottom:1rem;"></div>
+          <button class="btn btn-primary" onclick="sendPayslipsFromTab()">📤 Send Payslips</button>
+        </div>
+      </div>
+    </div>
+
     <div id="tab-leave" class="tab-pane">
       <div class="card">
         <div class="card-title-row">
@@ -548,7 +576,7 @@
           <div class="card-title" style="margin-bottom:0">Pay Periods</div>
           <button class="btn btn-primary btn-sm" onclick="openPayPeriodModal()">+ Add Pay Period</button>
         </div>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Finalized pay periods — click Send Payslips to DM each staff member their payslip via Slack.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Manage your pay periods here. To send payslips, use the Send Payslips tab.</p>
         <div id="admin-payperiods-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div></div>
       </div>
     </div>
@@ -947,6 +975,7 @@
         <div class="adm-nav" id="tab-btn-entries" onclick="switchTab('entries')"><i class="ti ti-clock" aria-hidden="true"></i>All Entries</div>
         <div class="adm-nav" id="tab-btn-summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar" aria-hidden="true"></i>Hours Summary</div>
         <div class="adm-nav" id="tab-btn-payroll" onclick="switchTab('payroll')"><i class="ti ti-receipt" aria-hidden="true"></i>Payroll Export</div>
+        <div class="adm-nav" id="tab-btn-payslips" onclick="switchTab('payslips')"><i class="ti ti-send" aria-hidden="true"></i>Send Payslips</div>
         <div style="font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:14px 8px 6px;">Requests</div>
         <div class="adm-nav" id="tab-btn-leave" onclick="switchTab('leave')"><i class="ti ti-beach" aria-hidden="true"></i>Leave Requests<span class="sb-badge" id="leave-badge" style="display:none;"></span></div>
         <div class="adm-nav" id="tab-btn-timeedit" onclick="switchTab('timeedit')"><i class="ti ti-clock-edit" aria-hidden="true"></i>Time Edit<span class="sb-badge" id="timeedit-badge" style="display:none;"></span></div>
@@ -1177,7 +1206,7 @@
           <div class="card-title" style="margin-bottom:0">Pay Periods</div>
           <button class="btn btn-primary btn-sm" onclick="openPayPeriodModal()">+ Add Pay Period</button>
         </div>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Finalized pay periods — click Send Payslips to DM each staff member their payslip via Slack.</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;">Manage your pay periods here. To send payslips, use the Send Payslips tab.</p>
         <div id="admin-payperiods-list"><div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div></div>
       </div>
     </div>
@@ -1484,6 +1513,8 @@
         <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost btn-sm" onclick="selectAllPayslip()">Select All</button>
           <button class="btn btn-ghost btn-sm" onclick="deselectAllPayslip()">Deselect All</button>
+          <button class="btn btn-ghost btn-sm" onclick="selectMonthlyPayslip(true)">Monthly Only</button>
+          <button class="btn btn-ghost btn-sm" onclick="selectMonthlyPayslip(false)">Bi-weekly Only</button>
         </div>
       </div>
       <div id="send-payslip-recipients" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;"></div>
@@ -2308,6 +2339,7 @@ async function switchTab(tab){
   if(tab==='timeedit')loadAdminTimeEditRequests();
   if(tab==='holidays')loadAdminHolidays();
   if(tab==='payperiods')loadAdminPayPeriods();
+  if(tab==='payslips')loadPayslipTab();
   if(tab==='logins')loadLoginActivity();
   if(tab==='staff')loadAdminStaff();
 }
@@ -3695,7 +3727,7 @@ function renderAdminPayPeriods(list) {
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
         ${p.status==='Draft'||p.status==='Active'?`<button class="admin-edit-btn" style="color:var(--green);border-color:#205a30;" onclick="finalizePayPeriod(${p.id})">Finalize</button>`:''}
         ${p.status!=='Active'?`<button class="admin-edit-btn" style="color:var(--accent);border-color:#4a6020;" onclick="setActivePeriod(${p.id})">Set Active</button>`:''}
-        ${p.status==='Active'||p.status==='Finalized'?`<button class="admin-edit-btn" style="color:var(--accent);border-color:#4a6020;" onclick="sendPayslips(${p.id},'${p.label.replace(/'/g,'\'')}','${p.date_from}','${p.date_to}','${p.check_date||''}')">📤 Send Payslips</button>`:''}
+        
         <button class="admin-edit-btn" style="color:var(--red);border-color:#5a2020;" onclick="deletePayPeriodItem(${p.id})">Delete</button>
       </td>
     </tr>`;
@@ -3967,6 +3999,71 @@ function buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePa
 
 let _payslipParams = null;
 
+let _payslipTabPeriods = [];
+
+async function loadPayslipTab() {
+  const sel = document.getElementById('payslip-period-select');
+  if(!sel) return;
+  try {
+    const list = await getPayPeriods();
+    _payslipTabPeriods = list || [];
+    sel.innerHTML = '<option value="">Select a pay period…</option>';
+    for(const p of _payslipTabPeriods) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.label}${p.status?' · '+p.status:''}`;
+      sel.appendChild(opt);
+    }
+  } catch(e){ console.error(e); showToast('Error loading pay periods','error'); }
+  // Reset picker
+  document.getElementById('payslip-picker-area').style.display = 'none';
+}
+
+function onPayslipPeriodChange() {
+  const sel = document.getElementById('payslip-period-select');
+  const area = document.getElementById('payslip-picker-area');
+  if(!sel.value){ area.style.display='none'; return; }
+  // Render recipient checkboxes grouped by team
+  const container = document.getElementById('payslip-tab-recipients');
+  container.innerHTML = '';
+  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
+  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
+  for(const [group, names] of Object.entries(groups)) {
+    if(!names.length) continue;
+    const gl = document.createElement('div');
+    gl.style.cssText = 'font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:8px;margin-bottom:4px;';
+    gl.textContent = group;
+    container.appendChild(gl);
+    for(const name of names) {
+      const row = document.createElement('label');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;cursor:pointer;';
+      row.innerHTML = `<input type="checkbox" checked value="${name}" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;" /><span style="font-size:13px;color:var(--text);">${name}</span>${PAID_MONTHLY.has(name)?'<span style="font-size:10px;font-weight:600;background:var(--accent-soft);color:var(--accent);padding:2px 7px;border-radius:10px;margin-left:auto;">MONTHLY</span>':''}`;
+      container.appendChild(row);
+    }
+  }
+  area.style.display = 'block';
+}
+
+function psSelectAll(on) {
+  document.querySelectorAll('#payslip-tab-recipients input[type="checkbox"]').forEach(cb=>cb.checked=on);
+}
+function psSelectMonthly(monthlyOnly) {
+  document.querySelectorAll('#payslip-tab-recipients input[type="checkbox"]').forEach(cb=>{
+    const isMonthly = PAID_MONTHLY.has(cb.value);
+    cb.checked = monthlyOnly ? isMonthly : !isMonthly;
+  });
+}
+
+async function sendPayslipsFromTab() {
+  const sel = document.getElementById('payslip-period-select');
+  const period = _payslipTabPeriods.find(p => String(p.id) === sel.value);
+  if(!period){ showToast('Please select a pay period','error'); return; }
+  const selected = [...document.querySelectorAll('#payslip-tab-recipients input[type="checkbox"]:checked')].map(cb=>cb.value);
+  if(!selected.length){ showToast('Please select at least one staff member','error'); return; }
+  // Reuse the core send routine
+  await doSendPayslips(selected, period.label, period.date_from, period.date_to, period.check_date||'');
+}
+
 async function sendPayslips(periodId, label, from, to, checkDate) {
   _payslipParams = {periodId, label, from, to, checkDate};
   // Open recipient selector
@@ -3983,7 +4080,7 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
     for(const name of names) {
       const row = document.createElement('label');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;cursor:pointer;';
-      row.innerHTML = `<input type="checkbox" checked value="${name}" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;" /><span style="font-size:13px;color:var(--text);">${name}</span>`;
+      row.innerHTML = `<input type="checkbox" checked value="${name}" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;" /><span style="font-size:13px;color:var(--text);">${name}</span>${PAID_MONTHLY.has(name)?'<span style="font-size:10px;font-weight:600;background:var(--accent-soft);color:var(--accent);padding:2px 7px;border-radius:10px;margin-left:auto;">MONTHLY</span>':''}`;
       container.appendChild(row);
     }
   }
@@ -3995,6 +4092,12 @@ function selectAllPayslip() {
 }
 function deselectAllPayslip() {
   document.querySelectorAll('#send-payslip-recipients input[type="checkbox"]').forEach(cb=>cb.checked=false);
+}
+function selectMonthlyPayslip(monthlyOnly) {
+  document.querySelectorAll('#send-payslip-recipients input[type="checkbox"]').forEach(cb=>{
+    const isMonthly = PAID_MONTHLY.has(cb.value);
+    cb.checked = monthlyOnly ? isMonthly : !isMonthly;
+  });
 }
 function closeSendPayslipModal() {
   document.getElementById('send-payslip-modal-overlay').classList.add('hidden');
@@ -4008,6 +4111,10 @@ async function confirmSendPayslips() {
   if(!selected.length){showToast('Please select at least one staff member','error');return;}
   const {label, from, to, checkDate} = _payslipParams; // read BEFORE closing modal
   closeSendPayslipModal();
+  await doSendPayslips(selected, label, from, to, checkDate);
+}
+
+async function doSendPayslips(selected, label, from, to, checkDate) {
   showLoading('Sending payslips...');
   const results = [];
   try {
@@ -4604,6 +4711,27 @@ async function loadUserPeriodBanner() {
     const banner = document.getElementById('user-period-banner');
     if(!ap || !banner) return;
     banner.style.display = '';
+
+    // Monthly staff: show the combined 2-period window (their monthly cycle)
+    if(PAID_MONTHLY.has(currentUser)) {
+      const all = await getPayPeriods();
+      // Sort periods by start date ascending
+      const sorted = (all||[]).slice().sort((a,b)=> (a.date_from||'').localeCompare(b.date_from||''));
+      const idx = sorted.findIndex(p => p.id === ap.id);
+      // Pair the active period with the previous one to form the monthly window.
+      // If the active period is the 2nd of a pair, window = [prev, active]; else [active, next].
+      let start = ap, end = ap;
+      if(idx > 0 && idx % 2 === 1) { start = sorted[idx-1]; end = sorted[idx]; }
+      else if(idx >= 0 && idx+1 < sorted.length) { start = sorted[idx]; end = sorted[idx+1]; }
+      else if(idx > 0) { start = sorted[idx-1]; end = sorted[idx]; }
+      document.getElementById('user-period-label').textContent = 'Monthly Pay Cycle';
+      document.getElementById('user-period-dates').textContent =
+        `${fmtLeaveDate(start.date_from)} – ${fmtLeaveDate(end.date_to)}` +
+        (end.check_date ? ` · Check: ${fmtLeaveDate(end.check_date)}` : '');
+      return;
+    }
+
+    // Bi-weekly staff: show the active period as usual
     document.getElementById('user-period-label').textContent = ap.label;
     document.getElementById('user-period-dates').textContent = 
       `${fmtLeaveDate(ap.date_from)} – ${fmtLeaveDate(ap.date_to)}` +
