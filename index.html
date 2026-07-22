@@ -2316,7 +2316,7 @@ function updateStaleBanner(){
 }
 
 async function switchTab(tab){
-  ['home','entries','summary','payroll','leave','timeedit','holidays','payperiods','logins','staff'].forEach(t=>{
+  ['home','entries','summary','payroll','payslips','leave','timeedit','holidays','payperiods','logins','staff'].forEach(t=>{
     const btn = document.getElementById('tab-btn-'+t);
     const pane = document.getElementById('tab-'+t);
     if(btn) btn.classList.toggle('active', tab===t);
