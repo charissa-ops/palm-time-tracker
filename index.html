@@ -748,12 +748,21 @@
       <label>Check Date</label>
       <input type="date" id="payperiod-check-date" />
     </div>
-    <div class="field">
-      <label>Status</label>
-      <select id="payperiod-status">
-        <option value="Draft">Draft (hidden from staff)</option>
-        <option value="Finalized">Finalized (visible to staff)</option>
-      </select>
+    <div class="modal-row">
+      <div class="field">
+        <label>Type</label>
+        <select id="payperiod-type">
+          <option value="biweekly">Bi-weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="payperiod-status">
+          <option value="Draft">Draft (hidden from staff)</option>
+          <option value="Finalized">Finalized (visible to staff)</option>
+        </select>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost btn-sm" onclick="closePayPeriodModal()">Cancel</button>
@@ -1946,10 +1955,22 @@ function logout(){document.body.style.background='';document.body.style.backgrou
 // ══════════ ACTIVE PAY PERIOD ══════════
 let _activePeriod = null;
 
-async function getActivePeriod() {
+let _activePeriodByType = {};
+async function getActivePeriod(type) {
+  // If a type is requested, fetch the active period of that type
+  if(type){
+    if(_activePeriodByType[type]) return _activePeriodByType[type];
+    try {
+      const list = await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active&period_type=eq.${type}&limit=1`);
+      _activePeriodByType[type] = list && list[0] ? list[0] : null;
+    } catch(e){ _activePeriodByType[type] = null; }
+    return _activePeriodByType[type];
+  }
+  // Default (no type): the bi-weekly active period, falling back to any active
   if(_activePeriod) return _activePeriod;
   try {
-    const list = await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active&limit=1`);
+    let list = await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active&period_type=eq.biweekly&limit=1`);
+    if(!list || !list[0]) list = await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active&limit=1`);
     _activePeriod = list && list[0] ? list[0] : null;
   } catch(e){ _activePeriod = null; }
   return _activePeriod;
@@ -3577,7 +3598,7 @@ function renderAdminTimeEditRequests(list) {
     const tm = TM[r.request_type||'clock_in']||TM.other;
     const fmtActual = r.actual_time ? (([h,m])=>`${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'} ET`)(r.actual_time.split(':').map(Number)) : null;
     html += `<div style="background:var(--surface1);border:1px solid var(--border);border-left:3px solid ${c.border};border-radius:10px;padding:12px 16px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="openTimeEditReview(${r.id})">
         <div style="display:flex;align-items:center;gap:12px;">
           <div style="width:36px;height:36px;border-radius:50%;background:${tm.bg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${tm.color};flex-shrink:0;">${tm.abbr}</div>
           <div>
@@ -3590,8 +3611,8 @@ function renderAdminTimeEditRequests(list) {
         <span style="font-size:11px;font-weight:600;background:${c.bg};color:${c.color};padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0;">${st}</span>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);justify-content:space-between;">
-        <div style="display:flex;gap:8px;" id="timeedit-actions-${r.id}">
-          ${st==='Pending'?`<button class="btn btn-ghost btn-sm" onclick="approveTimeEdit(${r.id},'Approved')">✓ Approve</button><button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="approveTimeEdit(${r.id},'Denied')">✗ Deny</button>`:''}
+        <div style="display:flex;gap:8px;">
+          ${st==='Pending'?`<button class="btn btn-primary btn-sm" onclick="openTimeEditReview(${r.id})">Review &amp; Apply →</button>`:''}
         </div>
         <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteTimeEditRequest(${r.id})">🗑 Delete</button>
       </div>
@@ -3681,6 +3702,7 @@ function openPayPeriodModal() {
   document.getElementById('payperiod-to').value = '';
   document.getElementById('payperiod-check-date').value = '';
   document.getElementById('payperiod-status').value = 'Draft';
+  document.getElementById('payperiod-type').value = 'biweekly';
   document.getElementById('payperiod-modal-overlay').classList.remove('hidden');
 }
 function closePayPeriodModal() { document.getElementById('payperiod-modal-overlay').classList.add('hidden'); }
@@ -3692,11 +3714,12 @@ async function savePayPeriod() {
   const to = document.getElementById('payperiod-to').value;
   const checkDate = document.getElementById('payperiod-check-date').value;
   const status = document.getElementById('payperiod-status').value;
+  const periodType = document.getElementById('payperiod-type').value;
   if(!label){showToast('Please enter a label','error');return;}
   if(!from||!to){showToast('Please select dates','error');return;}
   showLoading('Saving...');
   try {
-    await insertPayPeriod({id:Date.now(),label,date_from:from,date_to:to,check_date:checkDate||null,status});
+    await insertPayPeriod({id:Date.now(),label,date_from:from,date_to:to,check_date:checkDate||null,status,period_type:periodType});
     showToast('Pay period saved ✓','success');
     closePayPeriodModal();
     await loadAdminPayPeriods();
@@ -3716,18 +3739,21 @@ async function loadAdminPayPeriods() {
 function renderAdminPayPeriods(list) {
   const el = document.getElementById('admin-payperiods-list');
   if(!list||!list.length){el.innerHTML='<div class="empty-state" style="padding:1.5rem"><div class="empty-icon">📆</div>No pay periods added yet.</div>';return;}
-  let html='<table><thead><tr><th>Label</th><th>Period</th><th>Check Date</th><th>Status</th><th></th></tr></thead><tbody>';
+  let html='<table><thead><tr><th>Label</th><th>Type</th><th>Period</th><th>Check Date</th><th>Status</th><th></th></tr></thead><tbody>';
   for(const p of list){
     const statusColor = p.status==='Active'?'var(--accent)':p.status==='Finalized'?'var(--green)':'var(--orange)';
+    const pType = p.period_type === 'monthly' ? 'Monthly' : 'Bi-weekly';
+    const typeBg = p.period_type === 'monthly' ? 'var(--accent-soft)' : 'var(--surface3)';
+    const typeColor = p.period_type === 'monthly' ? 'var(--accent)' : 'var(--text2)';
     html+=`<tr>
       <td style="color:var(--text);font-family:'Inter',sans-serif;font-weight:500;">${p.label}</td>
+      <td><span style="font-size:11px;font-weight:600;background:${typeBg};color:${typeColor};padding:2px 9px;border-radius:20px;">${pType}</span></td>
       <td>${fmtLeaveDate(p.date_from)} – ${fmtLeaveDate(p.date_to)}</td>
       <td>${p.check_date?fmtLeaveDate(p.check_date):'—'}</td>
-      <td><span style="color:${statusColor};font-size:12px;font-weight:600;">${p.status}</span></td>
+      <td><span style="color:${statusColor};font-size:12px;font-weight:600;">${p.status}${p.status==='Active'?` (${pType})`:''}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
         ${p.status==='Draft'||p.status==='Active'?`<button class="admin-edit-btn" style="color:var(--green);border-color:#205a30;" onclick="finalizePayPeriod(${p.id})">Finalize</button>`:''}
         ${p.status!=='Active'?`<button class="admin-edit-btn" style="color:var(--accent);border-color:#4a6020;" onclick="setActivePeriod(${p.id})">Set Active</button>`:''}
-        
         <button class="admin-edit-btn" style="color:var(--red);border-color:#5a2020;" onclick="deletePayPeriodItem(${p.id})">Delete</button>
       </td>
     </tr>`;
@@ -4683,21 +4709,30 @@ async function downloadStaffEntriesExcel() {
 
 
 async function setActivePeriod(id) {
-  if(!confirm('Set this as the Active pay period? The current Active period will be changed to Finalized.')) return;
   showLoading('Updating...');
   try {
-    // Set current Active to Finalized
-    await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active`, 'PATCH', {status:'Finalized'});
+    // Look up this period's type
+    const rows = await sbFetch(`${PAY_PERIODS_TABLE}?id=eq.${id}`);
+    const thisType = (rows && rows[0] && rows[0].period_type) || 'biweekly';
+    const typeLabel = thisType === 'monthly' ? 'Monthly' : 'Bi-weekly';
+    hideLoading();
+    if(!confirm(`Set this as the Active ${typeLabel} pay period? The current active ${typeLabel} period will become Finalized.`)) return;
+    showLoading('Updating...');
+    // Deactivate the current Active period OF THE SAME TYPE only
+    const activeSame = await sbFetch(`${PAY_PERIODS_TABLE}?status=eq.Active&period_type=eq.${thisType}`);
+    if(activeSame && activeSame.length){
+      for(const p of activeSame){ await updatePayPeriod(p.id, {status:'Finalized'}); }
+    }
     // Set this one to Active
     await updatePayPeriod(id, {status:'Active'});
-    // Reset cached active period and refresh banners
     _activePeriod = null;
+    _activePeriodByType = {};
     // Clear all staff extras (they reset per pay period)
     await fetch(`${SUPABASE_URL}/rest/v1/${EXTRAS_TABLE}`,{
       method:'DELETE',
       headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'return=minimal'}
     });
-    showToast('Active pay period updated — extras cleared ✓','success');
+    showToast(`Active ${typeLabel} pay period updated — extras cleared ✓`,'success');
     await loadAdminPayPeriods();
     await loadAdminDashboard();
   } catch(e){showToast('Error','error');console.error(e);}
@@ -4707,31 +4742,29 @@ async function setActivePeriod(id) {
 
 async function loadUserPeriodBanner() {
   try {
-    const ap = await getActivePeriod();
     const banner = document.getElementById('user-period-banner');
-    if(!ap || !banner) return;
-    banner.style.display = '';
+    if(!banner) return;
 
-    // Monthly staff: show the combined 2-period window (their monthly cycle)
+    // Monthly staff: use the active MONTHLY pay period (set by admin)
     if(PAID_MONTHLY.has(currentUser)) {
-      const all = await getPayPeriods();
-      // Sort periods by start date ascending
-      const sorted = (all||[]).slice().sort((a,b)=> (a.date_from||'').localeCompare(b.date_from||''));
-      const idx = sorted.findIndex(p => p.id === ap.id);
-      // Pair the active period with the previous one to form the monthly window.
-      // If the active period is the 2nd of a pair, window = [prev, active]; else [active, next].
-      let start = ap, end = ap;
-      if(idx > 0 && idx % 2 === 1) { start = sorted[idx-1]; end = sorted[idx]; }
-      else if(idx >= 0 && idx+1 < sorted.length) { start = sorted[idx]; end = sorted[idx+1]; }
-      else if(idx > 0) { start = sorted[idx-1]; end = sorted[idx]; }
-      document.getElementById('user-period-label').textContent = 'Monthly Pay Cycle';
+      const mp = await getActivePeriod('monthly');
+      if(!mp){
+        // No monthly period set yet — hide banner rather than show a wrong one
+        banner.style.display = 'none';
+        return;
+      }
+      banner.style.display = '';
+      document.getElementById('user-period-label').textContent = mp.label || 'Monthly Pay Cycle';
       document.getElementById('user-period-dates').textContent =
-        `${fmtLeaveDate(start.date_from)} – ${fmtLeaveDate(end.date_to)}` +
-        (end.check_date ? ` · Check: ${fmtLeaveDate(end.check_date)}` : '');
+        `${fmtLeaveDate(mp.date_from)} – ${fmtLeaveDate(mp.date_to)}` +
+        (mp.check_date ? ` · Check: ${fmtLeaveDate(mp.check_date)}` : '');
       return;
     }
 
-    // Bi-weekly staff: show the active period as usual
+    // Bi-weekly staff: active bi-weekly period
+    const ap = await getActivePeriod('biweekly') || await getActivePeriod();
+    if(!ap){ banner.style.display = 'none'; return; }
+    banner.style.display = '';
     document.getElementById('user-period-label').textContent = ap.label;
     document.getElementById('user-period-dates').textContent = 
       `${fmtLeaveDate(ap.date_from)} – ${fmtLeaveDate(ap.date_to)}` +
