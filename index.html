@@ -540,6 +540,7 @@
         <div class="card-title-row">
           <div class="card-title" style="margin-bottom:0">Leave Requests</div>
           <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-primary btn-sm" onclick="openAddPtoModal()">+ Add PTO</button>
             <select id="admin-leave-filter" onchange="loadAdminLeave()" style="padding:6px 10px;font-size:12px;width:auto;">
               <option value="">All Status</option>
               <option value="Pending">Pending</option>
@@ -676,6 +677,40 @@
   </div>
 </div>
 
+<!-- ADD PTO MODAL -->
+<div id="add-pto-overlay" class="modal-overlay hidden">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-title">Add PTO</div>
+    <div class="modal-sub">Add paid time off for a staff member. It will be approved automatically and count toward their pay.</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Staff Member</label>
+      <input type="text" id="add-pto-search" placeholder="Start typing a name…" autocomplete="off" oninput="filterPtoNames()" />
+      <input type="hidden" id="add-pto-name" />
+      <div id="add-pto-dropdown" style="display:none;position:relative;"></div>
+    </div>
+    <div class="modal-row">
+      <div class="field"><label>From</label><input type="date" id="add-pto-from" /></div>
+      <div class="field"><label>To</label><input type="date" id="add-pto-to" /></div>
+    </div>
+    <div class="field">
+      <label>Hours per day</label>
+      <input type="number" id="add-pto-hours" value="8" min="0" max="24" step="0.5" />
+      <div style="font-size:11px;color:var(--text3);margin-top:4px;">Paid hours added for each weekday in the range (default 8).</div>
+    </div>
+    <div class="field">
+      <label>Note (optional)</label>
+      <input type="text" id="add-pto-note" placeholder="e.g. Approved vacation" />
+    </div>
+    <div class="modal-actions">
+      <div class="modal-actions-right">
+        <button class="btn btn-ghost btn-sm" onclick="closeAddPtoModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveAddPto()">Add PTO</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PTO MODAL END -->
 <!-- STAFF EDIT MODAL -->
 <div id="staff-edit-modal-overlay" class="modal-overlay hidden">
   <div class="modal" style="max-width:560px;">
@@ -2128,7 +2163,7 @@ async function loadUserDashboard(){
             const end = new Date(l.date_to+'T12:00:00');
             while(d<=end) {
               const ds = d.toISOString().slice(0,10);
-              if(ds>=apFrom && ds<=apTo && !loggedDates.has(ds)) ptoBonusHours += 8;
+              if(ds>=apFrom && ds<=apTo && !loggedDates.has(ds)) ptoBonusHours += (l.hours_per_day || 8);
               d.setDate(d.getDate()+1);
             }
           }
@@ -3193,6 +3228,69 @@ function renderUserLeave(list) {
 }
 
 // ── Admin: load leave requests ──
+function openAddPtoModal() {
+  document.getElementById('add-pto-search').value = '';
+  document.getElementById('add-pto-name').value = '';
+  document.getElementById('add-pto-from').value = '';
+  document.getElementById('add-pto-to').value = '';
+  document.getElementById('add-pto-hours').value = '8';
+  document.getElementById('add-pto-note').value = '';
+  document.getElementById('add-pto-dropdown').style.display = 'none';
+  document.getElementById('add-pto-overlay').classList.remove('hidden');
+}
+function closeAddPtoModal() { document.getElementById('add-pto-overlay').classList.add('hidden'); }
+
+function filterPtoNames() {
+  const q = document.getElementById('add-pto-search').value.toLowerCase();
+  const dd = document.getElementById('add-pto-dropdown');
+  if(!q){ dd.style.display='none'; return; }
+  const matches = Object.keys(USERS).filter(n => n.toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length){ dd.style.display='none'; return; }
+  dd.innerHTML = '<div style="position:absolute;top:2px;left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(20,32,46,.15);z-index:80;max-height:200px;overflow-y:auto;">' +
+    matches.map(n=>`<div onclick="pickPtoName('${n.replace(/'/g,"\\'")}')" style="padding:9px 12px;font-size:13px;cursor:pointer;color:var(--text);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">${n} <span style="font-size:10px;color:var(--text3);">${USERS[n].group}</span></div>`).join('') +
+    '</div>';
+  dd.style.display = 'block';
+}
+function pickPtoName(name) {
+  document.getElementById('add-pto-search').value = name;
+  document.getElementById('add-pto-name').value = name;
+  document.getElementById('add-pto-dropdown').style.display = 'none';
+}
+
+async function saveAddPto() {
+  const name = document.getElementById('add-pto-name').value || document.getElementById('add-pto-search').value;
+  const from = document.getElementById('add-pto-from').value;
+  const to = document.getElementById('add-pto-to').value || from;
+  const hours = parseFloat(document.getElementById('add-pto-hours').value) || 8;
+  const note = document.getElementById('add-pto-note').value.trim();
+  if(!name || !USERS[name]){ showToast('Please select a valid staff member','error'); return; }
+  if(!from){ showToast('Please select a start date','error'); return; }
+  showLoading('Adding PTO...');
+  try {
+    const row = {
+      id: Date.now(),
+      name,
+      leave_type: 'PTO',
+      date_from: from,
+      date_to: to,
+      reason: note || 'PTO added by admin',
+      status: 'Approved',
+      hours_per_day: hours,
+      created_at: nowISO()
+    };
+    await insertLeave(row);
+    // Notify staff via Slack
+    const slackId = SLACK_IDS[name];
+    if(slackId){
+      try { await sendSlackDM(slackId, `🌴 *PTO added to your account:* ${fmtLeaveDate(from)}${to!==from?` – ${fmtLeaveDate(to)}`:''} (${hours}h/day). This will be reflected in your pay.`); } catch(e){}
+    }
+    showToast('PTO added ✓','success');
+    closeAddPtoModal();
+    await loadAdminLeave();
+  } catch(e){ showToast('Error adding PTO: '+e.message,'error'); console.error(e); }
+  finally { hideLoading(); }
+}
+
 async function loadAdminLeave() {
   showLoading('Loading leave requests...');
   try {
@@ -4484,7 +4582,7 @@ async function openStaffProfile(name) {
         const end = new Date(l.date_to+'T12:00:00');
         while(d<=end){
           const ds=d.toISOString().slice(0,10);
-          if(ds>=apFrom2&&ds<=apTo2&&!loggedDates2.has(ds)) profilePtoBonus+=8;
+          if(ds>=apFrom2&&ds<=apTo2&&!loggedDates2.has(ds)) profilePtoBonus+=(l.hours_per_day || 8);
           d.setDate(d.getDate()+1);
         }
       }
@@ -5176,7 +5274,7 @@ async function loadProjectedPay(name, periodEntries) {
       while(ld<=lend){
         const ds = ld.toISOString().slice(0,10);
         if(ds >= ap.date_from && ds <= ap.date_to && !dayBillable[ds]) {
-          dayBillable[ds] = 8; // PTO = 8hrs
+          dayBillable[ds] = (l.hours_per_day || 8); // PTO hours
         }
         ld.setDate(ld.getDate()+1);
       }
