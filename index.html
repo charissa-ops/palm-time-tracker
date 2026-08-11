@@ -1757,7 +1757,7 @@ async function loadStaffFromDB() {
 
     // Reset all objects
     const _users={}, _rates={}, _pm={}, _flat={}, _sched={}, _dmax={}, _bdur={}, _emails={}, _slack={}, _pins={};
-    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={}, _paidmonthly=new Set();
+    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={}, _paidmonthly=new Set(), _recurfee={};
 
     for (const s of rows) {
       _users[s.name] = { h: s.pin_hash, group: s.staff_group };
@@ -1777,6 +1777,7 @@ async function loadStaffFromDB() {
       if (s.notes) _notes[s.name] = s.notes;
       if (s.bg_color) _bgcolors[s.name] = s.bg_color;
       if (s.paid_monthly) _paidmonthly.add(s.name);
+      if (s.recurring_fee) _recurfee[s.name] = {amount: parseFloat(s.recurring_fee)||0, label: s.recurring_fee_label || 'Recurring'};
     }
 
     USERS = _users;
@@ -1794,6 +1795,7 @@ async function loadStaffFromDB() {
     STAFF_NOTES = _notes;
     STAFF_BG_COLORS = _bgcolors;
     PAID_MONTHLY = _paidmonthly;
+    RECURRING_FEES = _recurfee;
 
     STAFF_DB_LOADED = true;
     console.log(`✅ Loaded ${rows.length} staff from DB`);
@@ -2683,7 +2685,9 @@ async function loadPayrollPreview(){
         const dbExtras = await sbFetch(`staff_extras?name=eq.${encodeURIComponent(name)}&order=created_at.asc`);
         if(dbExtras && dbExtras.length) dbExtrasTotal = dbExtras.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
       } catch(e){}
-      const autoExtras = ptoPay + holidayPay + dbExtrasTotal;
+      // Recurring per-cutoff fee (e.g. Bank Processing Fee) — applies every period
+      const recurFee = (RECURRING_FEES[name] && RECURRING_FEES[name].amount) || 0;
+      const autoExtras = ptoPay + holidayPay + dbExtrasTotal + recurFee;
       if(!payrollData[name])payrollData[name]={reimb:0,extras:0,notes:'',funded:''};
       if(payrollData[name]._autoExtras===undefined||payrollData[name]._autoExtras===payrollData[name].extras){
         payrollData[name].extras = autoExtras;
@@ -4326,6 +4330,12 @@ async function doSendPayslips(selected, label, from, to, checkDate) {
         extrasRows = dbExtras||[];
         extrasTotal = extrasRows.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
       } catch(e){}
+      // Recurring per-cutoff fee (e.g. Bank Processing Fee) — add as a line item
+      const recur = RECURRING_FEES[name];
+      if(recur && recur.amount){
+        extrasRows = [...extrasRows, {label: recur.label || 'Recurring', amount: recur.amount}];
+        extrasTotal += recur.amount;
+      }
 
       const totalPay = Math.round((basePay+ptoPay+holidayPay+extrasTotal)*100)/100;
 
@@ -4916,6 +4926,7 @@ async function loadUserPeriodBanner() {
 let STAFF_NOTES = {};
 let STAFF_BG_COLORS = {};
 let PAID_MONTHLY = new Set();
+let RECURRING_FEES = {};
 let STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
   'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
