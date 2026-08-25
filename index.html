@@ -769,7 +769,7 @@
     <div class="modal-section">Admin Note</div>
     <div class="field"><label>Note (shows at top of their profile)</label><textarea id="staff-edit-notes" rows="3" placeholder="e.g. On probation until Aug 1 · Prefers afternoon shifts" style="width:100%;font-family:inherit;font-size:14px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;resize:vertical;box-sizing:border-box;"></textarea></div>
     <div class="modal-actions">
-      <button class="btn-delete" id="staff-edit-delete" onclick="deleteStaffMember()" style="display:none;">Delete</button>
+      <button class="btn-delete" id="staff-edit-delete" onclick="toggleStaffActive()" style="display:none;">Deactivate</button>
       <div class="modal-actions-right">
         <button class="btn btn-ghost btn-sm" onclick="closeStaffEditModal()">Cancel</button>
         <button class="btn btn-primary btn-sm" onclick="saveStaffMember()">Save</button>
@@ -1752,14 +1752,15 @@ async function sbFetch(path, method='GET', body=null) {
 let STAFF_DB_LOADED = false;
 async function loadStaffFromDB() {
   try {
-    const rows = await sbFetch('staff?active=eq.true&order=sort_order.asc');
+    const rows = await sbFetch('staff?order=sort_order.asc');
     if (!rows || !rows.length) { console.warn('staff table empty — using hardcoded fallback'); return false; }
 
     // Reset all objects
     const _users={}, _rates={}, _pm={}, _flat={}, _sched={}, _dmax={}, _bdur={}, _emails={}, _slack={}, _pins={};
-    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={}, _paidmonthly=new Set(), _recurfee={};
+    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={}, _paidmonthly=new Set(), _recurfee={}, _inactive=new Set();
 
     for (const s of rows) {
+      if (s.active === false) _inactive.add(s.name);
       _users[s.name] = { h: s.pin_hash, group: s.staff_group };
       _rates[s.name] = s.rate != null ? Number(s.rate) : 0;
       if (s.payment_method) _pm[s.name] = s.payment_method;
@@ -1793,6 +1794,7 @@ async function loadStaffFromDB() {
     STAFF_PINS = _pins;
     NO_BREAK_DEDUCTION = _nobreak;
     STAFF_NOTES = _notes;
+    INACTIVE_STAFF = _inactive;
     STAFF_BG_COLORS = _bgcolors;
     PAID_MONTHLY = _paidmonthly;
     RECURRING_FEES = _recurfee;
@@ -1926,11 +1928,11 @@ function filterLoginNames(){
   const dd = document.getElementById('login-name-dropdown');
   const q = (search.value||'').toLowerCase().trim();
   // If the box exactly matches a name, keep hidden value in sync; else clear it
-  const exact = Object.keys(USERS).find(n => n.toLowerCase() === q);
+  const exact = activeUsers().find(n => n.toLowerCase() === q);
   document.getElementById('login-name-select').value = exact || '';
 
   const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
-  for(const name of Object.keys(USERS)){
+  for(const name of activeUsers()){
     if(!q || name.toLowerCase().includes(q)){
       if(groups[USERS[name].group]) groups[USERS[name].group].push(name);
       else (groups[USERS[name].group]=[name]);
@@ -2295,7 +2297,7 @@ async function breakEnd(){
 async function enterAdminDashboard(){
   showScreen('admin');
   startClock('admin-live-clock','admin-date-display');
-  document.getElementById('admin-stat-total').textContent = Object.keys(USERS).length;
+  document.getElementById('admin-stat-total').textContent = activeUsers().length;
   const ap = await getActivePeriod();
   if(ap){
     document.getElementById('admin-filter-date-from').value = ap.date_from;
@@ -2708,7 +2710,7 @@ function getPayrollRows(){
     if(payType === 'biweekly') return !isMonthly;
     return true; // all
   };
-  const allNames=Object.keys(USERS).filter(includeName);
+  const allNames=activeUsers().filter(includeName);
   const groups={'PALM PARTNERS / PALM BUILD':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
   for(const n of allNames){
     if(USERS[n].group==='PALM PARTNERS')groups['PALM PARTNERS / PALM BUILD'].push(n);
@@ -4196,7 +4198,7 @@ function onPayslipPeriodChange() {
   const container = document.getElementById('payslip-tab-recipients');
   container.innerHTML = '';
   const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
-  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
+  for(const name of activeUsers()) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   for(const [group, names] of Object.entries(groups)) {
     if(!names.length) continue;
     const gl = document.createElement('div');
@@ -4240,7 +4242,7 @@ async function sendPayslips(periodId, label, from, to, checkDate) {
   const container = document.getElementById('send-payslip-recipients');
   container.innerHTML = '';
   const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
-  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
+  for(const name of activeUsers()) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
   for(const [group, names] of Object.entries(groups)) {
     const groupLabel = document.createElement('div');
     groupLabel.style.cssText = 'font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-top:8px;margin-bottom:4px;';
@@ -4477,7 +4479,7 @@ function renderStaffOverview(activeMap) {
   const el = document.getElementById('staff-overview-grid');
   if(!el) return;
   const groups = {'PALM PARTNERS':[], 'PALM BUILD':[], 'PALM BUILD - US':[], 'FSP':[]};
-  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
+  for(const name of activeUsers()) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
 
   // Build tabs: All + each non-empty team
   const tabs = [['ALL','All']];
@@ -4927,6 +4929,8 @@ let STAFF_NOTES = {};
 let STAFF_BG_COLORS = {};
 let PAID_MONTHLY = new Set();
 let RECURRING_FEES = {};
+let INACTIVE_STAFF = new Set();
+function activeUsers(){ return Object.keys(USERS).filter(n => !INACTIVE_STAFF.has(n)); }
 let STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
   'Richmond Yambot Nicolas':'6083','John Vens Clair Magbnua Solano':'3742',
@@ -5083,21 +5087,27 @@ async function deleteStaff() {
 
 function updateStaffDropdowns() {
   // Rebuild all staff dropdowns dynamically
-  const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
-  for(const name of Object.keys(USERS)) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
+  // admin-filter-name (All Entries) includes INACTIVE staff so their logs are filterable.
+  // login-filter-name stays active-only.
   const dropdownIds = ['admin-filter-name','login-filter-name'];
   for(const id of dropdownIds) {
     const sel = document.getElementById(id);
     if(!sel || typeof sel.options === 'undefined') continue;
+    const includeInactive = (id === 'admin-filter-name');
+    const groups = {'PALM PARTNERS':[],'PALM BUILD':[],'PALM BUILD - US':[],'FSP':[]};
+    const nameList = includeInactive ? Object.keys(USERS) : activeUsers();
+    for(const name of nameList) { if(groups[USERS[name].group]) groups[USERS[name].group].push(name); }
     const firstOpt = sel.options[0];
     sel.innerHTML = '';
     if(firstOpt) sel.appendChild(firstOpt);
     for(const [group, names] of Object.entries(groups)) {
+      if(!names.length) continue;
       const og = document.createElement('optgroup');
       og.label = group;
       for(const n of names) {
         const opt = document.createElement('option');
-        opt.textContent = n;
+        opt.textContent = INACTIVE_STAFF.has(n) ? `${n} (inactive)` : n;
+        opt.value = n;
         og.appendChild(opt);
       }
       sel.appendChild(og);
@@ -5843,6 +5853,13 @@ async function openStaffEditModal(id) {
         g('staff-edit-break').value = s.break_duration!=null?s.break_duration:'';
         g('staff-edit-nobreak').checked = !!s.no_break;
         g('staff-edit-notes').value = s.notes || '';
+        // Set toggle button label based on current active status
+        _staffEditActive = (s.active !== false);
+        const tb = g('staff-edit-delete');
+        tb.textContent = _staffEditActive ? 'Deactivate' : 'Activate';
+        tb.style.color = _staffEditActive ? 'var(--red)' : 'var(--green)';
+        tb.style.borderColor = _staffEditActive ? '#f0cdc8' : '#bfe0d0';
+        tb.style.background = _staffEditActive ? 'var(--red-dim)' : 'var(--green-dim)';
       }
     } catch(e){ showToast('Error loading staff','error'); console.error(e); }
   } else {
@@ -5908,20 +5925,25 @@ async function saveStaffMember() {
   finally{ hideLoading(); }
 }
 
-async function deleteStaffMember() {
+let _staffEditActive = true;
+async function toggleStaffActive() {
   if(!_staffEditId) return;
   const name = document.getElementById('staff-edit-name').value;
-  if(!confirm(`Remove ${name}? They'll be marked inactive (time entries are kept).`)) return;
-  showLoading('Removing...');
+  const makeActive = !_staffEditActive; // toggling to the opposite
+  const action = makeActive ? 'Activate' : 'Deactivate';
+  const msg = makeActive
+    ? `Reactivate ${name}? They'll be able to log in and clock in again.`
+    : `Deactivate ${name}? They won't be able to log in, and they'll be removed from dashboards and payroll. Their time entries are kept and stay viewable.`;
+  if(!confirm(msg)) return;
+  showLoading(makeActive ? 'Activating...' : 'Deactivating...');
   try {
-    // Soft delete — set inactive so historical data/payslips still work
-    await sbFetch(`${STAFF_TABLE}?id=eq.${_staffEditId}`, 'PATCH', {active:false});
+    await sbFetch(`${STAFF_TABLE}?id=eq.${_staffEditId}`, 'PATCH', {active: makeActive});
     await loadStaffFromDB();
     updateStaffDropdowns();
-    showToast(`${name} removed`,'success');
+    showToast(`${name} ${makeActive ? 'activated' : 'deactivated'} ✓`,'success');
     closeStaffEditModal();
     await loadAdminStaff();
-  } catch(e){ showToast('Error removing','error'); console.error(e); }
+  } catch(e){ showToast(`Error trying to ${action.toLowerCase()}`,'error'); console.error(e); }
   finally{ hideLoading(); }
 }
 
