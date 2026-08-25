@@ -1696,6 +1696,8 @@ function companyLogo(group){ return group==='PALM PARTNERS' ? PALM_PARTNERS_LOGO
 const MAX_SHIFT_HOURS = 16;
 function isStaleOpen(e){
   if(e.clock_out) return false;
+  // Skip staff who've been deactivated — their lingering open entries shouldn't flag
+  if(typeof INACTIVE_STAFF !== 'undefined' && INACTIVE_STAFF.has(e.name)) return false;
   const openHrs = (Date.now() - new Date(e.clock_in).getTime()) / 3600000;
   return openHrs > MAX_SHIFT_HOURS;
 }
@@ -5938,9 +5940,27 @@ async function toggleStaffActive() {
   showLoading(makeActive ? 'Activating...' : 'Deactivating...');
   try {
     await sbFetch(`${STAFF_TABLE}?id=eq.${_staffEditId}`, 'PATCH', {active: makeActive});
+    // When deactivating, auto clock-out any open (not clocked-out) entries at the current time
+    let closedCount = 0;
+    if(!makeActive){
+      try {
+        const openEntries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(name)}&clock_out=is.null`);
+        const nowIso = new Date().toISOString();
+        for(const oe of (openEntries||[])){
+          // Close any still-open break too, then clock out at current time
+          let breaks = oe.breaks ? JSON.parse(JSON.stringify(oe.breaks)) : [];
+          if(breaks.length){
+            const openBreak = breaks.findLast ? breaks.findLast(b=>!b.end) : [...breaks].reverse().find(b=>!b.end);
+            if(openBreak) openBreak.end = nowIso;
+          }
+          await updateEntry(oe.id, {clock_out: nowIso, breaks});
+          closedCount++;
+        }
+      } catch(err){ console.error('auto clock-out failed', err); }
+    }
     await loadStaffFromDB();
     updateStaffDropdowns();
-    showToast(`${name} ${makeActive ? 'activated' : 'deactivated'} ✓`,'success');
+    showToast(`${name} ${makeActive ? 'activated' : 'deactivated'}${closedCount?` — clocked out ✓`:' ✓'}`,'success');
     closeStaffEditModal();
     await loadAdminStaff();
   } catch(e){ showToast(`Error trying to ${action.toLowerCase()}`,'error'); console.error(e); }
