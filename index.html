@@ -2681,8 +2681,8 @@ async function loadPayrollPreview(){
     for(const name of allNames){
       const rate = RATES[name]||0;
       const ptoDays = await getPTODaysInRange(name, from, to);
-      const ptoPay = ptoDays * 8 * rate;
-      const holidayPay = holidayDays * 8 * rate;
+      const ptoPay = dayBasedPay(name, ptoDays, rate);
+      const holidayPay = dayBasedPay(name, holidayDays, rate);
       // Load staff extras from DB
       let dbExtrasTotal = 0;
       try {
@@ -3521,6 +3521,17 @@ function countHolidaysInRange(from, to, holidayList) {
 }
 
 // ── Count approved PTO days in range for a person ──
+// Pay for PTO/holiday days: flat-rate staff paid per-day (flat/20), hourly at 8h*rate.
+// Monthly flat payers get their full flat amount already, so no add-on.
+function dayBasedPay(name, days, rate) {
+  const flatAmt = FLAT_RATE[name];
+  if(flatAmt !== undefined) {
+    if(MONTHLY_FLAT_PAYERS.has(name)) return 0;
+    return days * (flatAmt / 20);
+  }
+  return days * 8 * rate;
+}
+
 async function getPTODaysInRange(name, from, to) {
   try {
     const rows = await sbFetch(`${LEAVE_TABLE}?name=eq.${encodeURIComponent(name)}&leave_type=eq.PTO&status=eq.Approved&order=date_from.asc`);
@@ -3960,7 +3971,7 @@ async function downloadPayslip(labelOverride, fromOverride, toOverride, checkDat
 
     // PTO
     const ptoDays = await getPTODaysInRange(currentUser,from,to);
-    const ptoPay = ptoDays*8*rate;
+    const ptoPay = dayBasedPay(currentUser, ptoDays, rate);
 
     // Holidays
     const holidays = await getHolidays();
@@ -4298,8 +4309,8 @@ async function doSendPayslips(selected, label, from, to, checkDate) {
 
       // PTO & holiday
       const ptoDays = await getPTODaysInRange(name, from, to);
-      const ptoPay = flatAmt !== undefined ? 0 : ptoDays*8*rate;
-      const holidayPay = flatAmt !== undefined ? 0 : holidayCount*8*rate;
+      const ptoPay = dayBasedPay(name, ptoDays, rate);
+      const holidayPay = dayBasedPay(name, holidayCount, rate);
       // Base pay: flat rate or days-based
       let basePay;
       if(flatAmt !== undefined) {
@@ -5139,8 +5150,8 @@ async function sendIndividualPayslip() {
     const holidays = await getHolidays();
     const holidayCount = countHolidaysInRange(from, to, holidays);
     const ptoDays = await getPTODaysInRange(profileName, from, to);
-    const ptoPay = ptoDays*8*rate;
-    const holidayPay = holidayCount*8*rate;
+    const ptoPay = dayBasedPay(profileName, ptoDays, rate);
+    const holidayPay = dayBasedPay(profileName, holidayCount, rate);
     const basePay = Math.round(totalHours*rate*100)/100;
 
     let extrasRows = [], extrasTotal = 0;
