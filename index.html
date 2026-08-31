@@ -2913,73 +2913,60 @@ async function exportPayrollPDF(){
   showLoading('Generating PDF...');
   try{
     const {rows,checkDate}=buildPayrollData();
+    const label=`${fmtLeaveDate(from)} – ${fmtLeaveDate(to)}`;
     const checkFmt=checkDate?new Date(checkDate+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
     const groups=getPayrollRows();
     const subtotals={};
-    for(const r of rows)subtotals[r.group]=(subtotals[r.group]||0)+r.funded;
+    for(const r of rows)subtotals[r.group]=(subtotals[r.group]||0)+r.indTotal;
     const grandTotal=rows.reduce((s,r)=>s+r.indTotal,0);
 
     let tableHTML='';
     for(const[group,names]of Object.entries(groups)){
-      tableHTML+=`<tr class="section-hdr"><td colspan="8">${group}</td></tr>
-      <tr class="col-hdr"><th>Employee Name</th><th>Payment Method</th><th>Rate ($/hr)</th><th>Total Hours</th><th>Base Pay</th><th>Reimbursements</th><th>Extras / Incentives</th><th>Individual Total</th></tr>`;
-      for(const name of names){
-        const r=rows.find(x=>x.name===name);if(!r)continue;
-        tableHTML+=`<tr><td>${name}</td><td>${r.paymentMethod}</td><td>${fmtMoney(r.rate)}</td><td>${fmtHHMM(r.hours)}</td><td>${fmtMoney(r.basePay)}</td><td>${fmtMoney(r.reimb)}</td><td>${fmtMoney(r.extras)}</td><td>${fmtMoney(r.indTotal)}</td></tr>`;
+      const groupRows = names.map(n=>rows.find(x=>x.name===n)).filter(Boolean);
+      if(!groupRows.length) continue;
+      tableHTML+=`<tr class="section-hdr"><td colspan="8">${group}</td></tr>`;
+      for(const r of groupRows){
+        tableHTML+=`<tr><td>${r.name}</td><td>${r.paymentMethod||'—'}</td><td class="r">${fmtMoney(r.rate)}</td><td class="r">${fmtHHMM(r.hours)}</td><td class="r">${fmtMoney(r.basePay)}</td><td class="r">${fmtMoney(r.reimb||0)}</td><td class="r">${fmtMoney(r.extras||0)}</td><td class="r">${fmtMoney(r.indTotal)}</td></tr>`;
       }
-      tableHTML+=`<tr class="sub-row"><td colspan="7" style="text-align:right">${group} — Subtotal</td><td>${fmtMoney(Math.round((subtotals[group]||0)*100)/100)}</td></tr><tr><td colspan="8" style="height:8px"></td></tr>`;
+      tableHTML+=`<tr class="sub-row"><td colspan="7" style="text-align:right">${group} — Subtotal</td><td class="r">${fmtMoney(Math.round((subtotals[group]||0)*100)/100)}</td></tr><tr><td colspan="8" style="height:8px"></td></tr>`;
     }
-    tableHTML+=`<tr class="grand-row"><td colspan="7" style="text-align:right">GRAND TOTAL</td><td>${fmtMoney(Math.round(grandTotal*100)/100)}</td></tr>`;
+    tableHTML+=`<tr class="grand-row"><td colspan="7" style="text-align:right">GRAND TOTAL</td><td class="r">${fmtMoney(Math.round(grandTotal*100)/100)}</td></tr>`;
 
     const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
       *{box-sizing:border-box;margin:0;padding:0;}
-      body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:40px;max-width:780px;margin:0 auto;}
+      body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:40px;max-width:900px;margin:0 auto;}
       .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1e3a5f;}
       .company{font-size:20px;font-weight:bold;color:#1e3a5f;}
       .meta{font-size:11px;color:#8a95a3;margin-top:3px;}
-      .info-bar{display:flex;gap:0;margin-bottom:20px;border:1px solid #ddd;}
-      .info-cell{flex:1;padding:10px 14px;border-right:1px solid #ddd;}
-      .info-cell:last-child{border-right:none;}
-      .info-label{font-size:10px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:#8a95a3;margin-bottom:4px;}
-      .info-value{font-size:13px;color:#1a1a1a;font-weight:500;}
       table{width:100%;border-collapse:collapse;margin-bottom:20px;}
-      .earn-head th{font-size:10px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;padding:8px 10px;background:#e8edf2;color:#444;text-align:left;border-bottom:1.5px solid #1e3a5f;}
-      .earn-head th.r{text-align:right;}
-      td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;}
+      thead th{font-size:10px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;padding:8px 8px;background:#e8edf2;color:#444;text-align:left;border-bottom:1.5px solid #1e3a5f;}
+      thead th.r{text-align:right;}
+      td{padding:7px 8px;border-bottom:1px solid #eee;font-size:11.5px;}
       td.r{text-align:right;}
-      .gross-row td{font-weight:bold;font-size:13px;background:#e8edf2;border-top:1.5px solid #1e3a5f;padding:10px;}
+      tr.section-hdr td{font-weight:bold;color:#1e3a5f;background:#f4f1ea;padding:8px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;}
+      tr.sub-row td{font-weight:bold;background:#faf8f3;border-top:1px solid #ddd;}
+      tr.grand-row td{font-weight:bold;font-size:13px;background:#1e3a5f;color:#fff;padding:11px 8px;}
       .footer{margin-top:24px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#8a95a3;text-align:center;}
     </style></head><body>
     <div class="top">
       <div>
-        <img src="${companyLogo(group)}" alt="${company}" style="max-height:48px;max-width:240px;margin-bottom:6px;" />
-        <div class="meta">Overseas Payroll</div>
+        <div class="company">PALM TIME</div>
+        <div class="meta">Payroll Export</div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:16px;font-weight:bold;color:#1e3a5f;">PAYSLIP</div>
+        <div style="font-size:16px;font-weight:bold;color:#1e3a5f;">PAYROLL</div>
         <div class="meta">Pay Period: ${label}</div>
         ${checkFmt?`<div class="meta">Check Date: ${checkFmt}</div>`:''}
       </div>
     </div>
-    <div class="info-bar">
-      <div class="info-cell"><div class="info-label">Employee</div><div class="info-value">${currentUser}</div></div>
-      <div class="info-cell"><div class="info-label">Payment method</div><div class="info-value">${PAYMENT_METHODS[currentUser]||'—'}</div></div>
-      <div class="info-cell"><div class="info-label">Hourly rate</div><div class="info-value">$${rate.toFixed(2)} / hr</div></div>
-    </div>
     <table>
-      <thead class="earn-head">
-        <tr><th>Earnings</th><th class="r">Hours</th><th class="r">Rate</th><th class="r">Current</th></tr>
+      <thead>
+        <tr><th>Employee Name</th><th>Payment Method</th><th class="r">Rate ($/hr)</th><th class="r">Total Hours</th><th class="r">Base Pay</th><th class="r">Reimbursements</th><th class="r">Extras / Incentives</th><th class="r">Individual Total</th></tr>
       </thead>
-      <tbody>
-        <tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>
-        ${ptoPay>0?`<tr><td>PTO Pay <span style="color:#8a95a3;font-size:11px;">(${ptoDays} day${ptoDays>1?'s':''})</span></td><td class="r">${(ptoDays*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${ptoPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#475467;">PTO Pay</td><td class="r" style="color:#475467;">—</td><td class="r" style="color:#475467;">—</td><td class="r" style="color:#475467;">-</td></tr>'}
-        ${holidayPay>0?`<tr><td>Holiday Pay <span style="color:#8a95a3;font-size:11px;">(${holidayCount} day${holidayCount>1?'s':''})</span></td><td class="r">${(holidayCount*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${holidayPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#475467;">Holiday Pay</td><td class="r" style="color:#475467;">—</td><td class="r" style="color:#475467;">—</td><td class="r" style="color:#475467;">-</td></tr>'}
-        ${extrasRows.map(ex=>`<tr><td>${ex.label}</td><td class="r">—</td><td class="r">—</td><td class="r">$${parseFloat(ex.amount).toFixed(2)}</td></tr>`).join("")}
-        <tr class="gross-row"><td colspan="3">Gross Pay</td><td class="r">$${totalPay.toFixed(2)}</td></tr>
-      </tbody>
+      <tbody>${tableHTML}</tbody>
     </table>
-    <div class="footer">This is a computer-generated payslip. For questions, contact your administrator.</div>
+    <div class="footer">This is a computer-generated payroll report. Generated ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}.</div>
     </body></html>`;
 
     const win=window.open('','_blank');
