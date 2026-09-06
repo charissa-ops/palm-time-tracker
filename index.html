@@ -2676,19 +2676,40 @@ async function loadPayrollPreview(){
     // Load holidays for this period
     holidaysList = await getHolidays();
     const holidayDays = countHolidaysInRange(from, to, holidaysList);
-    // For each person, calc PTO days, holiday pay, and load staff_extras from DB
+
+    // Pre-fetch ALL staff extras in ONE query (instead of one per person) — big Disk IO saving
+    const extrasByName = {};
+    try {
+      const allExtras = await sbFetch(`staff_extras?order=created_at.asc`);
+      for(const e of (allExtras||[])){
+        extrasByName[e.name] = (extrasByName[e.name]||0) + (parseFloat(e.amount)||0);
+      }
+    } catch(e){}
+
+    // Pre-fetch ALL approved PTO in ONE query, then compute per-person days in memory
+    const ptoByName = {};
+    try {
+      const allPto = await sbFetch(`${LEAVE_TABLE}?leave_type=eq.PTO&status=eq.Approved&order=date_from.asc`);
+      for(const r of (allPto||[])){
+        const rFrom = r.date_from > from ? r.date_from : from;
+        const rTo = r.date_to < to ? r.date_to : to;
+        if(rTo >= rFrom){
+          const start = new Date(rFrom + 'T12:00:00');
+          const end = new Date(rTo + 'T12:00:00');
+          const days = Math.round((end - start) / 86400000) + 1;
+          ptoByName[r.name] = (ptoByName[r.name]||0) + days;
+        }
+      }
+    } catch(e){}
+
+    // For each person, calc PTO days, holiday pay, and extras from the pre-fetched maps
     const allNames = Object.keys(USERS);
     for(const name of allNames){
       const rate = RATES[name]||0;
-      const ptoDays = await getPTODaysInRange(name, from, to);
+      const ptoDays = ptoByName[name] || 0;
       const ptoPay = dayBasedPay(name, ptoDays, rate);
       const holidayPay = dayBasedPay(name, holidayDays, rate);
-      // Load staff extras from DB
-      let dbExtrasTotal = 0;
-      try {
-        const dbExtras = await sbFetch(`staff_extras?name=eq.${encodeURIComponent(name)}&order=created_at.asc`);
-        if(dbExtras && dbExtras.length) dbExtrasTotal = dbExtras.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-      } catch(e){}
+      const dbExtrasTotal = extrasByName[name] || 0;
       // Recurring per-cutoff fee (e.g. Bank Processing Fee) — applies every period
       const recurFee = (RECURRING_FEES[name] && RECURRING_FEES[name].amount) || 0;
       const autoExtras = ptoPay + holidayPay + dbExtrasTotal + recurFee;
