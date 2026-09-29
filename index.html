@@ -449,6 +449,7 @@
             <input type="date" id="admin-filter-date-to" onchange="loadAdminEntries()" />
           </div>
           <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+          <button class="btn btn-ghost btn-sm" id="archive-toggle-btn" onclick="toggleArchiveSearch()" title="Include entries older than 3 months (archived)">🗄 Include archived</button>
         </div>
         <div id="stale-filter-banner" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#3a1a1a;border:1px solid #5a2020;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
           <span style="font-size:12px;color:var(--red);font-weight:600;">⚠ Showing staff who may have forgotten to clock out (16+ hrs open)</span>
@@ -483,7 +484,7 @@
           <div class="dg"><label>Pay Period To</label><input type="date" id="payroll-date-to" onchange="loadPayrollPreview()" /></div>
           <div class="dg"><label>Check Date</label><input type="date" id="payroll-check-date" onchange="loadPayrollPreview()" /></div>
           <div class="dg"><label>Pay Type</label>
-            <select id="payroll-pay-type" onchange="loadPayrollPreview()">
+            <select id="payroll-pay-type" onchange="onPayTypeChange()">
               <option value="biweekly">Bi-weekly only</option>
               <option value="monthly">Monthly only</option>
               <option value="all">All staff</option>
@@ -1686,6 +1687,7 @@
 const SUPABASE_URL = 'https://hbkgjvgnlgjmmhnkkgxw.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhia2dqdmdubGdqbW1obmtrZ3h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2Mjc3MjUsImV4cCI6MjA5MDIwMzcyNX0.bWY07OKqfi7Ca04IDk2kI7em_FxrL0pyyEySuWwJGjk';
 const TABLE = 'time_entries';
+const ENTRY_COLS = 'id,name,clock_in,clock_out,breaks,waive_break,override_cap';
 const SALT = 'palm_build_2026';
 const ADMIN_HASH = '23fba1b5f5a88b4c35de5ec43bb4c0da67725f21594968dd5eefe0b4585dc303';
 // Company logos (base64 PNG) for payslips
@@ -1815,7 +1817,7 @@ async function logLogin(name) {
 }
 
 async function getEntries(f={}) {
-  let qs = `${TABLE}?select=*&order=clock_in.desc`;
+  let qs = `${TABLE}?select=${ENTRY_COLS}&order=clock_in.desc`;
   if (f.name) qs += `&name=eq.${encodeURIComponent(f.name)}`;
   if (f.from) qs += `&clock_in=gte.${f.from}T00:00:00Z`;
   if (f.to)   qs += `&clock_in=lte.${f.to}T23:59:59Z`;
@@ -1823,7 +1825,7 @@ async function getEntries(f={}) {
 }
 
 async function getActiveEntry(name) {
-  const rows = await sbFetch(`${TABLE}?select=*&name=eq.${encodeURIComponent(name)}&clock_out=is.null&order=clock_in.desc&limit=1`);
+  const rows = await sbFetch(`${TABLE}?select=${ENTRY_COLS}&name=eq.${encodeURIComponent(name)}&clock_out=is.null&order=clock_in.desc&limit=1`);
   return rows&&rows.length>0 ? rows[0] : null;
 }
 
@@ -2137,7 +2139,12 @@ async function enterUserDashboard(){
 async function loadUserDashboard(){
   showLoading('Loading your entries...');
   try {
-    const all=await getEntries({name:currentUser});
+    // Load only the active pay period's entries (much lighter than full history).
+    // "All Time" toggle fetches full history on demand.
+    const _apForLoad = await getActivePeriod();
+    const all = _apForLoad
+      ? await getEntries({name:currentUser, from:_apForLoad.date_from, to:_apForLoad.date_to})
+      : await getEntries({name:currentUser});
     const active=all.find(e=>!e.clock_out)||null;
     const isIn=!!active;
     const onBreak=isIn&&active.breaks&&active.breaks.length>0&&!active.breaks[active.breaks.length-1].end;
@@ -2187,6 +2194,8 @@ async function loadUserDashboard(){
     document.getElementById('btn-clock-out').disabled=!isIn;
     document.getElementById('btn-break-start').disabled=!isIn||onBreak;
     document.getElementById('btn-break-end').disabled=!onBreak;
+    _userFullHistoryLoaded = false;
+    _userEntriesView = 'period';
     await renderUserTable(all);
   } catch(err){showToast('Error loading data','error');console.error(err);}
   finally{hideLoading();}
@@ -2194,13 +2203,22 @@ async function loadUserDashboard(){
 
 let _userAllEntries = [];
 let _userEntriesView = 'period'; // 'period' or 'all'
+let _userFullHistoryLoaded = false;
 
-function setUserEntriesView(view){
+async function setUserEntriesView(view){
   _userEntriesView = view;
   document.getElementById('entries-view-period').style.background = view==='period'?'var(--surface3)':'transparent';
   document.getElementById('entries-view-period').style.color = view==='period'?'var(--text)':'var(--text2)';
   document.getElementById('entries-view-all').style.background = view==='all'?'var(--surface3)':'transparent';
   document.getElementById('entries-view-all').style.color = view==='all'?'var(--text)':'var(--text2)';
+  if(view==='all' && !_userFullHistoryLoaded){
+    showLoading('Loading all entries...');
+    try {
+      _userAllEntries = await getEntries({name:currentUser});
+      _userFullHistoryLoaded = true;
+    } catch(e){ console.error(e); }
+    finally{ hideLoading(); }
+  }
   renderUserTable(_userAllEntries);
 }
 
@@ -2312,14 +2330,41 @@ async function enterAdminDashboard(){
   switchTab('home');
 }
 
+let _includeArchived = false;
+function toggleArchiveSearch(){
+  _includeArchived = !_includeArchived;
+  const btn = document.getElementById('archive-toggle-btn');
+  if(btn){
+    btn.style.background = _includeArchived ? 'var(--accent)' : '';
+    btn.style.color = _includeArchived ? '#fff' : '';
+    btn.textContent = _includeArchived ? '🗄 Archived included' : '🗄 Include archived';
+  }
+  loadAdminEntries();
+}
+
+async function getArchivedEntries(f={}){
+  let qs = `time_entries_archive?select=${ENTRY_COLS}&order=clock_in.desc`;
+  if(f.name) qs += `&name=eq.${encodeURIComponent(f.name)}`;
+  if(f.from) qs += `&clock_in=gte.${f.from}T00:00:00Z`;
+  if(f.to)   qs += `&clock_in=lte.${f.to}T23:59:59Z`;
+  try { return await sbFetch(qs) || []; } catch(e){ return []; }
+}
+
 async function loadAdminEntries(){
   showLoading('Loading entries...');
   try{
     const fn=document.getElementById('admin-filter-name').value;
     const ff=document.getElementById('admin-filter-date-from').value;
     const ft=document.getElementById('admin-filter-date-to').value;
-    const list=await getEntries({name:fn||null,from:ff||null,to:ft||null});
-    const allActive=await sbFetch(`${TABLE}?select=*&clock_out=is.null`);
+    let list=await getEntries({name:fn||null,from:ff||null,to:ft||null});
+    // Optionally include archived (older than 3 months) entries
+    if(_includeArchived){
+      const archived = await getArchivedEntries({name:fn||null,from:ff||null,to:ft||null});
+      const seen = new Set(list.map(e=>e.id));
+      for(const a of archived){ if(!seen.has(a.id)) list.push(a); }
+      list.sort((x,y)=> new Date(y.clock_in) - new Date(x.clock_in));
+    }
+    const allActive=await sbFetch(`${TABLE}?select=${ENTRY_COLS}&clock_out=is.null`);
     let ci=0,ob=0;
     for(const e of allActive){const lb=e.breaks&&e.breaks[e.breaks.length-1];if(lb&&!lb.end)ob++;else ci++;}
     document.getElementById('admin-stat-in').textContent=ci;
@@ -2658,6 +2703,32 @@ function setPayrollPreset(preset){
   // set check date to today
   document.getElementById('payroll-check-date').value=td;
   loadPayrollPreview();
+}
+
+async function onPayTypeChange(){
+  const payType = document.getElementById('payroll-pay-type').value;
+  // Auto-fill dates from the matching active pay period so the range always matches the type
+  try {
+    if(payType === 'monthly'){
+      const mp = await getActivePeriod('monthly');
+      if(mp){
+        document.getElementById('payroll-date-from').value = mp.date_from;
+        document.getElementById('payroll-date-to').value = mp.date_to;
+        if(mp.check_date) document.getElementById('payroll-check-date').value = mp.check_date;
+      } else {
+        showToast('No active Monthly pay period set — set one in Pay Periods','error');
+      }
+    } else if(payType === 'biweekly'){
+      const bp = await getActivePeriod('biweekly');
+      if(bp){
+        document.getElementById('payroll-date-from').value = bp.date_from;
+        document.getElementById('payroll-date-to').value = bp.date_to;
+        if(bp.check_date) document.getElementById('payroll-check-date').value = bp.check_date;
+      }
+    }
+    // For "all", leave the dates as-is
+  } catch(e){ console.error(e); }
+  await loadPayrollPreview();
 }
 
 async function loadPayrollPreview(){
@@ -4472,7 +4543,7 @@ async function loadAdminDashboard() {
       document.getElementById('active-period-dates').textContent = 'Go to Pay Periods tab to set one';
     }
     // Get all active entries
-    const active = await sbFetch(`${TABLE}?select=*&clock_out=is.null`);
+    const active = await sbFetch(`${TABLE}?select=${ENTRY_COLS}&clock_out=is.null`);
     const activeMap = {};
     for(const e of active) {
       const onBreak = e.breaks && e.breaks.length > 0 && !e.breaks[e.breaks.length-1].end;
@@ -5479,7 +5550,9 @@ async function terDecide(status){
 
     if(status === 'Approved'){
       // Find the matching entry
-      const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+      const _dLo = new Date(r.date+'T00:00:00Z'); _dLo.setUTCDate(_dLo.getUTCDate()-1);
+      const _dHi = new Date(r.date+'T00:00:00Z'); _dHi.setUTCDate(_dHi.getUTCDate()+2);
+      const entries = await sbFetch(`${TABLE}?select=${ENTRY_COLS}&name=eq.${encodeURIComponent(r.name)}&clock_in=gte.${_dLo.toISOString()}&clock_in=lte.${_dHi.toISOString()}&order=clock_in.desc`);
       const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
       if(targetEntry){
         const patch = {};
@@ -5562,7 +5635,9 @@ async function approveTimeEdit(id, status) {
 
       if(r.actual_time && (requestType === 'clock_in' || requestType === 'clock_out' || requestType === 'break_end')) {
         // Find the entry for this date and person
-        const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+        const _dLo = new Date(r.date+'T00:00:00Z'); _dLo.setUTCDate(_dLo.getUTCDate()-1);
+      const _dHi = new Date(r.date+'T00:00:00Z'); _dHi.setUTCDate(_dHi.getUTCDate()+2);
+      const entries = await sbFetch(`${TABLE}?select=${ENTRY_COLS}&name=eq.${encodeURIComponent(r.name)}&clock_in=gte.${_dLo.toISOString()}&clock_in=lte.${_dHi.toISOString()}&order=clock_in.desc`);
         const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
 
         if(targetEntry) {
@@ -5594,7 +5669,9 @@ async function approveTimeEdit(id, status) {
         }
       } else if(requestType === 'break_waiver') {
         // Find entry and set waive_break = true
-        const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+        const _dLo = new Date(r.date+'T00:00:00Z'); _dLo.setUTCDate(_dLo.getUTCDate()-1);
+      const _dHi = new Date(r.date+'T00:00:00Z'); _dHi.setUTCDate(_dHi.getUTCDate()+2);
+      const entries = await sbFetch(`${TABLE}?select=${ENTRY_COLS}&name=eq.${encodeURIComponent(r.name)}&clock_in=gte.${_dLo.toISOString()}&clock_in=lte.${_dHi.toISOString()}&order=clock_in.desc`);
         const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
         if(targetEntry) {
           await updateEntry(targetEntry.id, {waive_break: true});
@@ -5604,7 +5681,9 @@ async function approveTimeEdit(id, status) {
         }
       } else if(requestType === 'overtime') {
         // Find entry and set override_cap = true so hours beyond the daily cap count
-        const entries = await sbFetch(`${TABLE}?name=eq.${encodeURIComponent(r.name)}&order=clock_in.desc`);
+        const _dLo = new Date(r.date+'T00:00:00Z'); _dLo.setUTCDate(_dLo.getUTCDate()-1);
+      const _dHi = new Date(r.date+'T00:00:00Z'); _dHi.setUTCDate(_dHi.getUTCDate()+2);
+      const entries = await sbFetch(`${TABLE}?select=${ENTRY_COLS}&name=eq.${encodeURIComponent(r.name)}&clock_in=gte.${_dLo.toISOString()}&clock_in=lte.${_dHi.toISOString()}&order=clock_in.desc`);
         const targetEntry = entries && entries.find(e => toESTDateStr(e.clock_in) === r.date);
         if(targetEntry) {
           const patch = {override_cap: true};
