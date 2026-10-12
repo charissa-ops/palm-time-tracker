@@ -4703,11 +4703,13 @@ async function openStaffProfile(name) {
   document.getElementById('profile-name').textContent = name;
   const initials = name.split(' ').map(n=>n[0]).slice(0,2).join('');
   document.getElementById('profile-avatar').textContent = initials;
-  // Show flat rate or hourly rate in profile
+  // Show per-estimate, flat rate, or hourly rate in profile
   const isFlatRate3 = FLAT_RATE[name] !== undefined;
-  const rateDisplay3 = isFlatRate3
-    ? (MONTHLY_FLAT_PAYERS.has(name) ? `$${FLAT_RATE[name].toFixed(2)}/mo (flat)` : `$${FLAT_RATE[name].toFixed(2)}/mo flat ÷ period`)
-    : `$${(RATES[name]||0).toFixed(2)}/hr`;
+  const rateDisplay3 = PER_ESTIMATE.has(name)
+    ? `$${(ESTIMATE_RATES[name]||0).toFixed(2)} per estimate`
+    : (isFlatRate3
+      ? (MONTHLY_FLAT_PAYERS.has(name) ? `$${FLAT_RATE[name].toFixed(2)}/mo (flat)` : `$${FLAT_RATE[name].toFixed(2)}/mo flat ÷ period`)
+      : `$${(RATES[name]||0).toFixed(2)}/hr`);
   document.getElementById('profile-meta').textContent = `${USERS[name]?.group||'—'} · ${rateDisplay3} · ${PAYMENT_METHODS[name]||'—'}`;
   // Admin note banner
   const noteBanner = document.getElementById('profile-note-banner');
@@ -5437,6 +5439,23 @@ async function loadProjectedPay(name, periodEntries) {
     document.getElementById('profile-earned-so-far').textContent = '—';
     document.getElementById('profile-projected-total').textContent = '—';
     document.getElementById('profile-remaining-days').innerHTML = '<div style="font-size:12px;color:var(--text3);">No active pay period set.</div>';
+    return;
+  }
+
+  // Per-estimate staff (e.g. Julius): pay is estimates × rate, not hours.
+  if(PER_ESTIMATE.has(name)) {
+    const estRate = ESTIMATE_RATES[name] || 0;
+    let estTotal = 0;
+    try {
+      const rows = await sbFetch(`estimate_logs?name=eq.${encodeURIComponent(name)}&log_date=gte.${ap.date_from}&log_date=lte.${ap.date_to}`);
+      estTotal = (rows||[]).reduce((s,r)=>s+(parseInt(r.count)||0),0);
+    } catch(e){}
+    const estPay = estTotal * estRate;
+    document.getElementById('profile-earned-so-far').textContent = `$${estPay.toFixed(2)}`;
+    document.getElementById('profile-projected-total').textContent = `$${estPay.toFixed(2)}`;
+    document.getElementById('profile-remaining-days').innerHTML =
+      `<div style="font-size:13px;color:var(--text2);padding:.5rem 0;">${estTotal} estimate${estTotal===1?'':'s'} logged this period × $${estRate.toFixed(2)} = <strong style="color:var(--text);">$${estPay.toFixed(2)}</strong></div>
+       <div style="font-size:11px;color:var(--text3);">Clock-in hours are tracked for attendance only and don't affect pay.</div>`;
     return;
   }
 
