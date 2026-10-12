@@ -233,6 +233,16 @@
       <div style="font-size:11px;color:var(--text3);margin-top:1px;" id="user-period-dates"></div>
     </div>
     <div id="user-section-home" class="user-section">
+    <div id="estimate-logger-card" class="card" style="display:none;margin-bottom:1rem;">
+      <div class="card-title">Log Today's Estimates</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">Enter how many estimates you completed today. Your pay is based on this count.</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input type="number" id="estimate-count-input" min="0" step="1" placeholder="0" style="width:120px;font-size:18px;text-align:center;" />
+        <button class="btn btn-primary" onclick="saveEstimateCount()">Save</button>
+        <span id="estimate-saved-msg" style="font-size:12px;color:var(--green);display:none;">Saved ✓</span>
+      </div>
+      <div id="estimate-period-total" style="font-size:13px;color:var(--text2);margin-top:.75rem;"></div>
+    </div>
     <div class="status-bar">
       <div class="stat-card"><div class="stat-label">Status</div><div class="stat-val" id="stat-status">—</div></div>
       <div class="stat-card"><div class="stat-label">Hours Today</div><div class="stat-val green" id="stat-today">0.0h</div></div>
@@ -1761,7 +1771,7 @@ async function loadStaffFromDB() {
 
     // Reset all objects
     const _users={}, _rates={}, _pm={}, _flat={}, _sched={}, _dmax={}, _bdur={}, _emails={}, _slack={}, _pins={};
-    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={}, _paidmonthly=new Set(), _recurfee={}, _inactive=new Set();
+    const _nobreak=new Set(), _monthly=new Set(), _notes={}, _bgcolors={}, _paidmonthly=new Set(), _recurfee={}, _inactive=new Set(), _perEstimate=new Set(), _estRate={};
 
     for (const s of rows) {
       if (s.active === false) _inactive.add(s.name);
@@ -1783,6 +1793,7 @@ async function loadStaffFromDB() {
       if (s.bg_color) _bgcolors[s.name] = s.bg_color;
       if (s.paid_monthly) _paidmonthly.add(s.name);
       if (s.recurring_fee) _recurfee[s.name] = {amount: parseFloat(s.recurring_fee)||0, label: s.recurring_fee_label || 'Recurring'};
+      if (s.per_estimate) { _perEstimate.add(s.name); _estRate[s.name] = parseFloat(s.estimate_rate)||0; }
     }
 
     USERS = _users;
@@ -1799,6 +1810,8 @@ async function loadStaffFromDB() {
     NO_BREAK_DEDUCTION = _nobreak;
     STAFF_NOTES = _notes;
     INACTIVE_STAFF = _inactive;
+    PER_ESTIMATE = _perEstimate;
+    ESTIMATE_RATES = _estRate;
     STAFF_BG_COLORS = _bgcolors;
     PAID_MONTHLY = _paidmonthly;
     RECURRING_FEES = _recurfee;
@@ -2120,6 +2133,56 @@ function showUserSection(section){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+const ESTIMATE_TABLE = 'estimate_logs';
+
+async function loadEstimateLogger(){
+  const card = document.getElementById('estimate-logger-card');
+  if(!card) return;
+  if(!PER_ESTIMATE.has(currentUser)){ card.style.display='none'; return; }
+  card.style.display='block';
+  const today = todayESTStr();
+  // Load today's count
+  try {
+    const rows = await sbFetch(`${ESTIMATE_TABLE}?name=eq.${encodeURIComponent(currentUser)}&log_date=eq.${today}`);
+    document.getElementById('estimate-count-input').value = (rows && rows[0]) ? rows[0].count : '';
+  } catch(e){ console.error(e); }
+  // Show period total
+  await refreshEstimatePeriodTotal();
+}
+
+async function refreshEstimatePeriodTotal(){
+  const el = document.getElementById('estimate-period-total');
+  if(!el) return;
+  try {
+    const ap = await getActivePeriod();
+    if(!ap){ el.textContent=''; return; }
+    const rows = await sbFetch(`${ESTIMATE_TABLE}?name=eq.${encodeURIComponent(currentUser)}&log_date=gte.${ap.date_from}&log_date=lte.${ap.date_to}`);
+    const total = (rows||[]).reduce((s,r)=>s+(parseInt(r.count)||0),0);
+    const rate = ESTIMATE_RATES[currentUser]||0;
+    el.innerHTML = `This period: <strong style="color:var(--text);">${total} estimate${total===1?'':'s'}</strong>` + (rate?` · est. pay <strong style="color:var(--text);">$${(total*rate).toFixed(2)}</strong>`:'');
+  } catch(e){ el.textContent=''; }
+}
+
+async function saveEstimateCount(){
+  const val = parseInt(document.getElementById('estimate-count-input').value);
+  if(isNaN(val) || val<0){ showToast('Enter a valid number','error'); return; }
+  const today = todayESTStr();
+  showLoading('Saving...');
+  try {
+    // Check if today's row exists
+    const existing = await sbFetch(`${ESTIMATE_TABLE}?name=eq.${encodeURIComponent(currentUser)}&log_date=eq.${today}`);
+    if(existing && existing[0]){
+      await sbFetch(`${ESTIMATE_TABLE}?id=eq.${existing[0].id}`, 'PATCH', {count: val});
+    } else {
+      await sbFetch(ESTIMATE_TABLE, 'POST', {id: Date.now(), name: currentUser, log_date: today, count: val, created_at: nowISO()});
+    }
+    const msg = document.getElementById('estimate-saved-msg');
+    if(msg){ msg.style.display='inline'; setTimeout(()=>{msg.style.display='none';}, 2000); }
+    await refreshEstimatePeriodTotal();
+  } catch(e){ showToast('Error saving','error'); console.error(e); }
+  finally{ hideLoading(); }
+}
+
 async function enterUserDashboard(){
   showScreen('user');
   document.getElementById('display-name').textContent=currentUser;
@@ -2127,6 +2190,7 @@ async function enterUserDashboard(){
   applyUserBgColor(currentUser);
   renderBgColorPicker();
   showUserSection('home');
+  loadEstimateLogger();
   startClock('live-clock','user-date-display');
   await loadUserDashboard();
   loadUserLeave();
@@ -2757,6 +2821,15 @@ async function loadPayrollPreview(){
       }
     } catch(e){}
 
+    // Pre-fetch per-estimate counts for the period (for per-estimate staff like Julius)
+    estimateCountMap = {};
+    try {
+      const estRows = await sbFetch(`estimate_logs?log_date=gte.${from}&log_date=lte.${to}`);
+      for(const r of (estRows||[])){
+        estimateCountMap[r.name] = (estimateCountMap[r.name]||0) + (parseInt(r.count)||0);
+      }
+    } catch(e){}
+
     // Pre-fetch ALL approved PTO in ONE query, then compute per-person days in memory
     const ptoByName = {};
     try {
@@ -2903,7 +2976,12 @@ function buildPayrollData(){
       const rate=RATES[name]||0;
       const flatAmt = FLAT_RATE[name];
       let basePay;
-      if(flatAmt !== undefined) {
+      if(PER_ESTIMATE.has(name)) {
+        // Pay = estimates logged this period × per-estimate rate (hours are attendance only)
+        const estCount = estimateCountMap[name] || 0;
+        const estRate = ESTIMATE_RATES[name] || 0;
+        basePay = Math.round(estCount * estRate * 100) / 100;
+      } else if(flatAmt !== undefined) {
         if(MONTHLY_FLAT_PAYERS.has(name)) {
           basePay = flatAmt;
         } else {
@@ -2919,7 +2997,7 @@ function buildPayrollData(){
       const reimb=parseFloat(pd.reimb)||0;
       const extras=Math.round((parseFloat(pd.extras)||0)*100)/100;
       const indTotal=Math.round((basePay+reimb+extras)*100)/100;
-      rows.push({group,name,paymentMethod:PAYMENT_METHODS[name]||'',rate:flatAmt!==undefined?flatAmt:rate,hours:h,basePay,reimb,extras,indTotal});
+      rows.push({group,name,paymentMethod:PAYMENT_METHODS[name]||'',rate:PER_ESTIMATE.has(name)?`$${(ESTIMATE_RATES[name]||0)}/est`:(flatAmt!==undefined?flatAmt:rate),hours:h,basePay,reimb,extras,indTotal,estCount:PER_ESTIMATE.has(name)?(estimateCountMap[name]||0):null});
     }
   }
   return {rows,from,to,checkDate};
@@ -5022,6 +5100,9 @@ let STAFF_BG_COLORS = {};
 let PAID_MONTHLY = new Set();
 let RECURRING_FEES = {};
 let INACTIVE_STAFF = new Set();
+let PER_ESTIMATE = new Set();
+let estimateCountMap = {};
+let ESTIMATE_RATES = {};
 function activeUsers(){ return Object.keys(USERS).filter(n => !INACTIVE_STAFF.has(n)); }
 let STAFF_PINS = {
   'Charissa Mercado':'4821','Camille Uy':'7364','Edeleign Jean Manicad':'2951',
