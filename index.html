@@ -2203,13 +2203,21 @@ async function enterUserDashboard(){
 async function loadUserDashboard(){
   showLoading('Loading your entries...');
   try {
-    // Load only the active pay period's entries (much lighter than full history).
+    // Load only the active pay period's entries for the table (much lighter than full history).
     // "All Time" toggle fetches full history on demand.
     const _apForLoad = await getActivePeriod();
     const all = _apForLoad
       ? await getEntries({name:currentUser, from:_apForLoad.date_from, to:_apForLoad.date_to})
       : await getEntries({name:currentUser});
-    const active=all.find(e=>!e.clock_out)||null;
+    // IMPORTANT: detect the open entry across ALL time (not just this period),
+    // so the dashboard status matches the clock-in check. An open entry from a
+    // previous period was being missed, causing "Already clocked in" vs "Out" mismatch.
+    let active = all.find(e=>!e.clock_out) || null;
+    if(!active){
+      active = await getActiveEntry(currentUser);
+      // If the open entry isn't in the loaded period list, include it so the table/status agree
+      if(active && !all.some(e=>e.id===active.id)) all.unshift(active);
+    }
     const isIn=!!active;
     const onBreak=isIn&&active.breaks&&active.breaks.length>0&&!active.breaks[active.breaks.length-1].end;
     const el=document.getElementById('stat-status');
