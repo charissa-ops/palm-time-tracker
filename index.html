@@ -2150,16 +2150,33 @@ async function loadEstimateLogger(){
   await refreshEstimatePeriodTotal();
 }
 
+// Shared: builds the daily estimate list + total HTML for a person+period
+async function buildEstimateBreakdown(name, ap){
+  const rate = ESTIMATE_RATES[name]||0;
+  const rows = await sbFetch(`${ESTIMATE_TABLE}?name=eq.${encodeURIComponent(name)}&log_date=gte.${ap.date_from}&log_date=lte.${ap.date_to}&order=log_date.asc`);
+  const list = rows||[];
+  const total = list.reduce((s,r)=>s+(parseInt(r.count)||0),0);
+  let html = `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">This period: <strong style="color:var(--text);">${total} estimate${total===1?'':'s'}</strong>` + (rate?` · <strong style="color:var(--text);">$${(total*rate).toFixed(2)}</strong>`:'') + `</div>`;
+  if(list.length){
+    html += '<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">';
+    list.forEach((r,i)=>{
+      const d = new Date(r.log_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      html += `<div style="display:flex;justify-content:space-between;padding:7px 12px;font-size:12px;${i%2?'background:var(--surface2);':''}"><span style="color:var(--text2);">${d}</span><span style="color:var(--text);font-weight:600;">${r.count} est${rate?` · $${(r.count*rate).toFixed(2)}`:''}</span></div>`;
+    });
+    html += '</div>';
+  } else {
+    html += '<div style="font-size:12px;color:var(--text3);">No estimates logged this period yet.</div>';
+  }
+  return html;
+}
+
 async function refreshEstimatePeriodTotal(){
   const el = document.getElementById('estimate-period-total');
   if(!el) return;
   try {
     const ap = await getActivePeriod();
     if(!ap){ el.textContent=''; return; }
-    const rows = await sbFetch(`${ESTIMATE_TABLE}?name=eq.${encodeURIComponent(currentUser)}&log_date=gte.${ap.date_from}&log_date=lte.${ap.date_to}`);
-    const total = (rows||[]).reduce((s,r)=>s+(parseInt(r.count)||0),0);
-    const rate = ESTIMATE_RATES[currentUser]||0;
-    el.innerHTML = `This period: <strong style="color:var(--text);">${total} estimate${total===1?'':'s'}</strong>` + (rate?` · est. pay <strong style="color:var(--text);">$${(total*rate).toFixed(2)}</strong>`:'');
+    el.innerHTML = await buildEstimateBreakdown(currentUser, ap);
   } catch(e){ el.textContent=''; }
 }
 
@@ -5463,9 +5480,13 @@ async function loadProjectedPay(name, periodEntries) {
     const earnedEl = document.getElementById('profile-earned-so-far');
     if(earnedEl) earnedEl.textContent = `$${estPay.toFixed(2)}`;
     document.getElementById('profile-projected-total').textContent = `$${estPay.toFixed(2)}`;
+    // Show the SAME day-by-day breakdown Julius sees in his own view
+    let breakdownHtml = '';
+    try { breakdownHtml = await buildEstimateBreakdown(name, ap); } catch(e){}
     document.getElementById('profile-remaining-days').innerHTML =
-      `<div style="font-size:13px;color:var(--text2);padding:.5rem 0;">${estTotal} estimate${estTotal===1?'':'s'} logged this period × $${estRate.toFixed(2)} = <strong style="color:var(--text);">$${estPay.toFixed(2)}</strong></div>
-       <div style="font-size:11px;color:var(--text3);">Clock-in hours are tracked for attendance only and don't affect pay.</div>`;
+      `<div style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;">Daily Estimates Logged</div>
+       ${breakdownHtml}
+       <div style="font-size:11px;color:var(--text3);margin-top:8px;">Clock-in hours are tracked for attendance only and don't affect pay.</div>`;
     return;
   }
 
