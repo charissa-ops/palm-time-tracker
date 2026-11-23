@@ -235,10 +235,10 @@
     <div id="user-section-home" class="user-section">
     <div id="estimate-logger-card" class="card" style="display:none;margin-bottom:1rem;">
       <div class="card-title">Log Today's Estimates</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">Enter how many estimates you completed today. Your pay is based on this count.</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:.75rem;">Enter how many estimates you just completed, then tap Add. You can add more than once a day - each Add increases today's total.</div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <input type="number" id="estimate-count-input" min="0" step="1" placeholder="0" style="width:120px;font-size:18px;text-align:center;" />
-        <button class="btn btn-primary" onclick="saveEstimateCount()">Save</button>
+        <button class="btn btn-primary" onclick="saveEstimateCount()">Add</button>
         <span id="estimate-saved-msg" style="font-size:12px;color:var(--green);display:none;">Saved ✓</span>
       </div>
       <div id="estimate-period-total" style="font-size:13px;color:var(--text2);margin-top:.75rem;"></div>
@@ -2170,6 +2170,14 @@ async function buildEstimateBreakdown(name, ap){
   return html;
 }
 
+// Sum of estimate counts for a person within a date range (for per-estimate payslips)
+async function fetchEstimateCount(name, from, to){
+  try {
+    const rows = await sbFetch(`${ESTIMATE_TABLE}?name=eq.${encodeURIComponent(name)}&log_date=gte.${from}&log_date=lte.${to}`);
+    return (rows||[]).reduce((s,r)=>s+(parseInt(r.count)||0),0);
+  } catch(e){ return 0; }
+}
+
 async function refreshEstimatePeriodTotal(){
   const el = document.getElementById('estimate-period-total');
   if(!el) return;
@@ -2180,24 +2188,31 @@ async function refreshEstimatePeriodTotal(){
   } catch(e){ el.textContent=''; }
 }
 
+let _savingEstimate = false;
 async function saveEstimateCount(){
+  if(_savingEstimate) return; // guard against double-click double-adding
   const val = parseInt(document.getElementById('estimate-count-input').value);
   if(isNaN(val) || val<0){ showToast('Enter a valid number','error'); return; }
+  if(val===0){ showToast('Enter how many to add','error'); return; }
+  _savingEstimate = true;
   const today = todayESTStr();
-  showLoading('Saving...');
+  showLoading('Adding...');
   try {
-    // Check if today's row exists
+    // ADD to today's existing count (he logs in batches through the day)
     const existing = await sbFetch(`${ESTIMATE_TABLE}?name=eq.${encodeURIComponent(currentUser)}&log_date=eq.${today}`);
     if(existing && existing[0]){
-      await sbFetch(`${ESTIMATE_TABLE}?id=eq.${existing[0].id}`, 'PATCH', {count: val});
+      const newTotal = (parseInt(existing[0].count)||0) + val;
+      await sbFetch(`${ESTIMATE_TABLE}?id=eq.${existing[0].id}`, 'PATCH', {count: newTotal});
     } else {
       await sbFetch(ESTIMATE_TABLE, 'POST', {id: Date.now(), name: currentUser, log_date: today, count: val, created_at: nowISO()});
     }
+    // Clear the input so the next batch starts fresh (prevents accidental re-adding)
+    document.getElementById('estimate-count-input').value = '';
     const msg = document.getElementById('estimate-saved-msg');
-    if(msg){ msg.style.display='inline'; setTimeout(()=>{msg.style.display='none';}, 2000); }
+    if(msg){ msg.textContent=`Added ${val} ✓`; msg.style.display='inline'; setTimeout(()=>{msg.style.display='none';}, 2500); }
     await refreshEstimatePeriodTotal();
   } catch(e){ showToast('Error saving','error'); console.error(e); }
-  finally{ hideLoading(); }
+  finally{ _savingEstimate=false; hideLoading(); }
 }
 
 async function enterUserDashboard(){
@@ -4173,7 +4188,16 @@ async function downloadPayslip(labelOverride, fromOverride, toOverride, checkDat
     const holidayCount = countHolidaysInRange(from,to,holidays);
     const holidayPay = holidayCount*8*rate;
 
-    const basePay = totalHours*rate;
+    const isPerEst = PER_ESTIMATE.has(currentUser);
+    const estRate = ESTIMATE_RATES[currentUser]||0;
+    let estCount = 0;
+    let basePay;
+    if(isPerEst){
+      estCount = await fetchEstimateCount(currentUser, from, to);
+      basePay = Math.round(estCount * estRate * 100) / 100;
+    } else {
+      basePay = totalHours*rate;
+    }
     // Load extras for this person
     let extrasRows = [];
     let extrasTotal = 0;
@@ -4225,14 +4249,16 @@ async function downloadPayslip(labelOverride, fromOverride, toOverride, checkDat
     <div class="info-bar">
       <div class="info-cell"><div class="info-label">Employee</div><div class="info-value">${currentUser}</div></div>
       <div class="info-cell"><div class="info-label">Payment method</div><div class="info-value">${PAYMENT_METHODS[currentUser]||'—'}</div></div>
-      <div class="info-cell"><div class="info-label">Hourly rate</div><div class="info-value">$${rate.toFixed(2)} / hr</div></div>
+      <div class="info-cell"><div class="info-label">${isPerEst?'Rate':'Hourly rate'}</div><div class="info-value">${isPerEst?`$${estRate.toFixed(2)} / estimate`:`$${rate.toFixed(2)} / hr`}</div></div>
     </div>
     <table>
       <thead class="earn-head">
-        <tr><th>Earnings</th><th class="r">Hours</th><th class="r">Rate</th><th class="r">Current</th></tr>
+        <tr><th>Earnings</th><th class="r">${isPerEst?'Estimates':'Hours'}</th><th class="r">Rate</th><th class="r">Current</th></tr>
       </thead>
       <tbody>
-        <tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>
+        ${isPerEst
+          ? `<tr><td>Estimate Pay</td><td class="r">${estCount||0}</td><td class="r">${estRate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>`
+          : `<tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>`}
         ${ptoPay>0?`<tr><td>PTO Pay <span style="color:#8a95a3;font-size:11px;">(${ptoDays} day${ptoDays>1?'s':''})</span></td><td class="r">${(ptoDays*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${ptoPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#475467;">PTO Pay</td><td class="dim">—</td><td class="dim">—</td><td class="dim">-</td></tr>'}
         ${holidayPay>0?`<tr><td>Holiday Pay <span style="color:#8a95a3;font-size:11px;">(${holidayCount} day${holidayCount>1?'s':''})</span></td><td class="r">${(holidayCount*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${holidayPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#475467;">Holiday Pay</td><td class="dim">—</td><td class="dim">—</td><td class="dim">-</td></tr>'}
         ${extrasRows.map(ex=>`<tr><td>${ex.label}</td><td class="dim">—</td><td class="dim">—</td><td class="r">$${parseFloat(ex.amount).toFixed(2)}</td></tr>`).join('')}
@@ -4296,8 +4322,10 @@ function clearLoginFilters(){
 // ══════════ SEND PAYSLIPS VIA SLACK ══════════
 
 // Build payslip HTML string for a given staff member
-function buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay) {
+function buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay, estCount) {
   const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
+  const isPerEst = PER_ESTIMATE.has(name);
+  const estRate = ESTIMATE_RATES[name]||0;
   const extrasHTMLRows = extrasRows.map(ex=>`<tr><td>${ex.label}</td><td class="dim">—</td><td class="dim">—</td><td class="r">$${parseFloat(ex.amount).toFixed(2)}</td></tr>`).join('');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
@@ -4332,14 +4360,16 @@ function buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePa
   <div class="info-bar">
     <div class="info-cell"><div class="info-label">Employee</div><div class="info-value">${name}</div></div>
     <div class="info-cell"><div class="info-label">Payment method</div><div class="info-value">${PAYMENT_METHODS[name]||'—'}</div></div>
-    <div class="info-cell"><div class="info-label">Hourly rate</div><div class="info-value">$${rate.toFixed(2)} / hr</div></div>
+    <div class="info-cell"><div class="info-label">${isPerEst?'Rate':'Hourly rate'}</div><div class="info-value">${isPerEst?`$${estRate.toFixed(2)} / estimate`:`$${rate.toFixed(2)} / hr`}</div></div>
   </div>
   <table>
     <thead class="earn-head">
-      <tr><th>Earnings</th><th class="r">Hours</th><th class="r">Rate</th><th class="r">Current</th></tr>
+      <tr><th>Earnings</th><th class="r">${isPerEst?'Estimates':'Hours'}</th><th class="r">Rate</th><th class="r">Current</th></tr>
     </thead>
     <tbody>
-      <tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>
+      ${isPerEst
+        ? `<tr><td>Estimate Pay</td><td class="r">${estCount||0}</td><td class="r">${estRate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>`
+        : `<tr><td>Regular Pay</td><td class="r">${totalHours.toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${basePay.toFixed(2)}</td></tr>`}
       ${ptoPay>0?`<tr><td>PTO Pay (${ptoDays} day${ptoDays>1?'s':''})</td><td class="r">${(ptoDays*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${ptoPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#475467;">PTO Pay</td><td class="dim">—</td><td class="dim">—</td><td class="dim">-</td></tr>'}
       ${holidayPay>0?`<tr><td>Holiday Pay (${holidayCount} day${holidayCount>1?'s':''})</td><td class="r">${(holidayCount*8).toFixed(2)}</td><td class="r">${rate.toFixed(2)}</td><td class="r">$${holidayPay.toFixed(2)}</td></tr>`:'<tr><td style="color:#475467;">Holiday Pay</td><td class="dim">—</td><td class="dim">—</td><td class="dim">-</td></tr>'}
       ${extrasHTMLRows}
@@ -4506,9 +4536,13 @@ async function doSendPayslips(selected, label, from, to, checkDate) {
       const ptoDays = await getPTODaysInRange(name, from, to);
       const ptoPay = dayBasedPay(name, ptoDays, rate);
       const holidayPay = dayBasedPay(name, holidayCount, rate);
-      // Base pay: flat rate or days-based
+      // Base pay: per-estimate, flat rate, or hours-based
       let basePay;
-      if(flatAmt !== undefined) {
+      let estCount = 0;
+      if(PER_ESTIMATE.has(name)) {
+        estCount = await fetchEstimateCount(name, from, to);
+        basePay = Math.round(estCount * (ESTIMATE_RATES[name]||0) * 100) / 100;
+      } else if(flatAmt !== undefined) {
         if(MONTHLY_FLAT_PAYERS.has(name)) {
           basePay = flatAmt;
         } else {
@@ -4537,7 +4571,7 @@ async function doSendPayslips(selected, label, from, to, checkDate) {
       const totalPay = Math.round((basePay+ptoPay+holidayPay+extrasTotal)*100)/100;
 
       // Build payslip HTML
-      const html = buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay);
+      const html = buildPayslipHTML(name, label, checkFmt, rate, group, totalHours, basePay, ptoDays, ptoPay, holidayCount, holidayPay, extrasRows, totalPay, estCount);
 
       // Build Slack message
       const company = group==='PALM PARTNERS'?'Palm Partners':'Palm Build LLC';
@@ -4563,8 +4597,11 @@ async function doSendPayslips(selected, label, from, to, checkDate) {
 ` +
         `*Earnings:*
 ` +
-        `• Regular Pay (${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}): $${basePay.toFixed(2)}
-` +
+        (PER_ESTIMATE.has(name)
+          ? `• Estimate Pay (${estCount} × $${(ESTIMATE_RATES[name]||0).toFixed(2)}): $${basePay.toFixed(2)}
+`
+          : `• Regular Pay (${totalHours.toFixed(2)} hrs × $${rate.toFixed(2)}): $${basePay.toFixed(2)}
+`) +
         ptoLine + holLine + extrasLines +
         `
 *Gross Pay: $${totalPay.toFixed(2)}*
